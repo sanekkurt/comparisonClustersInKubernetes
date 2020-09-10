@@ -39,16 +39,16 @@ func main() {
 		*kubeconfig = os.Getenv("KUBECONFIG")
 	}*/
 
-	//clientset1 := getClientSet(kubeconfig1)
-	//clientset2 := getClientSet(kubeconfig2)
-	client1 = getClientSet(kubeconfig1)
-	client2 = getClientSet(kubeconfig2)
+	//clientset1 := GetClientSet(kubeconfig1)
+	//clientset2 := GetClientSet(kubeconfig2)
+	client1 = GetClientSet(kubeconfig1)
+	client2 = GetClientSet(kubeconfig2)
 
 	//распарсинг yaml файлов в глобальные переменные, чтобы в будущем получить из них URL
-	yamlToStruct("kubeconfig1.yaml", &kubeconfig1YamlStruct)
-	yamlToStruct("kubeconfig2.yaml", &kubeconfig2YamlStruct)
+	YamlToStruct("kubeconfig1.yaml", &kubeconfig1YamlStruct)
+	YamlToStruct("kubeconfig2.yaml", &kubeconfig2YamlStruct)
 
-	compare(client1, client2, "default")
+	Compare(client1, client2, "default")
 	//fmt.Println("[INFO] Connecting to ", *kubeconfig)
 
 	// use the current context in kubeconfig
@@ -87,7 +87,7 @@ func main() {
 }
 
 //переводит yaml в структуру
-func yamlToStruct(nameYamlFile string, nameStruct *KubeconfigYaml) {
+func YamlToStruct(nameYamlFile string, nameStruct *KubeconfigYaml) {
 	data, err := ioutil.ReadFile(nameYamlFile)
 	if err != nil {
 		panic(err.Error())
@@ -99,7 +99,7 @@ func yamlToStruct(nameYamlFile string, nameStruct *KubeconfigYaml) {
 }
 
 //читает конфигурацию из yaml файла по переданному пути
-func getClientSet(kubeconfig *string) *kubernetes.Clientset {
+func GetClientSet(kubeconfig *string) *kubernetes.Clientset {
 	config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
 	if err != nil {
 		panic(err.Error())
@@ -114,7 +114,7 @@ func getClientSet(kubeconfig *string) *kubernetes.Clientset {
 }
 
 //основная сравнивающая функция, поочередно запускает функции для сравнения по разным параметрам
-func compare(clientSet1 *kubernetes.Clientset, clientSet2 *kubernetes.Clientset, namespaces ...string) {
+func Compare(clientSet1 *kubernetes.Clientset, clientSet2 *kubernetes.Clientset, namespaces ...string) {
 	for _, namespace := range namespaces {
 		depl1, err := clientSet1.AppsV1().Deployments(namespace).List(metav1.ListOptions{})
 		if err != nil {
@@ -124,17 +124,113 @@ func compare(clientSet1 *kubernetes.Clientset, clientSet2 *kubernetes.Clientset,
 		if err != nil {
 			panic(err.Error())
 		}
+		mapDeployments1, mapDeployments2 := AddValueDeploymentsInMap(depl1, depl2)
+		SetInformationAboutDeployments(mapDeployments1, mapDeployments2, depl1, depl2, namespace)
 
-		mapDeployments1, mapDeployments2 := addValueDeploymentsInMap(depl1, depl2)
-		setInformationAboutDeployments(mapDeployments1, mapDeployments2, depl1, depl2, namespace)
+		statefulSet1, err := clientSet1.AppsV1().StatefulSets(namespace).List(metav1.ListOptions{})
+		if err != nil {
+			panic(err.Error())
+		}
+		statefulSet2, err := clientSet2.AppsV1().StatefulSets(namespace).List(metav1.ListOptions{})
+		if err != nil {
+			panic(err.Error())
+		}
+		mapStatefulSets1, mapStatefulSets2 := AddValueStatefulSetsInMap(statefulSet1, statefulSet2)
+		SetInformationAboutStatefulSets(mapStatefulSets1, mapStatefulSets2, statefulSet1, statefulSet2, namespace)
 
+		daemonSets1, err := clientSet1.AppsV1().DaemonSets(namespace).List(metav1.ListOptions{})
+		if err != nil {
+			panic(err.Error())
+		}
+		daemonSets2, err := clientSet2.AppsV1().DaemonSets(namespace).List(metav1.ListOptions{})
+		if err != nil {
+			panic(err.Error())
+		}
+		mapDaemonSets1, mapDaemonSets2 := AddValueDaemonSetsMap(daemonSets1, daemonSets2)
+		SetInformationAboutDaemonSets(mapDaemonSets1, mapDaemonSets2, daemonSets1, daemonSets2, namespace)
+		//fmt.Println(mapDaemonSets1, mapDaemonSets2)
 		//compareDeployments(depl1, depl2)
 		//compareReplicasInDeployments(depl1, depl2)
 		//compareImagesInDeployments(depl1, depl2)
 	}
 }
 
-func setInformationAboutDeployments(map1 map[string]CheckerFlag, map2 map[string]CheckerFlag, deployment1 *v1.DeploymentList, deployment2 *v1.DeploymentList, namespace string) {
+func SetInformationAboutDaemonSets(map1 map[string]CheckerFlag, map2 map[string]CheckerFlag, daemonSets1 *v1.DaemonSetList, daemonSets2 *v1.DaemonSetList, namespace string) {
+	if len(map1) != len(map2) {
+		fmt.Printf("!!!The daemonsets count are different!!!\n\n")
+	}
+	for name, index1 := range map1 {
+		if index2, ok := map2[name]; ok == true {
+			index1.check = true
+			map1[name] = index1
+			index2.check = true
+			map2[name] = index2
+			fmt.Printf("----- Start checking daemonset: '%s' -----\n", name)
+
+			//заполняем информацию, которая будет использоваться при сравнении
+			object1 := InformationAboutObject{
+				Template: daemonSets1.Items[index1.index].Spec.Template,
+				Selector: daemonSets1.Items[index1.index].Spec.Selector,
+			}
+			object2 := InformationAboutObject{
+				Template: daemonSets2.Items[index2.index].Spec.Template,
+				Selector: daemonSets2.Items[index2.index].Spec.Selector,
+			}
+			//CompareContainers(deployment1.Items[index1.index].Spec, deployment2.Items[index2.index].Spec, namespace)
+			CompareContainers(object1, object2, namespace)
+
+			fmt.Printf("----- End checking daemonset: '%s' -----\n\n", name)
+		} else {
+			fmt.Printf("DaemonSet '%s' - 1 cluster. Does not exist on another cluster\n\n", name)
+		}
+	}
+	for name, index := range map2 {
+		if index.check == false {
+			fmt.Printf("DaemonSet '%s' - 2 cluster. Does not exist on another cluster\n\n", name)
+		}
+	}
+}
+
+func SetInformationAboutStatefulSets(map1 map[string]CheckerFlag, map2 map[string]CheckerFlag, statefulSets1 *v1.StatefulSetList, statefulSets2 *v1.StatefulSetList, namespace string) {
+	if len(map1) != len(map2) {
+		fmt.Printf("!!!The statefulsets count are different!!!\n\n")
+	}
+	for name, index1 := range map1 {
+		if index2, ok := map2[name]; ok == true {
+			index1.check = true
+			map1[name] = index1
+			index2.check = true
+			map2[name] = index2
+			fmt.Printf("----- Start checking statefulset: '%s' -----\n", name)
+			if *statefulSets1.Items[index1.index].Spec.Replicas != *statefulSets2.Items[index2.index].Spec.Replicas {
+				fmt.Printf("!!!The replicas count are different!!!\n%s '%s' replicas: %d\n%s '%s' replicas: %d\n", kubeconfig1YamlStruct.Clusters[0].Cluster.Server, statefulSets1.Items[index1.index].Name, *statefulSets1.Items[index1.index].Spec.Replicas, kubeconfig2YamlStruct.Clusters[0].Cluster.Server, statefulSets2.Items[index2.index].Name, *statefulSets2.Items[index2.index].Spec.Replicas)
+			} else {
+				//заполняем информацию, которая будет использоваться при сравнении
+				object1 := InformationAboutObject{
+					Template: statefulSets1.Items[index1.index].Spec.Template,
+					Selector: statefulSets1.Items[index1.index].Spec.Selector,
+				}
+				object2 := InformationAboutObject{
+					Template: statefulSets2.Items[index2.index].Spec.Template,
+					Selector: statefulSets2.Items[index2.index].Spec.Selector,
+				}
+
+				//CompareContainers(deployment1.Items[index1.index].Spec, deployment2.Items[index2.index].Spec, namespace)
+				CompareContainers(object1, object2, namespace)
+			}
+			fmt.Printf("----- End checking statefulset: '%s' -----\n\n", name)
+		} else {
+			fmt.Printf("StatefulSet '%s' - 1 cluster. Does not exist on another cluster\n\n", name)
+		}
+	}
+	for name, index := range map2 {
+		if index.check == false {
+			fmt.Printf("StatefulSet '%s' - 2 cluster. Does not exist on another cluster\n\n", name)
+		}
+	}
+}
+
+func SetInformationAboutDeployments(map1 map[string]CheckerFlag, map2 map[string]CheckerFlag, deployments1 *v1.DeploymentList, deployments2 *v1.DeploymentList, namespace string) {
 	if len(map1) != len(map2) {
 		fmt.Printf("!!!The deployments count are different!!!\n\n")
 	}
@@ -144,116 +240,132 @@ func setInformationAboutDeployments(map1 map[string]CheckerFlag, map2 map[string
 			map1[name] = index1
 			index2.check = true
 			map2[name] = index2
-			fmt.Printf("----- Start checking deployments: '%s' -----\n", name)
-			if *deployment1.Items[index1.index].Spec.Replicas != *deployment2.Items[index2.index].Spec.Replicas {
-				fmt.Printf("!!!The replicas count are different!!!\n%s '%s' replicas: %d\n%s '%s' replicas: %d\n", kubeconfig1YamlStruct.Clusters[0].Cluster.Server, deployment1.Items[index1.index].Name, *deployment1.Items[index1.index].Spec.Replicas, kubeconfig2YamlStruct.Clusters[0].Cluster.Server, deployment2.Items[index2.index].Name, *deployment2.Items[index2.index].Spec.Replicas)
+			fmt.Printf("----- Start checking deployment: '%s' -----\n", name)
+			if *deployments1.Items[index1.index].Spec.Replicas != *deployments2.Items[index2.index].Spec.Replicas {
+				fmt.Printf("!!!The replicas count are different!!!\n%s '%s' replicas: %d\n%s '%s' replicas: %d\n", kubeconfig1YamlStruct.Clusters[0].Cluster.Server, deployments1.Items[index1.index].Name, *deployments1.Items[index1.index].Spec.Replicas, kubeconfig2YamlStruct.Clusters[0].Cluster.Server, deployments2.Items[index2.index].Name, *deployments2.Items[index2.index].Spec.Replicas)
 			} else {
-				compareContainers(deployment1.Items[index1.index].Spec, deployment2.Items[index2.index].Spec, namespace)
+				//заполняем информацию, которая будет использоваться при сравнении
+				object1 := InformationAboutObject{
+					Template: deployments1.Items[index1.index].Spec.Template,
+					Selector: deployments1.Items[index1.index].Spec.Selector,
+				}
+				object2 := InformationAboutObject{
+					Template: deployments2.Items[index2.index].Spec.Template,
+					Selector: deployments2.Items[index2.index].Spec.Selector,
+				}
+				CompareContainers(object1, object2, namespace)
 			}
-			fmt.Printf("----- End checking deployments: '%s' -----\n\n", name)
+			fmt.Printf("----- End checking deployment: '%s' -----\n\n", name)
 		} else {
-			fmt.Printf("'%s' - 1 cluster. Does not exist on another cluster\n\n", name)
+			fmt.Printf("Deployment '%s' - 1 cluster. Does not exist on another cluster\n\n", name)
 		}
 	}
 	for name, index := range map2 {
 		if index.check == false {
-			fmt.Printf("'%s' - 2 cluster. Does not exist on another cluster\n\n", name)
+			fmt.Printf("Deployment '%s' - 2 cluster. Does not exist on another cluster\n\n", name)
 		}
 	}
 }
 
-func compareContainers(deploymentSpec1 v1.DeploymentSpec, deploymentSpec2 v1.DeploymentSpec, namespace string) error {
+//func CreateFile(object1, object2 InformationAboutObject, job string) error {
+//	objectJsonByte1, err := json.Marshal(object1)
+//	if err != nil {
+//		return err
+//	}
+//	objectJsonByte2, err := json.Marshal(object2)
+//	if err != nil {
+//		return err
+//	}
+//	filename := fmt.Sprintf("object'%s'.txt", job)
+//	err = ioutil.WriteFile(filename, objectJsonByte1,0777)
+//	if err != nil {
+//		return err
+//	}
+//	err = ioutil.WriteFile("file.txt", objectJsonByte2,0777)
+//	if err != nil {
+//		return err
+//	}
+//	return nil
+//	//data, _ := ioutil.ReadFile("file.txt")
+//}
+
+func CompareContainers(deploymentSpec1 InformationAboutObject, deploymentSpec2 InformationAboutObject, namespace string) error {
 	containersDeploymentTemplate1 := deploymentSpec1.Template.Spec.Containers
 	containersDeploymentTemplate2 := deploymentSpec2.Template.Spec.Containers
 	if len(containersDeploymentTemplate1) != len(containersDeploymentTemplate2) {
-		fmt.Printf("!!!The number of containers differs!!!")
+		fmt.Printf("!!!The number of containers differs!!!\n")
 		return errors.New("The number of containers differs")
 	} else {
-		matchLabelsString1 := convertMatchlabelsToString(deploymentSpec1.Selector.MatchLabels)
-		matchLabelsString2 := convertMatchlabelsToString(deploymentSpec2.Selector.MatchLabels)
+		matchLabelsString1 := ConvertMatchlabelsToString(deploymentSpec1.Selector.MatchLabels)
+		matchLabelsString2 := ConvertMatchlabelsToString(deploymentSpec2.Selector.MatchLabels)
 		if matchLabelsString1 != matchLabelsString2 {
-			fmt.Printf("!!!MatchLabels are not equal!!!")
+			fmt.Printf("!!!MatchLabels are not equal!!!\n")
 			return errors.New("MatchLabels are not equal")
 		}
-		pods1, pods2 := getPodsListOnmatchLabels(deploymentSpec1.Selector.MatchLabels, namespace)
+		pods1, pods2 := GetPodsListOnMatchLabels(deploymentSpec1.Selector.MatchLabels, namespace)
 		for i := 0; i < len(containersDeploymentTemplate1); i++ {
 			if containersDeploymentTemplate1[i].Name != containersDeploymentTemplate2[i].Name {
-				fmt.Printf("!!!Container names are not equal!!!")
+				fmt.Printf("!!!Container names are not equal!!!\n")
 				return errors.New("Container names are not equal")
 			} else if containersDeploymentTemplate1[i].Image != containersDeploymentTemplate2[i].Image {
-				fmt.Printf("!!!Container name images are not equal!!!")
+				fmt.Printf("!!!Container name images are not equal!!!\n")
 				return errors.New("Container name images are not equal")
 			} else {
 				if len(pods1.Items) != len(pods2.Items) {
-					fmt.Printf("!!!The replicas count are different!!!")
-					return errors.New("The replicas count are different")
+					fmt.Printf("!!!The pods count are different!!!\n")
+					return errors.New("The pods count are different")
 				} else {
 					for j := 0; j < len(pods1.Items); j++ {
-						containersStatusesInPod1 := getContainerStatusesInPod(pods1.Items[j].Status.ContainerStatuses)
-						containersStatusesInPod2 := getContainerStatusesInPod(pods2.Items[j].Status.ContainerStatuses)
+						containersStatusesInPod1 := GetContainerStatusesInPod(pods1.Items[j].Status.ContainerStatuses)
+						containersStatusesInPod2 := GetContainerStatusesInPod(pods2.Items[j].Status.ContainerStatuses)
 						if len(containersStatusesInPod1) != len(containersStatusesInPod2) {
-							fmt.Printf("!!!The containers count in pod are different!!!")
+							fmt.Printf("!!!The containers count in pod are different!!!\n")
 							return errors.New("The containers count in pod are different")
 						} else {
 							var flag int
 							var containerWithSameNameFound bool
-							for f:=0; f<len(containersStatusesInPod1); f++{
+							for f := 0; f < len(containersStatusesInPod1); f++ {
 								if containersDeploymentTemplate1[i].Name == containersStatusesInPod1[f].name {
 									flag++
 									if containersDeploymentTemplate1[i].Image != containersStatusesInPod1[f].image {
-										fmt.Printf("!!!The container image in the template does not match the actual image in the Pod!!!")
+										fmt.Printf("!!!The container image in the template does not match the actual image in the Pod!!!\n")
 										return errors.New("The container image in the template does not match the actual image in the Pod")
 									} else {
-										for _, value := range containersStatusesInPod2{
-											if containersStatusesInPod1[f].name == value.name{
+										for _, value := range containersStatusesInPod2 {
+											if containersStatusesInPod1[f].name == value.name {
 												containerWithSameNameFound = true
-												if containersStatusesInPod1[f].image != value.image{
-													textForError:=fmt.Sprintf("!!!The Image in Pods is different!!!\nPods name: '%s'\nImage name on pod1: '%s'\nImage name on pod2: '%s'\n\n",value.name, containersStatusesInPod1[j].image,value.image)
+												if containersStatusesInPod1[f].image != value.image {
+													textForError := fmt.Sprintf("!!!The Image in Pods is different!!!\nPods name: '%s'\nImage name on pod1: '%s'\nImage name on pod2: '%s'\n\n", value.name, containersStatusesInPod1[j].image, value.image)
 													fmt.Printf(textForError)
 													return errors.New(textForError)
-												} else if containersStatusesInPod1[f].imageID != value.imageID{
-													textForError:=fmt.Sprintf("!!!The ImageID in Pods is different!!!\nPods name: '%s'\nImageID on pod1: '%s'\nImageID on pod2: '%s'\n\n",value.name, containersStatusesInPod1[j].imageID,value.imageID)
+												} else if containersStatusesInPod1[f].imageID != value.imageID {
+													textForError := fmt.Sprintf("!!!The ImageID in Pods is different!!!\nPods name: '%s'\nImageID on pod1: '%s'\nImageID on pod2: '%s'\n\n", value.name, containersStatusesInPod1[j].imageID, value.imageID)
 													fmt.Printf(textForError)
 													return errors.New(textForError)
 												}
 											}
 										}
-										if !containerWithSameNameFound{
-											textForError:=fmt.Sprintf("Container '%s' not found on other pod", containersStatusesInPod1[j].name)
-											fmt.Printf("!!!Container '%s' not found on other pod!!!", containersStatusesInPod1[j].name)
+										if !containerWithSameNameFound {
+											textForError := fmt.Sprintf("Container '%s' not found on other pod", containersStatusesInPod1[j].name)
+											fmt.Printf("!!!Container '%s' not found on other pod!!!\n", containersStatusesInPod1[j].name)
 											return errors.New(textForError)
 										}
 									}
 								}
 							}
-
 						}
-						/*if containersDeploymentTemplate1[i].Name != containersStatusesInPod1["Name"] || containersDeploymentTemplate1[i].Name != containersStatusesInPod2["Name"]{
-							fmt.Printf("!!!The container name in the template does not match the actual name in the Pod!!!")
-							return errors.New("The container name in the template does not match the actual name in the Pod")
-						} else if  containersDeploymentTemplate1[i].Image != containersStatusesInPod1["Image"] || containersDeploymentTemplate1[i].Image != containersStatusesInPod2["Image"] {
-							fmt.Printf("!!!The container image in the template does not match the actual image in the Pod!!!")
-							return errors.New("The container image in the template does not match the actual image in the Pod")
-						} else if  containersStatusesInPod1["ImageID"] != containersStatusesInPod2["ImageID"] {
-							fmt.Printf("!!!The ImageID in Pods is different!!!")
-							return errors.New("The ImageID in Pods is different")
-						}*/
 					}
 				}
-				//if pods1, pods2 := getPodsListOnmatchLabels(deploymentSpec1.Selector.MatchLabels, namespace); pods1.Items[0].Status.ContainerStatuses[0].ImageID != pods2.Items[0].Status.ContainerStatuses[0].ImageID {
-				//	fmt.Printf("!!!Container imageID are not equal!!!")
-				//	return errors.New("Container imageID are not equal")
-				//}
 			}
 		}
 		return nil
 	}
 }
 
-func getContainerStatusesInPod(containerStatuses []v12.ContainerStatus) map[int]Container {
+func GetContainerStatusesInPod(containerStatuses []v12.ContainerStatus) map[int]Container {
 	infoAboutContainer := make(map[int]Container)
 	var container Container
-	for index, value := range containerStatuses{
+	for index, value := range containerStatuses {
 		container.name = value.Name
 		container.image = value.Image
 		container.imageID = value.ImageID
@@ -263,8 +375,8 @@ func getContainerStatusesInPod(containerStatuses []v12.ContainerStatus) map[int]
 }
 
 //получает айдишник раскатанного образа на контейнерах
-func getPodsListOnmatchLabels(matchLabels map[string]string, namespace string) (*v12.PodList, *v12.PodList) {
-	matchLabelsString := convertMatchlabelsToString(matchLabels)
+func GetPodsListOnMatchLabels(matchLabels map[string]string, namespace string) (*v12.PodList, *v12.PodList) {
+	matchLabelsString := ConvertMatchlabelsToString(matchLabels)
 	pods1, err := client1.CoreV1().Pods(namespace).List(metav1.ListOptions{LabelSelector: matchLabelsString})
 	if err != nil {
 		panic(err.Error())
@@ -277,7 +389,7 @@ func getPodsListOnmatchLabels(matchLabels map[string]string, namespace string) (
 	return pods1, pods2
 }
 
-func convertMatchlabelsToString(matchLabels map[string]string) string {
+func ConvertMatchlabelsToString(matchLabels map[string]string) string {
 	values := []string{}
 	for key, value := range matchLabels {
 		values = append(values, fmt.Sprintf("%s=%s", key, value))
@@ -286,133 +398,50 @@ func convertMatchlabelsToString(matchLabels map[string]string) string {
 	return strings.Join(values, ",")
 }
 
-func addValueDeploymentsInMap(deployment1 *v1.DeploymentList, deployment2 *v1.DeploymentList) (map[string]CheckerFlag, map[string]CheckerFlag) {
+func AddValueDeploymentsInMap(deployments1 *v1.DeploymentList, deployments2 *v1.DeploymentList) (map[string]CheckerFlag, map[string]CheckerFlag) {
 	mapDeployments1 := make(map[string]CheckerFlag)
 	mapDeployments2 := make(map[string]CheckerFlag)
 	var indexCheck CheckerFlag
 
-	for index, value := range deployment1.Items {
+	for index, value := range deployments1.Items {
 		indexCheck.index = index
 		mapDeployments1[value.Name] = indexCheck
 	}
-	for index, value := range deployment2.Items {
+	for index, value := range deployments2.Items {
 		indexCheck.index = index
 		mapDeployments2[value.Name] = indexCheck
 	}
 	return mapDeployments1, mapDeployments2
 }
 
-//func compareDeployments(deployment1 *v1.DeploymentList, deployment2 *v1.DeploymentList) {
-//	countDeployments1 := len(deployment1.Items)
-//	countDeployments2 := len(deployment2.Items)
-//	if countDeployments1 != countDeployments2 {
-//		fmt.Printf("!!!The deployments count are different!!!\n")
-//	}
-//	//вызов функции для проверки несовпадающих деплойментов первого кластера
-//	badNames1 := badDeploymentsInCluster(deployment1, deployment2)
-//	if badNames1 != nil {
-//		fmt.Printf("\nBad deployments in 1 cluster:\n")
-//		for _, value := range badNames1 {
-//			fmt.Printf("%s\n", value)
-//		}
-//	}
-//	//вызов функции для проверки несовпадающих деплойментов второго кластера
-//	badNames2 := badDeploymentsInCluster(deployment2, deployment1)
-//	if badNames2 != nil {
-//		fmt.Printf("\nBad deployments in 2 cluster:\n")
-//		for _, value := range badNames2 {
-//			fmt.Printf("%s\n", value)
-//		}
-//	}
-//}
-//
-////сравнивает реплики в кластерах
-//func compareReplicasInDeployments(deployment1 *v1.DeploymentList, deployment2 *v1.DeploymentList) {
-//	countDeployments1 := len(deployment1.Items)
-//	countDeployments2 := len(deployment2.Items)
-//	for i := 0; i < countDeployments1; i++ {
-//		for j := 0; j < countDeployments2; j++ {
-//			if deployment1.Items[i].Name == deployment2.Items[j].Name {
-//				if *deployment1.Items[i].Spec.Replicas != *deployment2.Items[j].Spec.Replicas {
-//					fmt.Printf("!!!The replicas count are different!!!\n%s '%s' replicas: %d\n%s '%s' replicas: %d\n\n", kubeconfig1YamlStruct.Clusters[0].Cluster.Server, deployment1.Items[i].Name, *deployment1.Items[i].Spec.Replicas, kubeconfig2YamlStruct.Clusters[0].Cluster.Server, deployment2.Items[j].Name, *deployment2.Items[j].Spec.Replicas)
-//				}
-//			}
-//		}
-//	}
-//}
-//
-//func compareImagesInDeployments(deployment1 *v1.DeploymentList, deployment2 *v1.DeploymentList) {
-//	countDeployments1 := len(deployment1.Items)
-//	countDeployments2 := len(deployment2.Items)
-//	//пробегаемся по деплойментам
-//	for i := 0; i < countDeployments1; i++ {
-//		for j := 0; j < countDeployments2; j++ {
-//			//			compareContainers(deployment1.Items[i].Spec.Template.Spec.Containers)
-//			//если их имена равны то пробегаемся по их контейнерам, чтобы сравнить в них image
-//			if deployment1.Items[i].Name == deployment2.Items[j].Name {
-//				if len(deployment1.Items[i].Spec.Template.Spec.Containers) != len(deployment2.Items[j].Spec.Template.Spec.Containers) {
-//					fmt.Printf("!!!In deployments '%s' different number of containers", deployment1.Items[i].Name)
-//					badContainers1 := badContainersInCluster(deployment1.Items[i].Spec.Template.Spec.Containers, deployment2.Items[j].Spec.Template.Spec.Containers)
-//					if badContainers1 != nil {
-//						fmt.Printf("\nBad containers in deployments '%s':\n", deployment1.Items[i].Name)
-//						for _, value := range badContainers1 {
-//							fmt.Printf("%s\n", value)
-//						}
-//					}
-//					badContainers2 := badContainersInCluster(deployment2.Items[j].Spec.Template.Spec.Containers, deployment1.Items[i].Spec.Template.Spec.Containers)
-//					if badContainers2 != nil {
-//						fmt.Printf("\nBad containers in deployments '%s':\n", deployment2.Items[j].Name)
-//						for _, value := range badContainers2 {
-//							fmt.Printf("%s\n", value)
-//						}
-//					}
-//				}
-//				for a := 0; a < len(deployment1.Items[i].Spec.Template.Spec.Containers); a++ {
-//					for b := 0; b < len(deployment2.Items[j].Spec.Template.Spec.Containers); b++ {
-//
-//						if deployment1.Items[i].Spec.Template.Spec.Containers[a].Image == deployment2.Items[j].Spec.Template.Spec.Containers[b].Image {
-//
-//						}
-//
-//					}
-//				}
-//			}
-//		}
-//	}
-//}
-//
-//func badContainersInCluster(containers1 []v12.Container, containers2 []v12.Container) []string {
-//	var containersNames []string
-//	flag := 0
-//
-//	for i := 0; i < len(containers1); i++ {
-//		for j := 0; j < len(containers2); j++ {
-//			if containers1[i].Name != containers2[j].Name {
-//				flag++
-//			}
-//		}
-//		if flag == len(containers2) {
-//			containersNames = append(containersNames, containers1[i].Name)
-//		}
-//		flag = 0
-//	}
-//	return containersNames
-//}
-//
-//func badDeploymentsInCluster(depl1 *v1.DeploymentList, depl2 *v1.DeploymentList) []string {
-//	var names1 []string
-//	flag := 0
-//
-//	for i := 0; i < len(depl1.Items); i++ {
-//		for j := 0; j < len(depl2.Items); j++ {
-//			if depl1.Items[i].Name != depl2.Items[j].Name {
-//				flag++
-//			}
-//		}
-//		if flag == len(depl2.Items) {
-//			names1 = append(names1, depl1.Items[i].Name)
-//		}
-//		flag = 0
-//	}
-//	return names1
-//}
+func AddValueStatefulSetsInMap(stateFulSets1 *v1.StatefulSetList, stateFulSets2 *v1.StatefulSetList) (map[string]CheckerFlag, map[string]CheckerFlag) {
+	mapStatefulSets1 := make(map[string]CheckerFlag)
+	mapStatefulSets2 := make(map[string]CheckerFlag)
+	var indexCheck CheckerFlag
+
+	for index, value := range stateFulSets1.Items {
+		indexCheck.index = index
+		mapStatefulSets1[value.Name] = indexCheck
+	}
+	for index, value := range stateFulSets2.Items {
+		indexCheck.index = index
+		mapStatefulSets2[value.Name] = indexCheck
+	}
+	return mapStatefulSets1, mapStatefulSets2
+}
+
+func AddValueDaemonSetsMap(daemonSets1 *v1.DaemonSetList, daemonSets2 *v1.DaemonSetList) (map[string]CheckerFlag, map[string]CheckerFlag) {
+	mapDaemonSets1 := make(map[string]CheckerFlag)
+	mapDaemonSets2 := make(map[string]CheckerFlag)
+	var indexCheck CheckerFlag
+
+	for index, value := range daemonSets1.Items {
+		indexCheck.index = index
+		mapDaemonSets1[value.Name] = indexCheck
+	}
+	for index, value := range daemonSets2.Items {
+		indexCheck.index = index
+		mapDaemonSets2[value.Name] = indexCheck
+	}
+	return mapDaemonSets1, mapDaemonSets2
+}

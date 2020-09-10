@@ -1,14 +1,26 @@
 package main
 
+import (
+	v12 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
 type CheckerFlag struct {
 	index int
 	check bool
 }
 
+//структура для описания основной информации в контейнере для сравнения
 type Container struct {
 	name string
 	image string
 	imageID string
+}
+
+//структура для универсализации сравнительной функции, позволяет в нее передать информацию как deployment'ов, так и statefulset'ов
+type InformationAboutObject struct {
+	Template v12.PodTemplateSpec
+	Selector *v1.LabelSelector
 }
 
 type KubeconfigYaml struct {
