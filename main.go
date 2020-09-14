@@ -33,11 +33,6 @@ func main() {
 	kubeconfig1 := flag.String("kubeconfig1", filepath.Join(home, "kubeconfig1.yaml"), "(optional) absolute path to the kubeconfig file")
 	kubeconfig2 := flag.String("kubeconfig2", filepath.Join(home, "kubeconfig2.yaml"), "(optional) absolute path to the kubeconfig file")
 	fmt.Println(*kubeconfig1, *kubeconfig2)
-	/*if *kubeconfig == "" {
-		kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
-	} else {
-		*kubeconfig = os.Getenv("KUBECONFIG")
-	}*/
 
 	//clientset1 := GetClientSet(kubeconfig1)
 	//clientset2 := GetClientSet(kubeconfig2)
@@ -49,41 +44,6 @@ func main() {
 	YamlToStruct("kubeconfig2.yaml", &kubeconfig2YamlStruct)
 
 	Compare(client1, client2, "default")
-	//fmt.Println("[INFO] Connecting to ", *kubeconfig)
-
-	// use the current context in kubeconfig
-	//config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
-	//if err != nil {
-	//	panic(err.Error())
-	//}
-
-	// create the clientset
-	//clientset, err := kubernetes.NewForConfig(config)
-	//if err != nil {
-	//	panic(err.Error())
-	//}
-	//pods, err := clientset.CoreV1().Pods("").List(metav1.ListOptions{})
-	//if err != nil {
-	//	panic(err.Error())
-	//}
-	//fmt.Printf("%d", len(pods.Items))
-	//nodes, err := clientset.CoreV1().Nodes().List(metav1.ListOptions{/*FieldSelector: "metadata.name=minikube"*/})
-	//if err != nil {
-	//	panic(err.Error())
-	//}
-	////fmt.Printf("There are %d pods in the cluster\n", len(nodes.Items))
-	//fmt.Printf(nodes.Items[0].Name)
-
-	//depl, err := clientset.AppsV1().Deployments("").List(metav1.ListOptions{})
-	//if err != nil {
-	//	panic(err.Error())
-	//}
-	//
-	//for _, d := range depl.Items {
-	//	fmt.Printf("%#v\n", d)
-	//}
-	//
-	//fmt.Println("[INFO] Finished")
 }
 
 //переводит yaml в структуру
@@ -113,8 +73,8 @@ func GetClientSet(kubeconfig *string) *kubernetes.Clientset {
 	return clientset
 }
 
-//основная сравнивающая функция, поочередно запускает функции для сравнения по разным параметрам
-func Compare(clientSet1 *kubernetes.Clientset, clientSet2 *kubernetes.Clientset, namespaces ...string) {
+//основная сравнивающая функция, поочередно запускает функции для сравнения кластеров по разным параметрам: Deployments, StatefulSets, DaemonSets, ConfigMaps
+func Compare(clientSet1 kubernetes.Interface, clientSet2 kubernetes.Interface, namespaces ...string) {
 	for _, namespace := range namespaces {
 		depl1, err := clientSet1.AppsV1().Deployments(namespace).List(metav1.ListOptions{})
 		if err != nil {
@@ -148,10 +108,98 @@ func Compare(clientSet1 *kubernetes.Clientset, clientSet2 *kubernetes.Clientset,
 		}
 		mapDaemonSets1, mapDaemonSets2 := AddValueDaemonSetsMap(daemonSets1, daemonSets2)
 		SetInformationAboutDaemonSets(mapDaemonSets1, mapDaemonSets2, daemonSets1, daemonSets2, namespace)
-		//fmt.Println(mapDaemonSets1, mapDaemonSets2)
+
+		configMaps1, err := clientSet1.CoreV1().ConfigMaps(namespace).List(metav1.ListOptions{})
+		if err != nil {
+			panic(err.Error())
+		}
+		configMaps2, err := clientSet2.CoreV1().ConfigMaps(namespace).List(metav1.ListOptions{})
+		if err != nil {
+			panic(err.Error())
+		}
+		mapConfigMaps1, mapConfigMaps2 := AddValueConfigMapsInMap(configMaps1, configMaps2)
+		SetInformationAboutConfigMaps(mapConfigMaps1, mapConfigMaps2, configMaps1, configMaps2)
+
+		secrets1, err := clientSet1.CoreV1().Secrets(namespace).List(metav1.ListOptions{})
+		if err != nil {
+			panic(err.Error())
+		}
+		secrets2, err := clientSet2.CoreV1().Secrets(namespace).List(metav1.ListOptions{})
+		if err != nil {
+			panic(err.Error())
+		}
+		mapSecrets1, mapSecrets2 := AddValueSecretsInMap(secrets1, secrets2)
+		SetInformationAboutSecrets(mapSecrets1, mapSecrets2, secrets1, secrets2)
 		//compareDeployments(depl1, depl2)
 		//compareReplicasInDeployments(depl1, depl2)
 		//compareImagesInDeployments(depl1, depl2)
+	}
+}
+
+func SetInformationAboutSecrets(map1 map[string]CheckerFlag, map2 map[string]CheckerFlag, secrets1 *v12.SecretList, secrets2 *v12.SecretList) {
+	if len(map1) != len(map2) {
+		fmt.Printf("!!!The secrets count are different!!!\n\n")
+	}
+	for name, index1 := range map1 {
+		// type=kubernetes.io/service-account-token -> skip
+		// type=kubernetes.io/dockercfg -> skip
+		//secrets1.Items[0].Type
+		if index2, ok := map2[name]; ok == true {
+			index1.check = true
+			map1[name] = index1
+			index2.check = true
+			map2[name] = index2
+			fmt.Printf("----- Start checking secret: '%s' -----\n", name)
+			if len(secrets1.Items[index1.index].Data) != len(secrets2.Items[index2.index].Data){
+				fmt.Printf("!!!Config map '%s' in 1 kluster have '%d' key value pair but 2 kluster have '%d' key value pair!!!\n", name, len(secrets1.Items[index1.index].Data), len(secrets2.Items[index2.index].Data))
+			} else {
+				for key, value := range secrets1.Items[index1.index].Data {
+					if string(value) != string(secrets2.Items[index2.index].Data[key]){
+						fmt.Printf("!!!The key value pair does not match. In 1 kluster %s: %s. In 2 kluster %s: %s.!!!\n", key, string(value), key, string(secrets2.Items[index2.index].Data[key]))
+					}
+				}
+			}
+			fmt.Printf("----- End checking secret: '%s' -----\n\n", name)
+		} else {
+			fmt.Printf("Secret '%s' - 1 cluster. Does not exist on another cluster\n\n", name)
+		}
+	}
+	for name, index := range map2 {
+		if index.check == false {
+			fmt.Printf("Secret '%s' - 2 cluster. Does not exist on another cluster\n\n", name)
+		}
+	}
+}
+
+func SetInformationAboutConfigMaps(map1 map[string]CheckerFlag, map2 map[string]CheckerFlag, configMaps1 *v12.ConfigMapList, configMaps2 *v12.ConfigMapList) {
+	if len(map1) != len(map2) {
+		fmt.Printf("!!!The configmaps count are different!!!\n\n")
+	}
+	for name, index1 := range map1 {
+		if index2, ok := map2[name]; ok == true {
+			index1.check = true
+			map1[name] = index1
+			index2.check = true
+			map2[name] = index2
+			fmt.Printf("----- Start checking configmap: '%s' -----\n", name)
+			if len(configMaps1.Items[index1.index].Data) != len(configMaps2.Items[index2.index].Data){
+				fmt.Printf("!!!Config map '%s' in 1 cluster have '%d' key value pair but 2 kluster have '%d' key value pair!!!\n", name, len(configMaps1.Items[index1.index].Data), len(configMaps2.Items[index2.index].Data))
+			} else {
+				for key, value := range configMaps1.Items[index1.index].Data {
+					if configMaps2.Items[index2.index].Data[key] != value{
+						fmt.Printf("!!!The key value pair does not match. In 1 kluster %s: %s. In 2 kluster %s: %s.!!!\n", key, value, key, configMaps2.Items[index2.index].Data[key])
+					}
+				}
+			}
+			fmt.Printf("----- End checking configmap: '%s' -----\n\n", name)
+		} else {
+			fmt.Printf("ConfigMap '%s' - 1 cluster. Does not exist on another cluster\n\n", name)
+		}
+	}
+	for name, index := range map2 {
+		if index.check == false {
+			fmt.Printf("ConfigMap '%s' - 2 cluster. Does not exist on another cluster\n\n", name)
+		}
 	}
 }
 
@@ -177,7 +225,7 @@ func SetInformationAboutDaemonSets(map1 map[string]CheckerFlag, map2 map[string]
 				Selector: daemonSets2.Items[index2.index].Spec.Selector,
 			}
 			//CompareContainers(deployment1.Items[index1.index].Spec, deployment2.Items[index2.index].Spec, namespace)
-			CompareContainers(object1, object2, namespace)
+			CompareContainers(object1, object2, namespace, client1, client2)
 
 			fmt.Printf("----- End checking daemonset: '%s' -----\n\n", name)
 		} else {
@@ -216,7 +264,7 @@ func SetInformationAboutStatefulSets(map1 map[string]CheckerFlag, map2 map[strin
 				}
 
 				//CompareContainers(deployment1.Items[index1.index].Spec, deployment2.Items[index2.index].Spec, namespace)
-				CompareContainers(object1, object2, namespace)
+				CompareContainers(object1, object2, namespace, client1, client2)
 			}
 			fmt.Printf("----- End checking statefulset: '%s' -----\n\n", name)
 		} else {
@@ -253,7 +301,7 @@ func SetInformationAboutDeployments(map1 map[string]CheckerFlag, map2 map[string
 					Template: deployments2.Items[index2.index].Spec.Template,
 					Selector: deployments2.Items[index2.index].Spec.Selector,
 				}
-				CompareContainers(object1, object2, namespace)
+				CompareContainers(object1, object2, namespace, client1, client2)
 			}
 			fmt.Printf("----- End checking deployment: '%s' -----\n\n", name)
 		} else {
@@ -289,12 +337,12 @@ func SetInformationAboutDeployments(map1 map[string]CheckerFlag, map2 map[string
 //	//data, _ := ioutil.ReadFile("file.txt")
 //}
 
-func CompareContainers(deploymentSpec1 InformationAboutObject, deploymentSpec2 InformationAboutObject, namespace string) error {
+func CompareContainers(deploymentSpec1 InformationAboutObject, deploymentSpec2 InformationAboutObject, namespace string, clientSet1 kubernetes.Interface, clientSet2 kubernetes.Interface) error {
 	containersDeploymentTemplate1 := deploymentSpec1.Template.Spec.Containers
 	containersDeploymentTemplate2 := deploymentSpec2.Template.Spec.Containers
 	if len(containersDeploymentTemplate1) != len(containersDeploymentTemplate2) {
-		fmt.Printf("!!!The number of containers differs!!!\n")
-		return errors.New("The number of containers differs")
+		fmt.Printf("!!!The number templates of containers differs!!!\n")
+		return errors.New("The number templates of containers differs")
 	} else {
 		matchLabelsString1 := ConvertMatchlabelsToString(deploymentSpec1.Selector.MatchLabels)
 		matchLabelsString2 := ConvertMatchlabelsToString(deploymentSpec2.Selector.MatchLabels)
@@ -302,7 +350,7 @@ func CompareContainers(deploymentSpec1 InformationAboutObject, deploymentSpec2 I
 			fmt.Printf("!!!MatchLabels are not equal!!!\n")
 			return errors.New("MatchLabels are not equal")
 		}
-		pods1, pods2 := GetPodsListOnMatchLabels(deploymentSpec1.Selector.MatchLabels, namespace)
+		pods1, pods2 := GetPodsListOnMatchLabels(deploymentSpec1.Selector.MatchLabels, namespace, clientSet1, clientSet2)
 		for i := 0; i < len(containersDeploymentTemplate1); i++ {
 			if containersDeploymentTemplate1[i].Name != containersDeploymentTemplate2[i].Name {
 				fmt.Printf("!!!Container names are not equal!!!\n")
@@ -375,13 +423,13 @@ func GetContainerStatusesInPod(containerStatuses []v12.ContainerStatus) map[int]
 }
 
 //получает айдишник раскатанного образа на контейнерах
-func GetPodsListOnMatchLabels(matchLabels map[string]string, namespace string) (*v12.PodList, *v12.PodList) {
+func GetPodsListOnMatchLabels(matchLabels map[string]string, namespace string, clientSet1 kubernetes.Interface, clientSet2 kubernetes.Interface) (*v12.PodList, *v12.PodList) {
 	matchLabelsString := ConvertMatchlabelsToString(matchLabels)
-	pods1, err := client1.CoreV1().Pods(namespace).List(metav1.ListOptions{LabelSelector: matchLabelsString})
+	pods1, err := clientSet1.CoreV1().Pods(namespace).List(metav1.ListOptions{LabelSelector: matchLabelsString})
 	if err != nil {
 		panic(err.Error())
 	}
-	pods2, err := client2.CoreV1().Pods(namespace).List(metav1.ListOptions{LabelSelector: matchLabelsString})
+	pods2, err := clientSet2.CoreV1().Pods(namespace).List(metav1.ListOptions{LabelSelector: matchLabelsString})
 	if err != nil {
 		panic(err.Error())
 	}
@@ -396,6 +444,38 @@ func ConvertMatchlabelsToString(matchLabels map[string]string) string {
 	}
 	//супермегафича склеивания строчек
 	return strings.Join(values, ",")
+}
+
+func AddValueSecretsInMap(secrets1 *v12.SecretList, secrets2 *v12.SecretList) (map[string]CheckerFlag, map[string]CheckerFlag) {
+	mapSecrets1 := make(map[string]CheckerFlag)
+	mapSecrets2 := make(map[string]CheckerFlag)
+	var indexCheck CheckerFlag
+
+	for index, value := range secrets1.Items {
+		indexCheck.index = index
+		mapSecrets1[value.Name] = indexCheck
+	}
+	for index, value := range secrets2.Items {
+		indexCheck.index = index
+		mapSecrets2[value.Name] = indexCheck
+	}
+	return mapSecrets1, mapSecrets2
+}
+
+func AddValueConfigMapsInMap(configMaps1 *v12.ConfigMapList, configMaps2 *v12.ConfigMapList) (map[string]CheckerFlag, map[string]CheckerFlag) {
+	mapConfigMap1 := make(map[string]CheckerFlag)
+	mapConfigMap2 := make(map[string]CheckerFlag)
+	var indexCheck CheckerFlag
+
+	for index, value := range configMaps1.Items {
+		indexCheck.index = index
+		mapConfigMap1[value.Name] = indexCheck
+	}
+	for index, value := range configMaps2.Items {
+		indexCheck.index = index
+		mapConfigMap2[value.Name] = indexCheck
+	}
+	return mapConfigMap1, mapConfigMap2
 }
 
 func AddValueDeploymentsInMap(deployments1 *v1.DeploymentList, deployments2 *v1.DeploymentList) (map[string]CheckerFlag, map[string]CheckerFlag) {

@@ -21,6 +21,7 @@ type Container struct {
 type InformationAboutObject struct {
 	Template v12.PodTemplateSpec
 	Selector *v1.LabelSelector
+	//Pods *v12.PodList
 }
 
 type KubeconfigYaml struct {
