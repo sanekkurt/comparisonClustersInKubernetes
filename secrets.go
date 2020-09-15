@@ -48,12 +48,20 @@ func SetInformationAboutSecrets(map1 map[string]CheckerFlag, map2 map[string]Che
 			}
 			fmt.Printf("----- End checking secret: '%s' -----\n\n", name)
 		} else {
-			fmt.Printf("Secret '%s' - 1 cluster. Does not exist on another cluster\n\n", name)
+			if secrets1.Items[index1.index].Type == skipType1 || secrets1.Items[index1.index].Type == skipType2 {
+				continue
+			} else {
+				fmt.Printf("Secret '%s' - 1 cluster. Does not exist on another cluster\n\n", name)
+			}
 		}
 	}
 	for name, index := range map2 {
 		if index.check == false {
-			fmt.Printf("Secret '%s' - 2 cluster. Does not exist on another cluster\n\n", name)
+			if secrets2.Items[index.index].Type == skipType1 || secrets2.Items[index.index].Type == skipType2 {
+				continue
+			} else {
+				fmt.Printf("Secret '%s' - 2 cluster. Does not exist on another cluster\n\n", name)
+			}
 		}
 	}
 }
