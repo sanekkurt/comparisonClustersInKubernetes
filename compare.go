@@ -78,74 +78,76 @@ func CompareContainers(deploymentSpec1 InformationAboutObject, deploymentSpec2 I
 	if len(containersDeploymentTemplate1) != len(containersDeploymentTemplate2) {
 		fmt.Printf("!!!The number templates of containers differs!!!\n")
 		return ErrorDiffersTemplatesNumber
-	} else {
-		matchLabelsString1 := ConvertMatchlabelsToString(deploymentSpec1.Selector.MatchLabels)
-		matchLabelsString2 := ConvertMatchlabelsToString(deploymentSpec2.Selector.MatchLabels)
-		if matchLabelsString1 != matchLabelsString2 {
-			fmt.Printf("!!!MatchLabels are not equal!!!\n")
-			return ErrorMatchlabelsNotEqual
+	}
+	matchLabelsString1 := ConvertMatchlabelsToString(deploymentSpec1.Selector.MatchLabels)
+	matchLabelsString2 := ConvertMatchlabelsToString(deploymentSpec2.Selector.MatchLabels)
+	if matchLabelsString1 != matchLabelsString2 {
+		fmt.Printf("!!!MatchLabels are not equal!!!\n")
+		return ErrorMatchlabelsNotEqual
+	}
+	pods1, pods2 := GetPodsListOnMatchLabels(deploymentSpec1.Selector.MatchLabels, namespace, clientSet1, clientSet2)
+	for i := 0; i < len(containersDeploymentTemplate1); i++ {
+		if containersDeploymentTemplate1[i].Name != containersDeploymentTemplate2[i].Name {
+			fmt.Printf("!!!Container names in template are not equal!!!\n")
+			return ErrorContainerNamesTemplate
 		}
-		pods1, pods2 := GetPodsListOnMatchLabels(deploymentSpec1.Selector.MatchLabels, namespace, clientSet1, clientSet2)
-		for i := 0; i < len(containersDeploymentTemplate1); i++ {
-			if containersDeploymentTemplate1[i].Name != containersDeploymentTemplate2[i].Name {
-				fmt.Printf("!!!Container names in template are not equal!!!\n")
-				return ErrorContainerNamesTemplate
-			} else if containersDeploymentTemplate1[i].Image != containersDeploymentTemplate2[i].Image {
-				fmt.Printf("!!!Container name images in template are not equal!!!\n")
-				return ErrorContainerImagesTemplate
-			} else {
-				if len(pods1.Items) != len(pods2.Items) {
-					fmt.Printf("!!!The pods count are different!!!\n")
-					return ErrorPodsCount
-				} else {
-					for j := 0; j < len(pods1.Items); j++ {
-						containersStatusesInPod1 := GetContainerStatusesInPod(pods1.Items[j].Status.ContainerStatuses)
-						containersStatusesInPod2 := GetContainerStatusesInPod(pods2.Items[j].Status.ContainerStatuses)
-						if len(containersStatusesInPod1) != len(containersStatusesInPod2) {
-							fmt.Printf("!!!The containers count in pod are different!!!\n")
-							return ErrorContainersCountInPod
-						} else {
-							var flag int
-							var containerWithSameNameFound bool
-							for f := 0; f < len(containersStatusesInPod1); f++ {
-								if containersDeploymentTemplate1[i].Name == containersStatusesInPod1[f].name && containersDeploymentTemplate1[i].Name == containersStatusesInPod2[f].name {
-									flag++
-									if containersDeploymentTemplate1[i].Image != containersStatusesInPod1[f].image || containersDeploymentTemplate1[i].Image != containersStatusesInPod2[f].image {
-										fmt.Printf("!!!The container image in the template does not match the actual image in the Pod!!!\n")
-										return ErrorContainerImageTemplatePod
-									} else {
-										for _, value := range containersStatusesInPod2 {
-											if containersStatusesInPod1[f].name == value.name {
-												containerWithSameNameFound = true
-												if containersStatusesInPod1[f].image != value.image {
-													textForError := fmt.Sprintf("!!!The Image in Pods is different!!!\nPods name: '%s'\nImage name on pod1: '%s'\nImage name on pod2: '%s'\n\n", value.name, containersStatusesInPod1[j].image, value.image)
-													fmt.Printf(textForError)
-													ErrorDifferentImageInPods = errors.New(textForError)
-													return ErrorDifferentImageInPods
-												} else if containersStatusesInPod1[f].imageID != value.imageID {
-													textForError := fmt.Sprintf("!!!The ImageID in Pods is different!!!\nPods name: '%s'\nImageID on pod1: '%s'\nImageID on pod2: '%s'\n\n", value.name, containersStatusesInPod1[j].imageID, value.imageID)
-													fmt.Printf(textForError)
-													ErrorDifferentImageIdInPods = errors.New(textForError)
-													return ErrorDifferentImageIdInPods
-												}
-											}
-										}
-										if !containerWithSameNameFound {
-											textForError := fmt.Sprintf("Container '%s' not found on other pod", containersStatusesInPod1[j].name)
-											ErrorContainerNotFound = errors.New(textForError)
-											fmt.Printf("!!!Container '%s' not found on other pod!!!\n", containersStatusesInPod1[j].name)
-											return ErrorContainerNotFound
-										}
-									}
-								}
+		if containersDeploymentTemplate1[i].Image != containersDeploymentTemplate2[i].Image {
+			fmt.Printf("!!!Container name images in template are not equal!!!\n")
+			return ErrorContainerImagesTemplate
+		}
+		if err := CompareEnvInContainers(containersDeploymentTemplate1[i].Env, containersDeploymentTemplate2[i].Env, namespace, clientSet1, clientSet2); err != nil {
+			return err
+		}
+		if len(pods1.Items) != len(pods2.Items) {
+			fmt.Printf("!!!The pods count are different!!!\n")
+			return ErrorPodsCount
+		}
+		for j := 0; j < len(pods1.Items); j++ {
+			containersStatusesInPod1 := GetContainerStatusesInPod(pods1.Items[j].Status.ContainerStatuses)
+			containersStatusesInPod2 := GetContainerStatusesInPod(pods2.Items[j].Status.ContainerStatuses)
+			if len(containersStatusesInPod1) != len(containersStatusesInPod2) {
+				fmt.Printf("!!!The containers count in pod are different!!!\n")
+				return ErrorContainersCountInPod
+			}
+			var flag int
+			var containerWithSameNameFound bool
+			for f := 0; f < len(containersStatusesInPod1); f++ {
+				if containersDeploymentTemplate1[i].Name == containersStatusesInPod1[f].name && containersDeploymentTemplate1[i].Name == containersStatusesInPod2[f].name {
+					flag++
+					if containersDeploymentTemplate1[i].Image != containersStatusesInPod1[f].image || containersDeploymentTemplate1[i].Image != containersStatusesInPod2[f].image {
+						fmt.Printf("!!!The container image in the template does not match the actual image in the Pod!!!\n")
+						return ErrorContainerImageTemplatePod
+					}
+					for _, value := range containersStatusesInPod2 {
+						if containersStatusesInPod1[f].name == value.name {
+							containerWithSameNameFound = true
+							if containersStatusesInPod1[f].image != value.image {
+								textForError := fmt.Sprintf("!!!The Image in Pods is different!!!\nPods name: '%s'\nImage name on pod1: '%s'\nImage name on pod2: '%s'\n\n", value.name, containersStatusesInPod1[j].image, value.image)
+								fmt.Printf(textForError)
+								ErrorDifferentImageInPods = errors.New(textForError)
+								return ErrorDifferentImageInPods
+							} else if containersStatusesInPod1[f].imageID != value.imageID {
+								textForError := fmt.Sprintf("!!!The ImageID in Pods is different!!!\nPods name: '%s'\nImageID on pod1: '%s'\nImageID on pod2: '%s'\n\n", value.name, containersStatusesInPod1[j].imageID, value.imageID)
+								fmt.Printf(textForError)
+								ErrorDifferentImageIdInPods = errors.New(textForError)
+								return ErrorDifferentImageIdInPods
 							}
 						}
 					}
+					if !containerWithSameNameFound {
+						textForError := fmt.Sprintf("Container '%s' not found on other pod", containersStatusesInPod1[j].name)
+						ErrorContainerNotFound = errors.New(textForError)
+						fmt.Printf("!!!Container '%s' not found on other pod!!!\n", containersStatusesInPod1[j].name)
+						return ErrorContainerNotFound
+					}
+
 				}
 			}
+
 		}
-		return nil
+
 	}
+	return nil
 }
 
 func GetContainerStatusesInPod(containerStatuses []v12.ContainerStatus) map[int]Container {
@@ -184,3 +186,61 @@ func ConvertMatchlabelsToString(matchLabels map[string]string) string {
 	return strings.Join(values, ",")
 }
 
+func CompareEnvInContainers(env1 []v12.EnvVar, env2 []v12.EnvVar, namespace string, clientSet1 kubernetes.Interface, clientSet2 kubernetes.Interface) error {
+	if len(env1) != len(env2) {
+		fmt.Printf("!!!The number of variables in containers differs!!!\n")
+		return ErrorNumberVariables
+	}
+	for i := 0; i < len(env1); i++ {
+		if env1[i].ValueFrom == env2[i].ValueFrom {
+			if env1[i].ValueFrom != nil {
+				if env1[i].ValueFrom.ConfigMapKeyRef != nil && env2[i].ValueFrom.ConfigMapKeyRef != nil {
+					//ЛОГИКА ПРОВЕРКИ НА КОНФИГМАП КЕЙ
+					configMap1, err := clientSet1.CoreV1().ConfigMaps(namespace).Get(env1[i].ValueFrom.ConfigMapKeyRef.Name, metav1.GetOptions{})
+					if err != nil {
+						panic(err.Error())
+					}
+					configMap2, err := clientSet2.CoreV1().ConfigMaps(namespace).Get(env2[i].ValueFrom.ConfigMapKeyRef.Name, metav1.GetOptions{})
+					if err != nil {
+						panic(err.Error())
+					}
+					if configMap1.Data[env1[i].ValueFrom.ConfigMapKeyRef.Key] != configMap2.Data[env2[i].ValueFrom.ConfigMapKeyRef.Key] {
+						stringError := fmt.Sprintf("The value for the ConfigMapKey is different.\nEnvironment in container 1: ConfigMapKeyRef.Key = %s, value = %s\nEnvironment in container 2: ConfigMapKeyRef.Key = %s, value = %s\n", env1[i].ValueFrom.ConfigMapKeyRef.Key, configMap1.Data[env1[i].ValueFrom.ConfigMapKeyRef.Key], env2[i].ValueFrom.ConfigMapKeyRef.Key, configMap2.Data[env2[i].ValueFrom.ConfigMapKeyRef.Key])
+						fmt.Println(stringError)
+						ErrorDifferentValueConfigMapKey = errors.New(stringError)
+						return ErrorDifferentValueConfigMapKey
+					}
+				} else if env1[i].ValueFrom.SecretKeyRef != nil && env2[i].ValueFrom.SecretKeyRef != nil {
+					//ЛОГИКА ПРОВЕРКИ НА СЕКРЕТ КЕЙ
+					secret1, err := clientSet1.CoreV1().Secrets(namespace).Get(env1[i].ValueFrom.SecretKeyRef.Name, metav1.GetOptions{})
+					if err != nil {
+						panic(err.Error())
+					}
+					secret2, err := clientSet2.CoreV1().Secrets(namespace).Get(env2[i].ValueFrom.SecretKeyRef.Name, metav1.GetOptions{})
+					if err != nil {
+						panic(err.Error())
+					}
+					if string(secret1.Data[env1[i].ValueFrom.SecretKeyRef.Key]) != string(secret2.Data[env2[i].ValueFrom.SecretKeyRef.Key]) {
+						stringError := fmt.Sprintf("The value for the SecretKey is different.\nEnvironment in container 1: SecretKeyRef.Key = %s, value = %s\nEnvironment in container 2: SecretKeyRef.Key = %s, value = %s\n", env1[i].ValueFrom.SecretKeyRef.Key, string(secret1.Data[env1[i].ValueFrom.SecretKeyRef.Key]), env2[i].ValueFrom.SecretKeyRef.Key, string(secret2.Data[env2[i].ValueFrom.SecretKeyRef.Key]))
+						fmt.Println(stringError)
+						ErrorDifferentValueSecretKey = errors.New(stringError)
+						return ErrorDifferentValueSecretKey
+					}
+				}
+			} else {
+				if env1[i].Name != env2[i].Name || env1[i].Value != env2[i].Value {
+					stringError := fmt.Sprintf("Environment in container 1 not equal environment in container 2:\nEnvironment in container 1: name - '%s', value - '%s'\nEnvironment in container 2: name - '%s', value - '%s'\n", env1[i].Name, env1[i].Value, env2[i].Name, env2[i].Value)
+					fmt.Println(stringError)
+					ErrorEnvironmentNotEqual = errors.New(stringError)
+					return ErrorEnvironmentNotEqual
+				}
+			}
+		} else {
+			stringError := fmt.Sprintf("Environment in container 1 not equal environment in container 2. Different ValueFrom:\nValueFrom in container 1 - %s\nValueFrom in container 2 - %s\n", env1[i].ValueFrom, env2[i].ValueFrom)
+			fmt.Println(stringError)
+			ErrorEnvironmentNotEqual = errors.New(stringError)
+			return ErrorEnvironmentNotEqual
+		}
+	}
+	return nil
+}
