@@ -1,6 +1,6 @@
-FROM golang:latest
+FROM golang:1.15
 WORKDIR /go/src/app
 COPY . .
 #RUN go get -d -v -t ./...
 #RUN go install -v ./...
-RUN go test -v .
+RUN go build
