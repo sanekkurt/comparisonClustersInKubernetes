@@ -3,18 +3,18 @@ package main
 import (
 	"errors"
 	"flag"
-	"fmt"
+	"github.com/jessevdk/go-flags"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	v12 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
-	"os"
-	"path/filepath"
+	"strings"
 )
 
 var (
 	kubeconfig                      = flag.String("kubeconfig", "", "(optional) absolute path to the kubeconfig file")
+	variableForNamespaces		[]string
 	kubeconfig1YamlStruct           KubeconfigYaml
 	kubeconfig2YamlStruct           KubeconfigYaml
 	client1                         *kubernetes.Clientset
@@ -37,18 +37,37 @@ var (
 	skipType2                       v12.SecretType = "kubernetes.io/dockercfg"
 )
 
+var Opts struct {
+	KubeConfig1    string `long:"kube-config1" env:"KUBECONFIG1" required:"true" description:"Path to Kubernetes client1 config file"`
+	KubeConfig2    string `long:"kube-config2" env:"KUBECONFIG2" required:"true" description:"Path to Kubernetes client2 config file"`
+	NameSpaces []string `long:"ns" env:"NAMESPACES" required:"true" description:"Configmaps massive"`
+}
+
 func main() {
-	flag.Parse()
-	home, err := os.Getwd()
+	_, err := flags.Parse(&Opts)
 	if err != nil {
 		panic(err.Error())
 	}
-	kubeconfig1 := flag.String("kubeconfig1", filepath.Join(home, "kubeconfig1.yaml"), "(optional) absolute path to the kubeconfig file")
-	kubeconfig2 := flag.String("kubeconfig2", filepath.Join(home, "kubeconfig2.yaml"), "(optional) absolute path to the kubeconfig file")
-	fmt.Println(*kubeconfig1, *kubeconfig2)
+	//home, err := os.Getwd()
+	//if err != nil {
+	//	panic(err.Error())
+	//}
+	//kubeconfig1 := flag.String("kubeconfig1", filepath.Join(home, "kubeconfig1.yaml"), "(optional) absolute path to the kubeconfig file")
+	//kubeconfig2 := flag.String("kubeconfig2", filepath.Join(home, "kubeconfig2.yaml"), "(optional) absolute path to the kubeconfig file")
 
-	//clientset1 := GetClientSet(kubeconfig1)
-	//clientset2 := GetClientSet(kubeconfig2)
+	for _, value := range Opts.NameSpaces[0] {
+		if value == 44 {
+			variableForNamespaces = strings.Split(Opts.NameSpaces[0], ",")
+			break
+		}
+	}
+	if variableForNamespaces == nil {
+		variableForNamespaces = Opts.NameSpaces
+	}
+
+	kubeconfig1 := &Opts.KubeConfig1
+	kubeconfig2 := &Opts.KubeConfig2
+
 	client1 = GetClientSet(kubeconfig1)
 	client2 = GetClientSet(kubeconfig2)
 
@@ -56,7 +75,7 @@ func main() {
 	YamlToStruct("kubeconfig1.yaml", &kubeconfig1YamlStruct)
 	YamlToStruct("kubeconfig2.yaml", &kubeconfig2YamlStruct)
 
-	Compare(client1, client2, "default")
+	Compare(client1, client2, /*"default"*/ variableForNamespaces)
 }
 
 //переводит yaml в структуру

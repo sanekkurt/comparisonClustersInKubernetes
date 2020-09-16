@@ -10,7 +10,7 @@ import (
 )
 
 //основная сравнивающая функция, поочередно запускает функции для сравнения кластеров по разным параметрам: Deployments, StatefulSets, DaemonSets, ConfigMaps
-func Compare(clientSet1 kubernetes.Interface, clientSet2 kubernetes.Interface, namespaces ...string) {
+func Compare(clientSet1 kubernetes.Interface, clientSet2 kubernetes.Interface, namespaces []string) {
 	for _, namespace := range namespaces {
 		depl1, err := clientSet1.AppsV1().Deployments(namespace).List(metav1.ListOptions{})
 		if err != nil {
