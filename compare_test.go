@@ -9,7 +9,7 @@ import (
 )
 
 var (
-
+	//переменные для теста функции сравнения контейнеров
 	clusterClientSet1 *fake.Clientset
 	clusterClientSet2 *fake.Clientset
 
@@ -19,13 +19,35 @@ var (
 	selectorForDeployment1        metav1.LabelSelector
 	pointerSelectorForDeployment1 *metav1.LabelSelector
 
-
-	labelForDeployment1Fake map[string]string
+	labelForDeployment1Fake           map[string]string
 	selectorForDeployment1Fake        metav1.LabelSelector
 	pointerSelectorForDeployment1Fake *metav1.LabelSelector
 
-	objectInformation1            InformationAboutObject
-	objectInformation2            InformationAboutObject
+	objectInformation1 InformationAboutObject
+	objectInformation2 InformationAboutObject
+
+	//переменные для теста функции сравнения переменных в контейнерах
+	env1                  []v1.EnvVar
+	env2                  []v1.EnvVar
+	temp                  v1.EnvVar
+	dataInFirstConfigMap  map[string]string
+	dataInSecondConfigMap map[string]string
+	dataInFirstSecret  map[string][]byte
+	dataInSecondSecret map[string][]byte
+	envVarSource v1.EnvVarSource
+	pointerEnvVarSource *v1.EnvVarSource
+	secretKeyRef v1.SecretKeySelector
+	pointerSecretKeyRef *v1.SecretKeySelector
+	configMapKeyRef v1.ConfigMapKeySelector
+	pointerConfigMapKeyRef *v1.ConfigMapKeySelector
+
+	envVarSource2 v1.EnvVarSource
+	pointerEnvVarSource2 *v1.EnvVarSource
+	secretKeyRef2 v1.SecretKeySelector
+	pointerSecretKeyRef2 *v1.SecretKeySelector
+	configMapKeyRef2 v1.ConfigMapKeySelector
+	pointerConfigMapKeyRef2 *v1.ConfigMapKeySelector
+
 )
 
 func initEnvironmentForFirstTest() {
@@ -147,41 +169,9 @@ func initEnvironmentForThirdTest() {
 		},
 	}, &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "deployment-1-86c99d8f49-dpzrz",
+			Name:      "deployment-1-86c99d8f49-dpzrz",
 			Namespace: "default",
-			Labels: labelForDeployment1,
-		},
-		Spec: v1.PodSpec{
-				Containers: []v1.Container{
-					{
-						Name:  "container-test-1",
-						Image: "image-test-1",
-					},
-					{
-						Name:  "container-test-2-fake",
-						Image: "image-test-2",
-					},
-				},
-		},
-		Status: v1.PodStatus{
-				ContainerStatuses: []v1.ContainerStatus{
-					{
-						Name:  "container-test-1",
-						Image: "image-test-1",
-						ImageID: "docker-hub.binary.alfabank.ru/image-test-1@sha256:e8fc56926ac3d5705772f13befbaee3aa2fc6e9c52faee3d96b26612cd77556c",
-					},
-					{
-						Name:  "container-test-2-fake",
-						Image: "image-test-2",
-						ImageID: "docker-hub.binary.alfabank.ru/image-test-2@sha256:7d6a3c8f91470a23ef380320609ee6e69ac68d20bc804f3a1c6065fb56cfa34e",
-					},
-				},
-		},
-	}, &v1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "deployment-1-86c99d8f49-shc7j",
-			Namespace: "default",
-			Labels: labelForDeployment1,
+			Labels:    labelForDeployment1,
 		},
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
@@ -198,13 +188,45 @@ func initEnvironmentForThirdTest() {
 		Status: v1.PodStatus{
 			ContainerStatuses: []v1.ContainerStatus{
 				{
+					Name:    "container-test-1",
+					Image:   "image-test-1",
+					ImageID: "docker-hub.binary.alfabank.ru/image-test-1@sha256:e8fc56926ac3d5705772f13befbaee3aa2fc6e9c52faee3d96b26612cd77556c",
+				},
+				{
+					Name:    "container-test-2-fake",
+					Image:   "image-test-2",
+					ImageID: "docker-hub.binary.alfabank.ru/image-test-2@sha256:7d6a3c8f91470a23ef380320609ee6e69ac68d20bc804f3a1c6065fb56cfa34e",
+				},
+			},
+		},
+	}, &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "deployment-1-86c99d8f49-shc7j",
+			Namespace: "default",
+			Labels:    labelForDeployment1,
+		},
+		Spec: v1.PodSpec{
+			Containers: []v1.Container{
+				{
 					Name:  "container-test-1",
 					Image: "image-test-1",
-					ImageID: "docker-hub.binary.alfabank.ru/image-test-1@sha256:e8fc56926ac3d5705772f13befbaee3aa2fc6e9c52faee3d96b26612cd77556c",
 				},
 				{
 					Name:  "container-test-2-fake",
 					Image: "image-test-2",
+				},
+			},
+		},
+		Status: v1.PodStatus{
+			ContainerStatuses: []v1.ContainerStatus{
+				{
+					Name:    "container-test-1",
+					Image:   "image-test-1",
+					ImageID: "docker-hub.binary.alfabank.ru/image-test-1@sha256:e8fc56926ac3d5705772f13befbaee3aa2fc6e9c52faee3d96b26612cd77556c",
+				},
+				{
+					Name:    "container-test-2-fake",
+					Image:   "image-test-2",
 					ImageID: "docker-hub.binary.alfabank.ru/image-test-2@sha256:7d6a3c8f91470a23ef380320609ee6e69ac68d20bc804f3a1c6065fb56cfa34e",
 				},
 			},
@@ -237,9 +259,9 @@ func initEnvironmentForThirdTest() {
 		},
 	}, &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "deployment-1-987646d67-kflz7",
+			Name:      "deployment-1-987646d67-kflz7",
 			Namespace: "default",
-			Labels: labelForDeployment1,
+			Labels:    labelForDeployment1,
 		},
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
@@ -256,22 +278,22 @@ func initEnvironmentForThirdTest() {
 		Status: v1.PodStatus{
 			ContainerStatuses: []v1.ContainerStatus{
 				{
-					Name:  "container-test-1",
-					Image: "image-test-1",
+					Name:    "container-test-1",
+					Image:   "image-test-1",
 					ImageID: "docker-hub.binary.alfabank.ru/image-test-1@sha256:e8fc56926ac3d5705772f13befbaee3aa2fc6e9c52faee3d96b26612cd77556c",
 				},
 				{
-					Name:  "container-test-2",
-					Image: "image-test-2",
+					Name:    "container-test-2",
+					Image:   "image-test-2",
 					ImageID: "docker-hub.binary.alfabank.ru/image-test-2@sha256:7d6a3c8f91470a23ef380320609ee6e69ac68d20bc804f3a1c6065fb56cfa34e",
 				},
 			},
 		},
 	}, &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "deployment-1-987646d67-x4sgn",
+			Name:      "deployment-1-987646d67-x4sgn",
 			Namespace: "default",
-			Labels: labelForDeployment1,
+			Labels:    labelForDeployment1,
 		},
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
@@ -288,13 +310,13 @@ func initEnvironmentForThirdTest() {
 		Status: v1.PodStatus{
 			ContainerStatuses: []v1.ContainerStatus{
 				{
-					Name:  "container-test-1",
-					Image: "image-test-1",
+					Name:    "container-test-1",
+					Image:   "image-test-1",
 					ImageID: "docker-hub.binary.alfabank.ru/image-test-1@sha256:e8fc56926ac3d5705772f13befbaee3aa2fc6e9c52faee3d96b26612cd77556c",
 				},
 				{
-					Name:  "container-test-2",
-					Image: "image-test-2",
+					Name:    "container-test-2",
+					Image:   "image-test-2",
 					ImageID: "docker-hub.binary.alfabank.ru/image-test-2@sha256:7d6a3c8f91470a23ef380320609ee6e69ac68d20bc804f3a1c6065fb56cfa34e",
 				},
 			},
@@ -329,9 +351,9 @@ func initEnvironmentForFourthTest() {
 		},
 	}, &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "deployment-1-86c99d8f49-dpzrz",
+			Name:      "deployment-1-86c99d8f49-dpzrz",
 			Namespace: "default",
-			Labels: labelForDeployment1,
+			Labels:    labelForDeployment1,
 		},
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
@@ -348,22 +370,22 @@ func initEnvironmentForFourthTest() {
 		Status: v1.PodStatus{
 			ContainerStatuses: []v1.ContainerStatus{
 				{
-					Name:  "container-test-1",
-					Image: "image-test-1",
+					Name:    "container-test-1",
+					Image:   "image-test-1",
 					ImageID: "docker-hub.binary.alfabank.ru/image-test-1@sha256:e8fc56926ac3d5705772f13befbaee3aa2fc6e9c52faee3d96b26612cd77556c",
 				},
 				{
-					Name:  "container-test-2",
-					Image: "image-test-2",
+					Name:    "container-test-2",
+					Image:   "image-test-2",
 					ImageID: "docker-hub.binary.alfabank.ru/image-test-2@sha256:7d6a3c8f91470a23ef380320609ee6e69ac68d20bc804f3a1c6065fb56cfa34e",
 				},
 			},
 		},
 	}, &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "deployment-1-86c99d8f49-shc7j",
+			Name:      "deployment-1-86c99d8f49-shc7j",
 			Namespace: "default",
-			Labels: labelForDeployment1,
+			Labels:    labelForDeployment1,
 		},
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
@@ -380,13 +402,13 @@ func initEnvironmentForFourthTest() {
 		Status: v1.PodStatus{
 			ContainerStatuses: []v1.ContainerStatus{
 				{
-					Name:  "container-test-1",
-					Image: "image-test-1",
+					Name:    "container-test-1",
+					Image:   "image-test-1",
 					ImageID: "docker-hub.binary.alfabank.ru/image-test-1@sha256:e8fc56926ac3d5705772f13befbaee3aa2fc6e9c52faee3d96b26612cd77556c",
 				},
 				{
-					Name:  "container-test-2",
-					Image: "image-test-2",
+					Name:    "container-test-2",
+					Image:   "image-test-2",
 					ImageID: "docker-hub.binary.alfabank.ru/image-test-2@sha256:7d6a3c8f91470a23ef380320609ee6e69ac68d20bc804f3a1c6065fb56cfa34e",
 				},
 			},
@@ -419,9 +441,9 @@ func initEnvironmentForFourthTest() {
 		},
 	}, &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "deployment-1-987646d67-kflz7",
+			Name:      "deployment-1-987646d67-kflz7",
 			Namespace: "default",
-			Labels: labelForDeployment1,
+			Labels:    labelForDeployment1,
 		},
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
@@ -438,22 +460,22 @@ func initEnvironmentForFourthTest() {
 		Status: v1.PodStatus{
 			ContainerStatuses: []v1.ContainerStatus{
 				{
-					Name:  "container-test-1",
-					Image: "image-test-1",
+					Name:    "container-test-1",
+					Image:   "image-test-1",
 					ImageID: "docker-hub.binary.alfabank.ru/image-test-1@sha256:e8fc56926ac3d5705772f13befbaee3aa2fc6e9c52faee3d96b26612cd77556c",
 				},
 				{
-					Name:  "container-test-2",
-					Image: "image-test-2-fake",
+					Name:    "container-test-2",
+					Image:   "image-test-2-fake",
 					ImageID: "docker-hub.binary.alfabank.ru/image-test-2@sha256:7d6a3c8f91470a23ef380320609ee6e69ac68d20bc804f3a1c6065fb56cfa34e",
 				},
 			},
 		},
 	}, &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "deployment-1-987646d67-x4sgn",
+			Name:      "deployment-1-987646d67-x4sgn",
 			Namespace: "default",
-			Labels: labelForDeployment1,
+			Labels:    labelForDeployment1,
 		},
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
@@ -470,13 +492,13 @@ func initEnvironmentForFourthTest() {
 		Status: v1.PodStatus{
 			ContainerStatuses: []v1.ContainerStatus{
 				{
-					Name:  "container-test-1",
-					Image: "image-test-1",
+					Name:    "container-test-1",
+					Image:   "image-test-1",
 					ImageID: "docker-hub.binary.alfabank.ru/image-test-1@sha256:e8fc56926ac3d5705772f13befbaee3aa2fc6e9c52faee3d96b26612cd77556c",
 				},
 				{
-					Name:  "container-test-2",
-					Image: "image-test-2-fake",
+					Name:    "container-test-2",
+					Image:   "image-test-2-fake",
 					ImageID: "docker-hub.binary.alfabank.ru/image-test-2@sha256:7d6a3c8f91470a23ef380320609ee6e69ac68d20bc804f3a1c6065fb56cfa34e",
 				},
 			},
@@ -511,9 +533,9 @@ func initEnvironmentForFifthTest() {
 		},
 	}, &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "deployment-1-86c99d8f49-dpzrz",
+			Name:      "deployment-1-86c99d8f49-dpzrz",
 			Namespace: "default",
-			Labels: labelForDeployment1,
+			Labels:    labelForDeployment1,
 		},
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
@@ -530,22 +552,22 @@ func initEnvironmentForFifthTest() {
 		Status: v1.PodStatus{
 			ContainerStatuses: []v1.ContainerStatus{
 				{
-					Name:  "container-test-1",
-					Image: "image-test-1",
+					Name:    "container-test-1",
+					Image:   "image-test-1",
 					ImageID: "docker-hub.binary.alfabank.ru/image-test-1@sha256:e8fc56926ac3d5705772f13befbaee3aa2fc6e9c52faee3d96b26612cd77556c",
 				},
 				{
-					Name:  "container-test-2",
-					Image: "image-test-2",
+					Name:    "container-test-2",
+					Image:   "image-test-2",
 					ImageID: "docker-hub.binary.alfabank.ru/image-test-2@sha256:7d6a3c8f91470a23ef380320609ee6e69ac68d20bc804f3a1c6065fb56cfa34e",
 				},
 			},
 		},
 	}, &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "deployment-1-86c99d8f49-shc7j",
+			Name:      "deployment-1-86c99d8f49-shc7j",
 			Namespace: "default",
-			Labels: labelForDeployment1,
+			Labels:    labelForDeployment1,
 		},
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
@@ -562,13 +584,13 @@ func initEnvironmentForFifthTest() {
 		Status: v1.PodStatus{
 			ContainerStatuses: []v1.ContainerStatus{
 				{
-					Name:  "container-test-1",
-					Image: "image-test-1",
+					Name:    "container-test-1",
+					Image:   "image-test-1",
 					ImageID: "docker-hub.binary.alfabank.ru/image-test-1@sha256:e8fc56926ac3d5705772f13befbaee3aa2fc6e9c52faee3d96b26612cd77556c",
 				},
 				{
-					Name:  "container-test-2",
-					Image: "image-test-2",
+					Name:    "container-test-2",
+					Image:   "image-test-2",
 					ImageID: "docker-hub.binary.alfabank.ru/image-test-2@sha256:7d6a3c8f91470a23ef380320609ee6e69ac68d20bc804f3a1c6065fb56cfa34e",
 				},
 			},
@@ -601,9 +623,9 @@ func initEnvironmentForFifthTest() {
 		},
 	}, &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "deployment-1-987646d67-kflz7",
+			Name:      "deployment-1-987646d67-kflz7",
 			Namespace: "default",
-			Labels: labelForDeployment1,
+			Labels:    labelForDeployment1,
 		},
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
@@ -620,13 +642,13 @@ func initEnvironmentForFifthTest() {
 		Status: v1.PodStatus{
 			ContainerStatuses: []v1.ContainerStatus{
 				{
-					Name:  "container-test-1",
-					Image: "image-test-1",
+					Name:    "container-test-1",
+					Image:   "image-test-1",
 					ImageID: "docker-hub.binary.alfabank.ru/image-test-1@sha256:e8fc56926ac3d5705772f13befbaee3aa2fc6e9c52faee3d96b26612cd77556c",
 				},
 				{
-					Name:  "container-test-2",
-					Image: "image-test-2",
+					Name:    "container-test-2",
+					Image:   "image-test-2",
 					ImageID: "docker-hub.binary.alfabank.ru/image-test-2@sha256:7d6a3c8f91470a23ef380320609ee6e69ac68d20bc804f3a1c6065fb56cfa34e",
 				},
 			},
@@ -661,9 +683,9 @@ func initEnvironmentForSixthTest() {
 		},
 	}, &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "deployment-1-86c99d8f49-dpzrz",
+			Name:      "deployment-1-86c99d8f49-dpzrz",
 			Namespace: "default",
-			Labels: labelForDeployment1,
+			Labels:    labelForDeployment1,
 		},
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
@@ -680,22 +702,22 @@ func initEnvironmentForSixthTest() {
 		Status: v1.PodStatus{
 			ContainerStatuses: []v1.ContainerStatus{
 				{
-					Name:  "container-test-1",
-					Image: "image-test-1",
+					Name:    "container-test-1",
+					Image:   "image-test-1",
 					ImageID: "docker-hub.binary.alfabank.ru/image-test-1@sha256:e8fc56926ac3d5705772f13befbaee3aa2fc6e9c52faee3d96b26612cd77556c",
 				},
 				{
-					Name:  "container-test-2",
-					Image: "image-test-2",
+					Name:    "container-test-2",
+					Image:   "image-test-2",
 					ImageID: "docker-hub.binary.alfabank.ru/image-test-2@sha256:7d6a3c8f91470a23ef380320609ee6e69ac68d20bc804f3a1c6065fb56cfa34e",
 				},
 			},
 		},
 	}, &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "deployment-1-86c99d8f49-shc7j",
+			Name:      "deployment-1-86c99d8f49-shc7j",
 			Namespace: "default",
-			Labels: labelForDeployment1,
+			Labels:    labelForDeployment1,
 		},
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
@@ -708,8 +730,8 @@ func initEnvironmentForSixthTest() {
 		Status: v1.PodStatus{
 			ContainerStatuses: []v1.ContainerStatus{
 				{
-					Name:  "container-test-1",
-					Image: "image-test-1",
+					Name:    "container-test-1",
+					Image:   "image-test-1",
 					ImageID: "docker-hub.binary.alfabank.ru/image-test-1@sha256:e8fc56926ac3d5705772f13befbaee3aa2fc6e9c52faee3d96b26612cd77556c",
 				},
 			},
@@ -742,9 +764,9 @@ func initEnvironmentForSixthTest() {
 		},
 	}, &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "deployment-1-987646d67-kflz7",
+			Name:      "deployment-1-987646d67-kflz7",
 			Namespace: "default",
-			Labels: labelForDeployment1,
+			Labels:    labelForDeployment1,
 		},
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
@@ -761,22 +783,22 @@ func initEnvironmentForSixthTest() {
 		Status: v1.PodStatus{
 			ContainerStatuses: []v1.ContainerStatus{
 				{
-					Name:  "container-test-1",
-					Image: "image-test-1",
+					Name:    "container-test-1",
+					Image:   "image-test-1",
 					ImageID: "docker-hub.binary.alfabank.ru/image-test-1@sha256:e8fc56926ac3d5705772f13befbaee3aa2fc6e9c52faee3d96b26612cd77556c",
 				},
 				{
-					Name:  "container-test-2",
-					Image: "image-test-2",
+					Name:    "container-test-2",
+					Image:   "image-test-2",
 					ImageID: "docker-hub.binary.alfabank.ru/image-test-2@sha256:7d6a3c8f91470a23ef380320609ee6e69ac68d20bc804f3a1c6065fb56cfa34e",
 				},
 			},
 		},
 	}, &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "deployment-1-987646d67-x4sgn",
+			Name:      "deployment-1-987646d67-x4sgn",
 			Namespace: "default",
-			Labels: labelForDeployment1,
+			Labels:    labelForDeployment1,
 		},
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
@@ -793,13 +815,13 @@ func initEnvironmentForSixthTest() {
 		Status: v1.PodStatus{
 			ContainerStatuses: []v1.ContainerStatus{
 				{
-					Name:  "container-test-1",
-					Image: "image-test-1",
+					Name:    "container-test-1",
+					Image:   "image-test-1",
 					ImageID: "docker-hub.binary.alfabank.ru/image-test-1@sha256:e8fc56926ac3d5705772f13befbaee3aa2fc6e9c52faee3d96b26612cd77556c",
 				},
 				{
-					Name:  "container-test-2",
-					Image: "image-test-2",
+					Name:    "container-test-2",
+					Image:   "image-test-2",
 					ImageID: "docker-hub.binary.alfabank.ru/image-test-2@sha256:7d6a3c8f91470a23ef380320609ee6e69ac68d20bc804f3a1c6065fb56cfa34e",
 				},
 			},
@@ -834,9 +856,9 @@ func initEnvironmentForSeventhTest() {
 		},
 	}, &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "deployment-1-86c99d8f49-dpzrz",
+			Name:      "deployment-1-86c99d8f49-dpzrz",
 			Namespace: "default",
-			Labels: labelForDeployment1,
+			Labels:    labelForDeployment1,
 		},
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
@@ -853,13 +875,13 @@ func initEnvironmentForSeventhTest() {
 		Status: v1.PodStatus{
 			ContainerStatuses: []v1.ContainerStatus{
 				{
-					Name:  "container-test-1",
-					Image: "image-test-1",
+					Name:    "container-test-1",
+					Image:   "image-test-1",
 					ImageID: "docker-hub.binary.alfabank.ru/image-test-1@sha256:e8fc56926ac3d5705772f13befbaee3aa2fc6e9c52faee3d96b26612cd77556c",
 				},
 				{
-					Name:  "container-test-2",
-					Image: "image-test-2",
+					Name:    "container-test-2",
+					Image:   "image-test-2",
 					ImageID: "docker-hub.binary.alfabank.ru/image-test-2@sha256:7d6a3c8f91470a23ef380320609ee6e69ac68d20bc804f3a1c6065fb56cfa34e",
 				},
 			},
@@ -892,9 +914,9 @@ func initEnvironmentForSeventhTest() {
 		},
 	}, &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "deployment-1-987646d67-kflz7",
+			Name:      "deployment-1-987646d67-kflz7",
 			Namespace: "default",
-			Labels: labelForDeployment1,
+			Labels:    labelForDeployment1,
 		},
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
@@ -911,13 +933,13 @@ func initEnvironmentForSeventhTest() {
 		Status: v1.PodStatus{
 			ContainerStatuses: []v1.ContainerStatus{
 				{
-					Name:  "container-test-1",
-					Image: "image-test-1",
+					Name:    "container-test-1",
+					Image:   "image-test-1",
 					ImageID: "docker-hub.binary.alfabank.ru/image-test-1@sha256:e8fc56926ac3d5705772f13befbaee3aa2fc6e9c52faee3d96b26612cd77556c",
 				},
 				{
-					Name:  "container-test-2",
-					Image: "image-test-2-fake",
+					Name:    "container-test-2",
+					Image:   "image-test-2-fake",
 					ImageID: "docker-hub.binary.alfabank.ru/image-test-2@sha256:7d6a3c8f91470a23ef380320609ee6e69ac68d20bc804f3a1c6065fb56cfa34e",
 				},
 			},
@@ -952,9 +974,9 @@ func initEnvironmentForEighthTest() {
 		},
 	}, &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "deployment-1-86c99d8f49-dpzrz",
+			Name:      "deployment-1-86c99d8f49-dpzrz",
 			Namespace: "default",
-			Labels: labelForDeployment1,
+			Labels:    labelForDeployment1,
 		},
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
@@ -971,22 +993,22 @@ func initEnvironmentForEighthTest() {
 		Status: v1.PodStatus{
 			ContainerStatuses: []v1.ContainerStatus{
 				{
-					Name:  "container-test-1",
-					Image: "image-test-1",
+					Name:    "container-test-1",
+					Image:   "image-test-1",
 					ImageID: "docker-hub.binary.alfabank.ru/image-test-1@sha256:e8fc56926ac3d5705772f13befbaee3aa2fc6e9c52faee3d96b26612cd77556c",
 				},
 				{
-					Name:  "container-test-2",
-					Image: "image-test-2",
+					Name:    "container-test-2",
+					Image:   "image-test-2",
 					ImageID: "docker-hub.binary.alfabank.ru/image-test-2@sha256:7d6a3c8f91470a23ef380320609ee6e69ac68d20bc804f3a1c6065fb56cfa34e",
 				},
 			},
 		},
 	}, &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "deployment-1-86c99d8f49-shc7j",
+			Name:      "deployment-1-86c99d8f49-shc7j",
 			Namespace: "default",
-			Labels: labelForDeployment1,
+			Labels:    labelForDeployment1,
 		},
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
@@ -1003,13 +1025,13 @@ func initEnvironmentForEighthTest() {
 		Status: v1.PodStatus{
 			ContainerStatuses: []v1.ContainerStatus{
 				{
-					Name:  "container-test-1",
-					Image: "image-test-1",
+					Name:    "container-test-1",
+					Image:   "image-test-1",
 					ImageID: "docker-hub.binary.alfabank.ru/image-test-1@sha256:e8fc56926ac3d5705772f13befbaee3aa2fc6e9c52faee3d96b26612cd77556c",
 				},
 				{
-					Name:  "container-test-2",
-					Image: "image-test-2",
+					Name:    "container-test-2",
+					Image:   "image-test-2",
 					ImageID: "docker-hub.binary.alfabank.ru/image-test-2@sha256:7d6a3c8f91470a23ef380320609ee6e69ac68d20bc804f3a1c6065fb56cfa34e",
 				},
 			},
@@ -1042,9 +1064,9 @@ func initEnvironmentForEighthTest() {
 		},
 	}, &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "deployment-1-987646d67-kflz7",
+			Name:      "deployment-1-987646d67-kflz7",
 			Namespace: "default",
-			Labels: labelForDeployment1,
+			Labels:    labelForDeployment1,
 		},
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
@@ -1061,22 +1083,22 @@ func initEnvironmentForEighthTest() {
 		Status: v1.PodStatus{
 			ContainerStatuses: []v1.ContainerStatus{
 				{
-					Name:  "container-test-1",
-					Image: "image-test-1",
+					Name:    "container-test-1",
+					Image:   "image-test-1",
 					ImageID: "docker-hub.binary.alfabank.ru/image-test-1@sha256:e8fc56926ac3d5705772f13befbaee3aa2fc6e9c52faee3d96b26612cd77556c",
 				},
 				{
-					Name:  "container-test-2",
-					Image: "image-test-2",
+					Name:    "container-test-2",
+					Image:   "image-test-2",
 					ImageID: "docker-hub.binary.alfabank.ru/image-test-2@sha256:7d6a3c8f91470a23ef380320609ee6e69ac68d20bc804f3a1c6065fb56cfa34e",
 				},
 			},
 		},
 	}, &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "deployment-1-987646d67-x4sgn",
+			Name:      "deployment-1-987646d67-x4sgn",
 			Namespace: "default",
-			Labels: labelForDeployment1,
+			Labels:    labelForDeployment1,
 		},
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
@@ -1093,13 +1115,13 @@ func initEnvironmentForEighthTest() {
 		Status: v1.PodStatus{
 			ContainerStatuses: []v1.ContainerStatus{
 				{
-					Name:  "container-test-1",
-					Image: "image-test-1",
+					Name:    "container-test-1",
+					Image:   "image-test-1",
 					ImageID: "docker-hub.binary.alfabank.ru/image-test-1@sha256:e8fc56926ac3d5705772f13befbaee3aa2fc6e9c52faee3d96b26612cd77556c",
 				},
 				{
-					Name:  "container-test-2",
-					Image: "image-test-2",
+					Name:    "container-test-2",
+					Image:   "image-test-2",
 					ImageID: "docker-hub.binary.alfabank.ru/image-test-2@sha256:7d6a3c8f914704f3a1c6065fb56cfa34e",
 				},
 			},
@@ -1117,7 +1139,7 @@ func TestCompareContainers(t *testing.T) {
 	objectInformation2.Selector = deployments2.Items[0].Spec.Selector
 	objectInformation2.Template = deployments2.Items[0].Spec.Template
 	v := CompareContainers(objectInformation1, objectInformation2, "default", clusterClientSet1, clusterClientSet2)
-	if v != ErrorDiffersTemplatesNumber   {
+	if v != ErrorDiffersTemplatesNumber {
 		t.Error("Error expected: 'The number templates of containers differs'. But it was returned: ", v)
 	}
 
@@ -1127,7 +1149,7 @@ func TestCompareContainers(t *testing.T) {
 	objectInformation2.Selector = deployments2.Items[0].Spec.Selector
 	objectInformation2.Template = deployments2.Items[0].Spec.Template
 	v = CompareContainers(objectInformation1, objectInformation2, "default", clusterClientSet1, clusterClientSet2)
-	if v != ErrorMatchlabelsNotEqual   {
+	if v != ErrorMatchlabelsNotEqual {
 		t.Error("Error expected: 'MatchLabels are not equal'. But it was returned: ", v)
 	}
 
@@ -1140,7 +1162,7 @@ func TestCompareContainers(t *testing.T) {
 	objectInformation2.Selector = deployments2.Items[0].Spec.Selector
 	objectInformation2.Template = deployments2.Items[0].Spec.Template
 	v = CompareContainers(objectInformation1, objectInformation2, "default", clusterClientSet1, clusterClientSet2)
-	if v != ErrorContainerNamesTemplate   {
+	if v != ErrorContainerNamesTemplate {
 		t.Error("Error expected: 'Container names in template are not equal'. But it was returned: ", v)
 	}
 
@@ -1153,7 +1175,7 @@ func TestCompareContainers(t *testing.T) {
 	objectInformation2.Selector = deployments2.Items[0].Spec.Selector
 	objectInformation2.Template = deployments2.Items[0].Spec.Template
 	v = CompareContainers(objectInformation1, objectInformation2, "default", clusterClientSet1, clusterClientSet2)
-	if v != ErrorContainerImagesTemplate   {
+	if v != ErrorContainerImagesTemplate {
 		t.Error("Error expected: 'Container name images in template are not equal'. But it was returned: ", v)
 	}
 
@@ -1166,7 +1188,7 @@ func TestCompareContainers(t *testing.T) {
 	objectInformation2.Selector = deployments2.Items[0].Spec.Selector
 	objectInformation2.Template = deployments2.Items[0].Spec.Template
 	v = CompareContainers(objectInformation1, objectInformation2, "default", clusterClientSet1, clusterClientSet2)
-	if v != ErrorPodsCount   {
+	if v != ErrorPodsCount {
 		t.Error("Error expected: 'The pods count are different'. But it was returned: ", v)
 	}
 
@@ -1179,7 +1201,7 @@ func TestCompareContainers(t *testing.T) {
 	objectInformation2.Selector = deployments2.Items[0].Spec.Selector
 	objectInformation2.Template = deployments2.Items[0].Spec.Template
 	v = CompareContainers(objectInformation1, objectInformation2, "default", clusterClientSet1, clusterClientSet2)
-	if v != ErrorContainersCountInPod   {
+	if v != ErrorContainersCountInPod {
 		t.Error("Error expected: 'The containers count in pod are different'. But it was returned: ", v)
 	}
 
@@ -1192,7 +1214,7 @@ func TestCompareContainers(t *testing.T) {
 	objectInformation2.Selector = deployments2.Items[0].Spec.Selector
 	objectInformation2.Template = deployments2.Items[0].Spec.Template
 	v = CompareContainers(objectInformation1, objectInformation2, "default", clusterClientSet1, clusterClientSet2)
-	if v != ErrorContainerImageTemplatePod   {
+	if v != ErrorContainerImageTemplatePod {
 		t.Error("Error expected: 'The container image in the template does not match the actual image in the Pod'. But it was returned: ", v)
 	}
 
@@ -1205,9 +1227,183 @@ func TestCompareContainers(t *testing.T) {
 	objectInformation2.Selector = deployments2.Items[0].Spec.Selector
 	objectInformation2.Template = deployments2.Items[0].Spec.Template
 	v = CompareContainers(objectInformation1, objectInformation2, "default", clusterClientSet1, clusterClientSet2)
-	if v != ErrorDifferentImageIdInPods   {
+	if v != ErrorDifferentImageIdInPods {
 		t.Error("Error expected: 'The ImageID in Pods is different'. But it was returned: ", v)
 	}
 
 	//Проверка на случай отсутсвия контейнера в другом Pod'е не нужна она и так в стоке работает, на нее реагирует проверка количества контейнеров
+}
+
+func initEnvironmentForFirstTest2() {
+
+	temp.Name = "Hello"
+	temp.Value = "World"
+	env1 = append(env1, temp)
+	env2 = append(env2, temp)
+
+	temp.Name = "I"
+	temp.Value = "Am"
+	env1 = append(env1, temp)
+
+	temp.Name = "From"
+	temp.Value = "Russia"
+	env2 = append(env2, temp)
+
+	temp.Name = "The"
+	temp.Value = "End"
+	env2 = append(env2, temp)
+
+	dataInFirstConfigMap = make(map[string]string)
+	dataInSecondConfigMap = make(map[string]string)
+
+	clusterClientSet1 = fake.NewSimpleClientset(&v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "configMapInCluster",
+			Namespace: "default",
+		},
+		Data: dataInFirstConfigMap,
+	},
+	)
+	clusterClientSet2 = fake.NewSimpleClientset(&v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "configMapInCluster",
+			Namespace: "default",
+		},
+		Data: dataInSecondConfigMap,
+	},
+	)
+}
+
+func initEnvironmentForSecondTest2() {
+	temp.Name = "Not"
+	temp.Value = "End"
+	env1 = append(env1, temp)
+}
+
+func initEnvironmentForThirdTest2() {
+	env1 = append(env1[:1], env1[1+2:]...)
+	env2 = append(env2[:1], env2[1+2:]...)
+	secretKeyRef.Name = "test"
+	secretKeyRef.Key = "test"
+	pointerSecretKeyRef = &secretKeyRef
+	envVarSource.SecretKeyRef = pointerSecretKeyRef
+	pointerEnvVarSource = &envVarSource
+	temp.Name = "testValueFrom"
+	temp.ValueFrom = pointerEnvVarSource
+	env1 = append(env1, temp)
+	secretKeyRef2.Name = "test"
+	secretKeyRef2.Key = "test2222"
+	pointerSecretKeyRef2 = &secretKeyRef2
+	envVarSource2.SecretKeyRef = pointerSecretKeyRef2
+	pointerEnvVarSource2 = &envVarSource2
+	temp.Name = "testValueFrom"
+	temp.ValueFrom = pointerEnvVarSource2
+	env2 = append(env2, temp)
+}
+
+func initEnvironmentForFourthTest2() {
+	env1 = append(env1[:1], env1[1+1:]...)
+	env2 = append(env2[:1], env2[1+1:]...)
+
+	secretKeyRef.Name = "secretInCluster"
+	secretKeyRef.Key = "test"
+	pointerSecretKeyRef = &secretKeyRef
+	envVarSource.SecretKeyRef = pointerSecretKeyRef
+	pointerEnvVarSource = &envVarSource
+	temp.Name = "testValueFrom"
+	temp.ValueFrom = pointerEnvVarSource
+	env1 = append(env1, temp)
+	env2 = append(env2, temp)
+
+	dataInFirstSecret = make(map[string][]byte)
+	dataInSecondSecret = make(map[string][]byte)
+
+	dataInFirstSecret["test"] = []byte("test")
+	dataInSecondSecret["test"] = []byte("fakeTest")
+
+	clusterClientSet1 = fake.NewSimpleClientset(&v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "secretInCluster",
+			Namespace: "default",
+		},
+		Data: dataInFirstSecret,
+	},
+	)
+	clusterClientSet2 = fake.NewSimpleClientset(&v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "secretInCluster",
+			Namespace: "default",
+		},
+		Data: dataInSecondSecret,
+	},
+	)
+}
+
+func initEnvironmentForFifthTest2() {
+	env1 = append(env1[:1], env1[1+1:]...)
+	env2 = append(env2[:1], env2[1+1:]...)
+
+	configMapKeyRef.Name = "configMapInCluster"
+	configMapKeyRef.Key = "test"
+	pointerConfigMapKeyRef = &configMapKeyRef
+	envVarSource.SecretKeyRef = nil
+	envVarSource.ConfigMapKeyRef = pointerConfigMapKeyRef
+	pointerEnvVarSource = &envVarSource
+
+	env1 = append(env1, temp)
+	env2 = append(env2, temp)
+
+	dataInFirstConfigMap["test"] = "test"
+	dataInSecondConfigMap["test"] = "fakeTest"
+
+	clusterClientSet1 = fake.NewSimpleClientset(&v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "configMapInCluster",
+			Namespace: "default",
+		},
+		Data: dataInFirstConfigMap,
+	},
+	)
+	clusterClientSet2 = fake.NewSimpleClientset(&v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "configMapInCluster",
+			Namespace: "default",
+		},
+		Data: dataInSecondConfigMap,
+	},
+	)
+}
+
+func TestCompareEnvInContainers(t *testing.T) {
+	initEnvironmentForFirstTest2()
+	err := CompareEnvInContainers(env1, env2, "default", clusterClientSet1, clusterClientSet2)
+	if err != ErrorNumberVariables {
+		t.Error("Error expected: 'The number of variables in containers differs'. But it was returned: ", err)
+	}
+
+	initEnvironmentForSecondTest2()
+	err = CompareEnvInContainers(env1, env2, "default", clusterClientSet1, clusterClientSet2)
+	if err != ErrorEnvironmentNotEqual {
+		t.Error("Error expected: 'Environment in container 1 not equal environment in container 2'. But it was returned: ", err)
+	}
+
+	initEnvironmentForThirdTest2()
+	err = CompareEnvInContainers(env1, env2, "default", clusterClientSet1, clusterClientSet2)
+	if err != ErrorEnvironmentNotEqual {
+		t.Error("Error expected: 'Environment in container 1 not equal environment in container 2'. But it was returned: ", err)
+	}
+
+	initEnvironmentForFourthTest2()
+	err = CompareEnvInContainers(env1, env2, "default", clusterClientSet1, clusterClientSet2)
+	if err != ErrorDifferentValueSecretKey {
+		t.Error("Error expected: 'The value for the SecretKey is different'. But it was returned: ", err)
+	}
+
+	initEnvironmentForFifthTest2()
+	err = CompareEnvInContainers(env1, env2, "default", clusterClientSet1, clusterClientSet2)
+	if err != ErrorDifferentValueConfigMapKey {
+		t.Error("Error expected: 'The value for the ConfigMapKey is different'. But it was returned: ", err)
+	}
+
+
 }

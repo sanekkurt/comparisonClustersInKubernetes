@@ -126,7 +126,8 @@ func CompareContainers(deploymentSpec1 InformationAboutObject, deploymentSpec2 I
 								fmt.Printf(textForError)
 								ErrorDifferentImageInPods = errors.New(textForError)
 								return ErrorDifferentImageInPods
-							} else if containersStatusesInPod1[f].imageID != value.imageID {
+							}
+							if containersStatusesInPod1[f].imageID != value.imageID {
 								textForError := fmt.Sprintf("!!!The ImageID in Pods is different!!!\nPods name: '%s'\nImageID on pod1: '%s'\nImageID on pod2: '%s'\n\n", value.name, containersStatusesInPod1[j].imageID, value.imageID)
 								fmt.Printf(textForError)
 								ErrorDifferentImageIdInPods = errors.New(textForError)
