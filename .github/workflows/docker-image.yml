@@ -18,7 +18,7 @@ jobs:
       run: docker build . --file Dockerfile --tag comparescript:$(date +%s)
 
     - name: Login in DockerHub
-      run: docker login -e ${{secrets.LOGIN_DOCKERHUB}} -u ${{secrets.USER_NAME_DOCKERHUB}} -p ${{secrets.USER_PASSWORD_DOCKERHUB}}
+      run: docker login -u ${{secrets.USER_NAME_DOCKERHUB}} -p ${{secrets.USER_PASSWORD_DOCKERHUB}}
 
     - name: Push Docker image on DockerHub
       run: docker push comparescript:$(date +%s)
