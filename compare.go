@@ -195,6 +195,12 @@ func CompareEnvInContainers(env1 []v12.EnvVar, env2 []v12.EnvVar, namespace stri
 	for i := 0; i < len(env1); i++ {
 		if env1[i].ValueFrom != nil && env2[i].ValueFrom != nil {
 			if env1[i].ValueFrom.ConfigMapKeyRef != nil && env2[i].ValueFrom.ConfigMapKeyRef != nil {
+				if env1[i].ValueFrom.ConfigMapKeyRef.Key != env2[i].ValueFrom.ConfigMapKeyRef.Key || env1[i].ValueFrom.ConfigMapKeyRef.Name != env2[i].ValueFrom.ConfigMapKeyRef.Name{
+					stringError := fmt.Sprintf("Environment in container 1 not equal environment in container 2. Different ValueFrom:\nValueFrom ConfigMapKeyRef in container 1 - %s:%s\nValueFrom ConfigMapKeyRef in container 2 - %s:%s\n", env1[i].ValueFrom.ConfigMapKeyRef.Name, env1[i].ValueFrom.ConfigMapKeyRef.Key , env2[i].ValueFrom.ConfigMapKeyRef.Name, env2[i].ValueFrom.ConfigMapKeyRef.Key)
+					fmt.Println(stringError)
+					ErrorEnvironmentNotEqual = errors.New(stringError)
+					return ErrorEnvironmentNotEqual
+				}
 				//ЛОГИКА ПРОВЕРКИ НА КОНФИГМАП КЕЙ
 				configMap1, err := clientSet1.CoreV1().ConfigMaps(namespace).Get(env1[i].ValueFrom.ConfigMapKeyRef.Name, metav1.GetOptions{})
 				if err != nil {
@@ -211,6 +217,12 @@ func CompareEnvInContainers(env1 []v12.EnvVar, env2 []v12.EnvVar, namespace stri
 					return ErrorDifferentValueConfigMapKey
 				}
 			} else if env1[i].ValueFrom.SecretKeyRef != nil && env2[i].ValueFrom.SecretKeyRef != nil {
+				if env1[i].ValueFrom.SecretKeyRef.Key != env2[i].ValueFrom.SecretKeyRef.Key || env1[i].ValueFrom.SecretKeyRef.Name != env2[i].ValueFrom.SecretKeyRef.Name{
+					stringError := fmt.Sprintf("Environment in container 1 not equal environment in container 2. Different ValueFrom:\nValueFrom ConfigMapKeyRef in container 1 - %s:%s\nValueFrom ConfigMapKeyRef in container 2 - %s:%s\n", env1[i].ValueFrom.SecretKeyRef.Name, env1[i].ValueFrom.SecretKeyRef.Key , env2[i].ValueFrom.SecretKeyRef.Name, env2[i].ValueFrom.SecretKeyRef.Key)
+					fmt.Println(stringError)
+					ErrorEnvironmentNotEqual = errors.New(stringError)
+					return ErrorEnvironmentNotEqual
+				}
 				//ЛОГИКА ПРОВЕРКИ НА СЕКРЕТ КЕЙ
 				secret1, err := clientSet1.CoreV1().Secrets(namespace).Get(env1[i].ValueFrom.SecretKeyRef.Name, metav1.GetOptions{})
 				if err != nil {
