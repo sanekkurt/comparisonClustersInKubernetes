@@ -15,7 +15,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag comparescript:$(date +%s)
+      run: docker build . --file Dockerfile --tag comparescript
 
     - name: Login in DockerHub
       run: docker login -u ${{secrets.USER_NAME_DOCKERHUB}} -p ${{secrets.USER_PASSWORD_DOCKERHUB}}
