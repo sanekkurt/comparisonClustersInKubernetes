@@ -36,7 +36,7 @@ func SetInformationAboutDeployments(map1 map[string]CheckerFlag, map2 map[string
 			log.Debugf("----- Start checking deployment: '%s' -----", name)
 			//fmt.Printf("----- Start checking deployment: '%s' -----\n", name)
 			if *deployments1.Items[index1.index].Spec.Replicas != *deployments2.Items[index2.index].Spec.Replicas {
-				log.Infof("deployment '%'':  number of replicas is different: %d and %d", deployments1.Items[index1.index].Name, *deployments1.Items[index1.index].Spec.Replicas, *deployments2.Items[index2.index].Spec.Replicas)
+				log.Infof("deployment '%s':  number of replicas is different: %d and %d", deployments1.Items[index1.index].Name, *deployments1.Items[index1.index].Spec.Replicas, *deployments2.Items[index2.index].Spec.Replicas)
 				flag = true
 			} else {
 				//заполняем информацию, которая будет использоваться при сравнении

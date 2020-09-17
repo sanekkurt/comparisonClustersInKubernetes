@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"flag"
 	"github.com/jessevdk/go-flags"
 	"gopkg.in/yaml.v2"
@@ -14,30 +13,14 @@ import (
 )
 
 var (
-	kubeconfig                      = flag.String("kubeconfig", "", "(optional) absolute path to the kubeconfig file")
-	variableForNamespaces           []string
-	kubeconfig1YamlStruct           KubeconfigYaml
-	kubeconfig2YamlStruct           KubeconfigYaml
-	client1                         *kubernetes.Clientset
-	client2                         *kubernetes.Clientset
-	ErrorDiffersTemplatesNumber                    = errors.New("the number templates of containers differs")
-	ErrorMatchlabelsNotEqual                       = errors.New("matchLabels are not equal")
-	ErrorContainerNamesTemplate                    = errors.New("container names in template are not equal")
-	ErrorContainerImagesTemplate                   = errors.New("container name images in template are not equal")
-	ErrorPodsCount                                 = errors.New("the pods count are different")
-	ErrorContainersCountInPod                      = errors.New("the containers count in pod are different")
-	ErrorContainerImageTemplatePod                 = errors.New("the container image in the template does not match the actual image in the Pod")
-	ErrorDifferentImageInPods                      = errors.New("the Image in Pods is different")
-	ErrorDifferentImageIdInPods                    = errors.New("the ImageID in Pods is different")
-	ErrorContainerNotFound                         = errors.New("container not found")
-	ErrorNumberVariables                           = errors.New("the number of variables in containers differs")
-	ErrorDifferentValueConfigMapKey                = errors.New("the value for the ConfigMapKey is different")
-	ErrorDifferentValueSecretKey                   = errors.New("the value for the SecretKey is different")
-	ErrorEnvironmentNotEqual                       = errors.New("the environment in containers not equal")
-	skipType1                       v12.SecretType = "kubernetes.io/service-account-token"
-	skipType2                       v12.SecretType = "kubernetes.io/dockercfg"
-	skipType3                       v12.SecretType = "helm.sh/release.v1"
-	skipTypes                                      = []v12.SecretType{"kubernetes.io/service-account-token", "kubernetes.io/dockercfg", "helm.sh/release.v1"}
+	kubeconfig            = flag.String("kubeconfig", "", "(optional) absolute path to the kubeconfig file")
+	variableForNamespaces []string
+	kubeconfig1YamlStruct KubeconfigYaml
+	kubeconfig2YamlStruct KubeconfigYaml
+	client1               *kubernetes.Clientset
+	client2               *kubernetes.Clientset
+
+	skipTypes = []v12.SecretType{"kubernetes.io/service-account-token", "kubernetes.io/dockercfg", "helm.sh/release.v1"}
 )
 
 var Opts struct {
@@ -47,7 +30,7 @@ var Opts struct {
 }
 
 func main() {
-	log.Debug("Starting k8s-cluster-comparator")
+	log.Infow("Starting k8s-cluster-comparator")
 
 	_, err := flags.Parse(&Opts)
 	if err != nil {
@@ -80,9 +63,21 @@ func main() {
 	YamlToStruct(*kubeconfig1, &kubeconfig1YamlStruct)
 	YamlToStruct(*kubeconfig2, &kubeconfig2YamlStruct)
 
-	if Compare(client1, client2 /*"default"*/, variableForNamespaces) {
-		os.Exit(1)
+	ret := 0
+
+	isClusterDiffer, err := Compare(client1, client2 /*"default"*/, variableForNamespaces)
+	if err != nil {
+		log.Errorf("cannot compare clusters: %s", err.Error())
+		os.Exit(2)
 	}
+
+	if isClusterDiffer {
+		ret = 1
+	}
+
+	log.Infow("k8s-cluster-comparator completed")
+
+	os.Exit(ret)
 }
 
 //переводит yaml в структуру

@@ -10,75 +10,85 @@ import (
 )
 
 //основная сравнивающая функция, поочередно запускает функции для сравнения кластеров по разным параметрам: Deployments, StatefulSets, DaemonSets, ConfigMaps
-func Compare(clientSet1 kubernetes.Interface, clientSet2 kubernetes.Interface, namespaces []string) bool {
-	var flag bool
+func Compare(clientSet1 kubernetes.Interface, clientSet2 kubernetes.Interface, namespaces []string) (bool, error) {
+	var isClustersDiffer bool
+
 	for _, namespace := range namespaces {
 		depl1, err := clientSet1.AppsV1().Deployments(namespace).List(metav1.ListOptions{})
 		if err != nil {
-			panic(err.Error())
+			return isClustersDiffer, fmt.Errorf("cannot obtain deployments list from 1st cluster: %w", err)
 		}
+
 		depl2, err := clientSet2.AppsV1().Deployments(namespace).List(metav1.ListOptions{})
 		if err != nil {
-			panic(err.Error())
+			return isClustersDiffer, fmt.Errorf("cannot obtain deployments list from 2nd cluster: %w", err)
 		}
+
 		mapDeployments1, mapDeployments2 := AddValueDeploymentsInMap(depl1, depl2)
 		if SetInformationAboutDeployments(mapDeployments1, mapDeployments2, depl1, depl2, namespace) {
-			flag = true
+			isClustersDiffer = true
 		}
 
 		statefulSet1, err := clientSet1.AppsV1().StatefulSets(namespace).List(metav1.ListOptions{})
 		if err != nil {
-			panic(err.Error())
+			return isClustersDiffer, fmt.Errorf("cannot obtain statefulsets list from 1st cluster: %w", err)
 		}
+
 		statefulSet2, err := clientSet2.AppsV1().StatefulSets(namespace).List(metav1.ListOptions{})
 		if err != nil {
-			panic(err.Error())
+			return isClustersDiffer, fmt.Errorf("cannot obtain statefulsets list from 2nd cluster: %w", err)
 		}
+
 		mapStatefulSets1, mapStatefulSets2 := AddValueStatefulSetsInMap(statefulSet1, statefulSet2)
 		if SetInformationAboutStatefulSets(mapStatefulSets1, mapStatefulSets2, statefulSet1, statefulSet2, namespace) {
-			flag = true
+			isClustersDiffer = true
 		}
 
 		daemonSets1, err := clientSet1.AppsV1().DaemonSets(namespace).List(metav1.ListOptions{})
 		if err != nil {
-			panic(err.Error())
+			return isClustersDiffer, fmt.Errorf("cannot obtain daemonsets list from 1st cluster: %w", err)
 		}
 		daemonSets2, err := clientSet2.AppsV1().DaemonSets(namespace).List(metav1.ListOptions{})
 		if err != nil {
-			panic(err.Error())
+			return isClustersDiffer, fmt.Errorf("cannot obtain daemonsets list from 2nd cluster: %w", err)
 		}
+
 		mapDaemonSets1, mapDaemonSets2 := AddValueDaemonSetsMap(daemonSets1, daemonSets2)
 		if SetInformationAboutDaemonSets(mapDaemonSets1, mapDaemonSets2, daemonSets1, daemonSets2, namespace) {
-			flag = true
+			isClustersDiffer = true
 		}
 
 		configMaps1, err := clientSet1.CoreV1().ConfigMaps(namespace).List(metav1.ListOptions{})
 		if err != nil {
-			panic(err.Error())
+			return isClustersDiffer, fmt.Errorf("cannot obtain configmaps list from 1st cluster: %w", err)
 		}
+
 		configMaps2, err := clientSet2.CoreV1().ConfigMaps(namespace).List(metav1.ListOptions{})
 		if err != nil {
-			panic(err.Error())
+			return isClustersDiffer, fmt.Errorf("cannot obtain configmaps list from 2nd cluster: %w", err)
 		}
+
 		mapConfigMaps1, mapConfigMaps2 := AddValueConfigMapsInMap(configMaps1, configMaps2)
 		if SetInformationAboutConfigMaps(mapConfigMaps1, mapConfigMaps2, configMaps1, configMaps2) {
-			flag = true
+			isClustersDiffer = true
 		}
 
 		secrets1, err := clientSet1.CoreV1().Secrets(namespace).List(metav1.ListOptions{})
 		if err != nil {
-			panic(err.Error())
+			return isClustersDiffer, fmt.Errorf("cannot obtain secrets list from 1st cluster: %w", err)
 		}
+
 		secrets2, err := clientSet2.CoreV1().Secrets(namespace).List(metav1.ListOptions{})
 		if err != nil {
-			panic(err.Error())
+			return isClustersDiffer, fmt.Errorf("cannot obtain secrets list from 2nd cluster: %w", err)
 		}
+
 		mapSecrets1, mapSecrets2 := AddValueSecretsInMap(secrets1, secrets2)
 		if SetInformationAboutSecrets(mapSecrets1, mapSecrets2, secrets1, secrets2) {
-			flag = true
+			isClustersDiffer = true
 		}
 	}
-	return flag
+	return isClustersDiffer, nil
 }
 
 func CompareContainers(deploymentSpec1 InformationAboutObject, deploymentSpec2 InformationAboutObject, namespace string, clientSet1 kubernetes.Interface, clientSet2 kubernetes.Interface) error {
@@ -131,7 +141,7 @@ func CompareContainers(deploymentSpec1 InformationAboutObject, deploymentSpec2 I
 						if containersStatusesInPod1[f].name == value.name {
 							containerWithSameNameFound = true
 							if containersStatusesInPod1[f].image != value.image {
-								return fmt.Errorf("%w. \nPods name: '%s'. Image name on pod1: '%s'. Image name on pod2: '%s'.",ErrorDifferentImageInPods, value.name, containersStatusesInPod1[j].image, value.image)
+								return fmt.Errorf("%w. \nPods name: '%s'. Image name on pod1: '%s'. Image name on pod2: '%s'.", ErrorDifferentImageInPods, value.name, containersStatusesInPod1[j].image, value.image)
 							}
 							if containersStatusesInPod1[f].imageID != value.imageID {
 								return fmt.Errorf("%w. Pods name: '%s'. ImageID on pod1: '%s'. ImageID on pod2: '%s'.", ErrorDifferentImageIdInPods, value.name, containersStatusesInPod1[j].imageID, value.imageID)
@@ -185,7 +195,7 @@ func ConvertMatchLabelsToString(matchLabels map[string]string) string {
 	}
 	sort.Strings(keys)
 	values := []string{}
-	for i:=0; i<len(keys); i++ {
+	for i := 0; i < len(keys); i++ {
 		values = append(values, fmt.Sprintf("%s=%s", keys[i], matchLabels[keys[i]]))
 	}
 	//for key, value := range matchLabels {
@@ -202,8 +212,8 @@ func CompareEnvInContainers(env1 []v12.EnvVar, env2 []v12.EnvVar, namespace stri
 	for i := 0; i < len(env1); i++ {
 		if env1[i].ValueFrom != nil && env2[i].ValueFrom != nil {
 			if env1[i].ValueFrom.ConfigMapKeyRef != nil && env2[i].ValueFrom.ConfigMapKeyRef != nil {
-				if env1[i].ValueFrom.ConfigMapKeyRef.Key != env2[i].ValueFrom.ConfigMapKeyRef.Key || env1[i].ValueFrom.ConfigMapKeyRef.Name != env2[i].ValueFrom.ConfigMapKeyRef.Name{
-					return fmt.Errorf("%w. Different ValueFrom: ValueFrom ConfigMapKeyRef in container 1 - %s:%s. ValueFrom ConfigMapKeyRef in container 2 - %s:%s", ErrorEnvironmentNotEqual, env1[i].ValueFrom.ConfigMapKeyRef.Name, env1[i].ValueFrom.ConfigMapKeyRef.Key , env2[i].ValueFrom.ConfigMapKeyRef.Name, env2[i].ValueFrom.ConfigMapKeyRef.Key)
+				if env1[i].ValueFrom.ConfigMapKeyRef.Key != env2[i].ValueFrom.ConfigMapKeyRef.Key || env1[i].ValueFrom.ConfigMapKeyRef.Name != env2[i].ValueFrom.ConfigMapKeyRef.Name {
+					return fmt.Errorf("%w. Different ValueFrom: ValueFrom ConfigMapKeyRef in container 1 - %s:%s. ValueFrom ConfigMapKeyRef in container 2 - %s:%s", ErrorEnvironmentNotEqual, env1[i].ValueFrom.ConfigMapKeyRef.Name, env1[i].ValueFrom.ConfigMapKeyRef.Key, env2[i].ValueFrom.ConfigMapKeyRef.Name, env2[i].ValueFrom.ConfigMapKeyRef.Key)
 				}
 				//ЛОГИКА ПРОВЕРКИ НА КОНФИГМАП КЕЙ
 				configMap1, err := clientSet1.CoreV1().ConfigMaps(namespace).Get(env1[i].ValueFrom.ConfigMapKeyRef.Name, metav1.GetOptions{})
@@ -218,8 +228,8 @@ func CompareEnvInContainers(env1 []v12.EnvVar, env2 []v12.EnvVar, namespace stri
 					return fmt.Errorf("%w. Environment in container 1: ConfigMapKeyRef.Key = %s, value = %s. Environment in container 2: ConfigMapKeyRef.Key = %s, value = %s", ErrorDifferentValueConfigMapKey, env1[i].ValueFrom.ConfigMapKeyRef.Key, configMap1.Data[env1[i].ValueFrom.ConfigMapKeyRef.Key], env2[i].ValueFrom.ConfigMapKeyRef.Key, configMap2.Data[env2[i].ValueFrom.ConfigMapKeyRef.Key])
 				}
 			} else if env1[i].ValueFrom.SecretKeyRef != nil && env2[i].ValueFrom.SecretKeyRef != nil {
-				if env1[i].ValueFrom.SecretKeyRef.Key != env2[i].ValueFrom.SecretKeyRef.Key || env1[i].ValueFrom.SecretKeyRef.Name != env2[i].ValueFrom.SecretKeyRef.Name{
-					return fmt.Errorf("%w. Different ValueFrom: ValueFrom SecretKeyRef in container 1 - %s:%s. ValueFrom SecretKeyRef in container 2 - %s:%s", ErrorEnvironmentNotEqual, env1[i].ValueFrom.SecretKeyRef.Name, env1[i].ValueFrom.SecretKeyRef.Key , env2[i].ValueFrom.SecretKeyRef.Name, env2[i].ValueFrom.SecretKeyRef.Key)
+				if env1[i].ValueFrom.SecretKeyRef.Key != env2[i].ValueFrom.SecretKeyRef.Key || env1[i].ValueFrom.SecretKeyRef.Name != env2[i].ValueFrom.SecretKeyRef.Name {
+					return fmt.Errorf("%w. Different ValueFrom: ValueFrom SecretKeyRef in container 1 - %s:%s. ValueFrom SecretKeyRef in container 2 - %s:%s", ErrorEnvironmentNotEqual, env1[i].ValueFrom.SecretKeyRef.Name, env1[i].ValueFrom.SecretKeyRef.Key, env2[i].ValueFrom.SecretKeyRef.Name, env2[i].ValueFrom.SecretKeyRef.Key)
 				}
 				//ЛОГИКА ПРОВЕРКИ НА СЕКРЕТ КЕЙ
 				secret1, err := clientSet1.CoreV1().Secrets(namespace).Get(env1[i].ValueFrom.SecretKeyRef.Name, metav1.GetOptions{})
@@ -231,15 +241,15 @@ func CompareEnvInContainers(env1 []v12.EnvVar, env2 []v12.EnvVar, namespace stri
 					panic(err.Error())
 				}
 				if string(secret1.Data[env1[i].ValueFrom.SecretKeyRef.Key]) != string(secret2.Data[env2[i].ValueFrom.SecretKeyRef.Key]) {
-					return fmt.Errorf("%w. Environment in container 1: SecretKeyRef.Key = %s, value = %s. Environment in container 2: SecretKeyRef.Key = %s, value = %s", ErrorDifferentValueSecretKey,env1[i].ValueFrom.SecretKeyRef.Key, string(secret1.Data[env1[i].ValueFrom.SecretKeyRef.Key]), env2[i].ValueFrom.SecretKeyRef.Key, string(secret2.Data[env2[i].ValueFrom.SecretKeyRef.Key]))
+					return fmt.Errorf("%w. Environment in container 1: SecretKeyRef.Key = %s, value = %s. Environment in container 2: SecretKeyRef.Key = %s, value = %s", ErrorDifferentValueSecretKey, env1[i].ValueFrom.SecretKeyRef.Key, string(secret1.Data[env1[i].ValueFrom.SecretKeyRef.Key]), env2[i].ValueFrom.SecretKeyRef.Key, string(secret2.Data[env2[i].ValueFrom.SecretKeyRef.Key]))
 				}
 			}
 
 		} else if env1[i].ValueFrom != nil || env2[i].ValueFrom != nil {
-			return fmt.Errorf("%w. Different ValueFrom: ValueFrom in container 1 - %s. ValueFrom in container 2 - %s",ErrorEnvironmentNotEqual, env1[i].ValueFrom, env2[i].ValueFrom)
+			return fmt.Errorf("%w. Different ValueFrom: ValueFrom in container 1 - %s. ValueFrom in container 2 - %s", ErrorEnvironmentNotEqual, env1[i].ValueFrom, env2[i].ValueFrom)
 		}
 		if env1[i].Name != env2[i].Name || env1[i].Value != env2[i].Value {
-			return fmt.Errorf("%w. Environment in container 1: name - '%s', value - '%s'. Environment in container 2: name - '%s', value - '%s'", ErrorEnvironmentNotEqual, env1[i].Name, env1[i].Value, env2[i].Name, env2[i].Value )
+			return fmt.Errorf("%w. Environment in container 1: name - '%s', value - '%s'. Environment in container 2: name - '%s', value - '%s'", ErrorEnvironmentNotEqual, env1[i].Name, env1[i].Value, env2[i].Name, env2[i].Value)
 		}
 
 	}
