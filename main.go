@@ -72,8 +72,8 @@ func main() {
 	client2 = GetClientSet(kubeconfig2)
 
 	//распарсинг yaml файлов в глобальные переменные, чтобы в будущем получить из них URL
-	YamlToStruct("kubeconfig1.yaml", &kubeconfig1YamlStruct)
-	YamlToStruct("kubeconfig2.yaml", &kubeconfig2YamlStruct)
+	YamlToStruct(*kubeconfig1, &kubeconfig1YamlStruct)
+	YamlToStruct(*kubeconfig2, &kubeconfig2YamlStruct)
 
 	Compare(client1, client2, /*"default"*/ variableForNamespaces)
 }
