@@ -10,12 +10,21 @@ func AddValueSecretsInMap(secrets1 *v12.SecretList, secrets2 *v12.SecretList) (m
 	var indexCheck CheckerFlag
 
 	for index, value := range secrets1.Items {
-		indexCheck.index = index
-		mapSecrets1[value.Name] = indexCheck
+		if checkContinueTypes(value.Type) {
+			continue
+		} else {
+			indexCheck.index = index
+			mapSecrets1[value.Name] = indexCheck
+		}
+
 	}
 	for index, value := range secrets2.Items {
-		indexCheck.index = index
-		mapSecrets2[value.Name] = indexCheck
+		if checkContinueTypes(value.Type) {
+			continue
+		} else {
+			indexCheck.index = index
+			mapSecrets2[value.Name] = indexCheck
+		}
 	}
 	return mapSecrets1, mapSecrets2
 }
@@ -33,43 +42,37 @@ func SetInformationAboutSecrets(map1 map[string]CheckerFlag, map2 map[string]Che
 			index2.check = true
 			map2[name] = index2
 			//проверка на тип секрета, который проверять не нужно
-			if checkContinueTypes(secrets1.Items[index1.index].Type) == true {
-				continue
-			} else {
-				log.Debugf("----- Start checking secret: '%s' -----", name)
-				if len(secrets1.Items[index1.index].Data) != len(secrets2.Items[index2.index].Data) {
-					log.Infof("secret '%s' in 1st cluster has '%d' keys but the 2nd - '%d'", name, len(secrets1.Items[index1.index].Data), len(secrets2.Items[index2.index].Data))
-					flag = true
-				} else {
-					for key, value := range secrets1.Items[index1.index].Data {
-						v1 := string(value)
-						v2 := string(secrets2.Items[index2.index].Data[key])
 
-						if v1 != v2 {
-							log.Infof("secret '%s', values by key '%s' do not match: '%s' and %s", name, key, v1, v2)
-							flag = true
-						}
+			log.Debugf("----- Start checking secret: '%s' -----", name)
+			if len(secrets1.Items[index1.index].Data) != len(secrets2.Items[index2.index].Data) {
+				log.Infof("secret '%s' in 1st cluster has '%d' keys but the 2nd - '%d'", name, len(secrets1.Items[index1.index].Data), len(secrets2.Items[index2.index].Data))
+				flag = true
+			} else {
+				for key, value := range secrets1.Items[index1.index].Data {
+					v1 := string(value)
+					v2 := string(secrets2.Items[index2.index].Data[key])
+
+					if v1 != v2 {
+						log.Infof("secret '%s', values by key '%s' do not match: '%s' and %s", name, key, v1, v2)
+						flag = true
 					}
 				}
 			}
+
 			log.Debugf("----- End checking secret: '%s' -----", name)
 		} else {
-			if checkContinueTypes(secrets1.Items[index1.index].Type) == true {
-				continue
-			} else {
-				log.Infof("secret '%s' does not exist in 2nd cluster", name)
-				flag = true
-			}
+
+			log.Infof("secret '%s' does not exist in 2nd cluster", name)
+			flag = true
+
 		}
 	}
 	for name, index := range map2 {
 		if index.check == false {
-			if checkContinueTypes(secrets2.Items[index.index].Type) == true { //secrets2.Items[index.index].Type == skipType1 || secrets2.Items[index.index].Type == skipType2 || secrets2.Items[index.index].Type == skipType3
-				continue
-			} else {
-				log.Infof("secret '%s' does not exist in 1st cluster", name)
-				flag = true
-			}
+
+			log.Infof("secret '%s' does not exist in 1st cluster", name)
+			flag = true
+
 		}
 	}
 	return flag
