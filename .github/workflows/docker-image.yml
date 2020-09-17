@@ -15,10 +15,10 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag comparescript
+      run: docker build . --file Dockerfile --tag sanekkurt/comparescript:latest
 
     - name: Login in DockerHub
       run: docker login -u ${{secrets.USER_NAME_DOCKERHUB}} -p ${{secrets.USER_PASSWORD_DOCKERHUB}}
 
     - name: Push Docker image on DockerHub
-      run: docker push comparescript:$(date +%s)
+      run: docker push sanekkurt/comparescript:latest
