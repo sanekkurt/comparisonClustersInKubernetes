@@ -7,88 +7,169 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"sort"
 	"strings"
+	"sync"
 )
 
 //основная сравнивающая функция, поочередно запускает функции для сравнения кластеров по разным параметрам: Deployments, StatefulSets, DaemonSets, ConfigMaps
 func Compare(clientSet1 kubernetes.Interface, clientSet2 kubernetes.Interface, namespaces []string) (bool, error) {
-	var isClustersDiffer bool
+	type ResStr struct {
+		IsClusterDiffer bool
+		Err             error
+	}
+
+	var (
+		wg = &sync.WaitGroup{}
+
+		resCh = make(chan ResStr, len(namespaces))
+	)
 
 	for _, namespace := range namespaces {
-		depl1, err := clientSet1.AppsV1().Deployments(namespace).List(metav1.ListOptions{})
-		if err != nil {
-			return isClustersDiffer, fmt.Errorf("cannot obtain deployments list from 1st cluster: %w", err)
-		}
+		wg.Add(1)
 
-		depl2, err := clientSet2.AppsV1().Deployments(namespace).List(metav1.ListOptions{})
-		if err != nil {
-			return isClustersDiffer, fmt.Errorf("cannot obtain deployments list from 2nd cluster: %w", err)
-		}
+		go func(wg *sync.WaitGroup, resCh chan ResStr, namespace string) {
+			var (
+				isClustersDiffer bool
+			)
 
-		mapDeployments1, mapDeployments2 := AddValueDeploymentsInMap(depl1, depl2)
-		if SetInformationAboutDeployments(mapDeployments1, mapDeployments2, depl1, depl2, namespace) {
-			isClustersDiffer = true
-		}
+			defer func() {
+				wg.Done()
+			}()
 
-		statefulSet1, err := clientSet1.AppsV1().StatefulSets(namespace).List(metav1.ListOptions{})
-		if err != nil {
-			return isClustersDiffer, fmt.Errorf("cannot obtain statefulsets list from 1st cluster: %w", err)
-		}
+			depl1, err := clientSet1.AppsV1().Deployments(namespace).List(metav1.ListOptions{})
+			if err != nil {
+				resCh <- ResStr{
+					IsClusterDiffer: false,
+					Err:             fmt.Errorf("cannot obtain deployments list from 1st cluster: %w", err),
+				}
+				return
+			}
 
-		statefulSet2, err := clientSet2.AppsV1().StatefulSets(namespace).List(metav1.ListOptions{})
-		if err != nil {
-			return isClustersDiffer, fmt.Errorf("cannot obtain statefulsets list from 2nd cluster: %w", err)
-		}
+			depl2, err := clientSet2.AppsV1().Deployments(namespace).List(metav1.ListOptions{})
+			if err != nil {
+				resCh <- ResStr{
+					IsClusterDiffer: false,
+					Err:             fmt.Errorf("cannot obtain deployments list from 2nd cluster: %w", err),
+				}
+				return
+			}
 
-		mapStatefulSets1, mapStatefulSets2 := AddValueStatefulSetsInMap(statefulSet1, statefulSet2)
-		if SetInformationAboutStatefulSets(mapStatefulSets1, mapStatefulSets2, statefulSet1, statefulSet2, namespace) {
-			isClustersDiffer = true
-		}
+			mapDeployments1, mapDeployments2 := AddValueDeploymentsInMap(depl1, depl2)
+			if SetInformationAboutDeployments(mapDeployments1, mapDeployments2, depl1, depl2, namespace) {
+				isClustersDiffer = true
+			}
 
-		daemonSets1, err := clientSet1.AppsV1().DaemonSets(namespace).List(metav1.ListOptions{})
-		if err != nil {
-			return isClustersDiffer, fmt.Errorf("cannot obtain daemonsets list from 1st cluster: %w", err)
-		}
-		daemonSets2, err := clientSet2.AppsV1().DaemonSets(namespace).List(metav1.ListOptions{})
-		if err != nil {
-			return isClustersDiffer, fmt.Errorf("cannot obtain daemonsets list from 2nd cluster: %w", err)
-		}
+			statefulSet1, err := clientSet1.AppsV1().StatefulSets(namespace).List(metav1.ListOptions{})
+			if err != nil {
+				resCh <- ResStr{
+					IsClusterDiffer: false,
+					Err:             fmt.Errorf("cannot obtain statefulsets list from 1st cluster: %w", err),
+				}
+				return
+			}
 
-		mapDaemonSets1, mapDaemonSets2 := AddValueDaemonSetsMap(daemonSets1, daemonSets2)
-		if SetInformationAboutDaemonSets(mapDaemonSets1, mapDaemonSets2, daemonSets1, daemonSets2, namespace) {
-			isClustersDiffer = true
-		}
+			statefulSet2, err := clientSet2.AppsV1().StatefulSets(namespace).List(metav1.ListOptions{})
+			if err != nil {
+				resCh <- ResStr{
+					IsClusterDiffer: false,
+					Err:             fmt.Errorf("cannot obtain statefulsets list from 2nd cluster: %w", err),
+				}
+				return
+			}
 
-		configMaps1, err := clientSet1.CoreV1().ConfigMaps(namespace).List(metav1.ListOptions{})
-		if err != nil {
-			return isClustersDiffer, fmt.Errorf("cannot obtain configmaps list from 1st cluster: %w", err)
-		}
+			mapStatefulSets1, mapStatefulSets2 := AddValueStatefulSetsInMap(statefulSet1, statefulSet2)
+			if SetInformationAboutStatefulSets(mapStatefulSets1, mapStatefulSets2, statefulSet1, statefulSet2, namespace) {
+				isClustersDiffer = true
+			}
 
-		configMaps2, err := clientSet2.CoreV1().ConfigMaps(namespace).List(metav1.ListOptions{})
-		if err != nil {
-			return isClustersDiffer, fmt.Errorf("cannot obtain configmaps list from 2nd cluster: %w", err)
-		}
+			daemonSets1, err := clientSet1.AppsV1().DaemonSets(namespace).List(metav1.ListOptions{})
+			if err != nil {
+				resCh <- ResStr{
+					IsClusterDiffer: false,
+					Err:             fmt.Errorf("cannot obtain daemonsets list from 1st cluster: %w", err),
+				}
+				return
+			}
+			daemonSets2, err := clientSet2.AppsV1().DaemonSets(namespace).List(metav1.ListOptions{})
+			if err != nil {
+				resCh <- ResStr{
+					IsClusterDiffer: false,
+					Err:             fmt.Errorf("cannot obtain daemonsets list from 2nd cluster: %w", err),
+				}
+				return
+			}
 
-		mapConfigMaps1, mapConfigMaps2 := AddValueConfigMapsInMap(configMaps1, configMaps2)
-		if SetInformationAboutConfigMaps(mapConfigMaps1, mapConfigMaps2, configMaps1, configMaps2) {
-			isClustersDiffer = true
-		}
+			mapDaemonSets1, mapDaemonSets2 := AddValueDaemonSetsMap(daemonSets1, daemonSets2)
+			if SetInformationAboutDaemonSets(mapDaemonSets1, mapDaemonSets2, daemonSets1, daemonSets2, namespace) {
+				isClustersDiffer = true
+			}
 
-		secrets1, err := clientSet1.CoreV1().Secrets(namespace).List(metav1.ListOptions{})
-		if err != nil {
-			return isClustersDiffer, fmt.Errorf("cannot obtain secrets list from 1st cluster: %w", err)
-		}
+			configMaps1, err := clientSet1.CoreV1().ConfigMaps(namespace).List(metav1.ListOptions{})
+			if err != nil {
+				resCh <- ResStr{
+					IsClusterDiffer: false,
+					Err:             fmt.Errorf("cannot obtain configmaps list from 1st cluster: %w", err),
+				}
+				return
+			}
 
-		secrets2, err := clientSet2.CoreV1().Secrets(namespace).List(metav1.ListOptions{})
-		if err != nil {
-			return isClustersDiffer, fmt.Errorf("cannot obtain secrets list from 2nd cluster: %w", err)
-		}
+			configMaps2, err := clientSet2.CoreV1().ConfigMaps(namespace).List(metav1.ListOptions{})
+			if err != nil {
+				resCh <- ResStr{
+					IsClusterDiffer: false,
+					Err:             fmt.Errorf("cannot obtain configmaps list from 2nd cluster: %w", err),
+				}
+				return
+			}
 
-		mapSecrets1, mapSecrets2 := AddValueSecretsInMap(secrets1, secrets2)
-		if SetInformationAboutSecrets(mapSecrets1, mapSecrets2, secrets1, secrets2) {
-			isClustersDiffer = true
+			mapConfigMaps1, mapConfigMaps2 := AddValueConfigMapsInMap(configMaps1, configMaps2)
+			if SetInformationAboutConfigMaps(mapConfigMaps1, mapConfigMaps2, configMaps1, configMaps2) {
+				isClustersDiffer = true
+			}
+
+			secrets1, err := clientSet1.CoreV1().Secrets(namespace).List(metav1.ListOptions{})
+			if err != nil {
+				resCh <- ResStr{
+					IsClusterDiffer: false,
+					Err:             fmt.Errorf("cannot obtain secrets list from 1st cluster: %w", err),
+				}
+				return
+			}
+
+			secrets2, err := clientSet2.CoreV1().Secrets(namespace).List(metav1.ListOptions{})
+			if err != nil {
+				resCh <- ResStr{
+					IsClusterDiffer: false,
+					Err:             fmt.Errorf("cannot obtain secrets list from 2nd cluster: %w", err),
+				}
+				return
+			}
+
+			mapSecrets1, mapSecrets2 := AddValueSecretsInMap(secrets1, secrets2)
+			if SetInformationAboutSecrets(mapSecrets1, mapSecrets2, secrets1, secrets2) {
+				isClustersDiffer = true
+			}
+
+			resCh <- ResStr{
+				IsClusterDiffer: isClustersDiffer,
+				Err:             nil,
+			}
+		}(wg, resCh, namespace)
+	}
+
+	wg.Wait()
+
+	close(resCh)
+
+	for res := range resCh {
+		if res.Err != nil {
+			return false, res.Err
+		}
+		if res.IsClusterDiffer {
+			return res.IsClusterDiffer, nil
 		}
 	}
-	return isClustersDiffer, nil
+
+	return false, nil
 }
 
 func CompareContainers(deploymentSpec1 InformationAboutObject, deploymentSpec2 InformationAboutObject, namespace string, clientSet1 kubernetes.Interface, clientSet2 kubernetes.Interface) error {
