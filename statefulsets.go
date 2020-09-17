@@ -20,10 +20,10 @@ func AddValueStatefulSetsInMap(stateFulSets1 *v1.StatefulSetList, stateFulSets2 
 	return mapStatefulSets1, mapStatefulSets2
 }
 
-func SetInformationAboutStatefulSets(map1 map[string]CheckerFlag, map2 map[string]CheckerFlag, statefulSets1 *v1.StatefulSetList, statefulSets2 *v1.StatefulSetList, namespace string) bool{
+func SetInformationAboutStatefulSets(map1 map[string]CheckerFlag, map2 map[string]CheckerFlag, statefulSets1 *v1.StatefulSetList, statefulSets2 *v1.StatefulSetList, namespace string) bool {
 	var flag bool
 	if len(map1) != len(map2) {
-		log.Infof("!!!The statefulsets count are different!!!")
+		log.Infof("StatefulSets count are different")
 		flag = true
 	}
 	for name, index1 := range map1 {
@@ -34,7 +34,7 @@ func SetInformationAboutStatefulSets(map1 map[string]CheckerFlag, map2 map[strin
 			map2[name] = index2
 			log.Debugf("----- Start checking statefulset: '%s' -----", name)
 			if *statefulSets1.Items[index1.index].Spec.Replicas != *statefulSets2.Items[index2.index].Spec.Replicas {
-				log.Infof("!!!The replicas count are different!!! %s '%s' replicas: %d %s '%s' replicas: %d", kubeconfig1YamlStruct.Clusters[0].Cluster.Server, statefulSets1.Items[index1.index].Name, *statefulSets1.Items[index1.index].Spec.Replicas, kubeconfig2YamlStruct.Clusters[0].Cluster.Server, statefulSets2.Items[index2.index].Name, *statefulSets2.Items[index2.index].Spec.Replicas)
+				log.Infof("statefulset '%'':  number of replicas is different: %d and %d", statefulSets1.Items[index1.index].Name, *statefulSets1.Items[index1.index].Spec.Replicas, *statefulSets2.Items[index2.index].Spec.Replicas)
 				flag = true
 			} else {
 				//заполняем информацию, которая будет использоваться при сравнении
@@ -49,20 +49,20 @@ func SetInformationAboutStatefulSets(map1 map[string]CheckerFlag, map2 map[strin
 
 				err := CompareContainers(object1, object2, namespace, client1, client2)
 				if err != nil {
-					log.Infof("StatefulSet %s: %w", name, err)
+					log.Infof("StatefulSet %s: %s", name, err.Error())
 					flag = true
 				}
 
 			}
 			log.Debugf("----- End checking statefulset: '%s' -----", name)
 		} else {
-			log.Infof("StatefulSet '%s' - 1 cluster. Does not exist on another cluster", name)
+			log.Infof("StatefulSet '%s' does not exist in 2nd cluster", name)
 			flag = true
 		}
 	}
 	for name, index := range map2 {
 		if index.check == false {
-			log.Infof("StatefulSet '%s' - 2 cluster. Does not exist on another cluster", name)
+			log.Infof("StatefulSet '%s' does not exist in 1st cluster", name)
 			flag = true
 		}
 	}

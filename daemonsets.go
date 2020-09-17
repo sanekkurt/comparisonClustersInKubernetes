@@ -23,7 +23,7 @@ func AddValueDaemonSetsMap(daemonSets1 *v1.DaemonSetList, daemonSets2 *v1.Daemon
 func SetInformationAboutDaemonSets(map1 map[string]CheckerFlag, map2 map[string]CheckerFlag, daemonSets1 *v1.DaemonSetList, daemonSets2 *v1.DaemonSetList, namespace string) bool {
 	var flag bool
 	if len(map1) != len(map2) {
-		log.Infof("!!!The daemonsets count are different!!!")
+		log.Infof("DaemonSet count are different")
 		flag = true
 	}
 	for name, index1 := range map1 {
@@ -45,18 +45,18 @@ func SetInformationAboutDaemonSets(map1 map[string]CheckerFlag, map2 map[string]
 			}
 			err := CompareContainers(object1, object2, namespace, client1, client2)
 			if err != nil {
-				log.Infof("Daemonset %s: %w", name, err)
+				log.Infof("DaemonSet %s: %s", name, err.Error())
 				flag = true
 			}
 			log.Debugf("----- End checking daemonset: '%s' -----", name)
 		} else {
-			log.Infof("DaemonSet '%s' - 1 cluster. Does not exist on another cluster", name)
+			log.Infof("DaemonSet '%s' does not exist in 2nd cluster", name)
 			flag = true
 		}
 	}
 	for name, index := range map2 {
 		if index.check == false {
-			log.Infof("DaemonSet '%s' - 2 cluster. Does not exist on another cluster", name)
+			log.Infof("DaemonSet '%s' does not exist in 1s cluster", name)
 			flag = true
 		}
 	}

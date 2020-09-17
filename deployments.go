@@ -23,7 +23,7 @@ func AddValueDeploymentsInMap(deployments1 *v1.DeploymentList, deployments2 *v1.
 func SetInformationAboutDeployments(map1 map[string]CheckerFlag, map2 map[string]CheckerFlag, deployments1 *v1.DeploymentList, deployments2 *v1.DeploymentList, namespace string) bool {
 	var flag bool
 	if len(map1) != len(map2) {
-		log.Infof("!!!The deployments count are different!!!")
+		log.Infof("deployment counts are different")
 		flag = true
 	}
 	for name, index1 := range map1 {
@@ -36,7 +36,7 @@ func SetInformationAboutDeployments(map1 map[string]CheckerFlag, map2 map[string
 			log.Debugf("----- Start checking deployment: '%s' -----", name)
 			//fmt.Printf("----- Start checking deployment: '%s' -----\n", name)
 			if *deployments1.Items[index1.index].Spec.Replicas != *deployments2.Items[index2.index].Spec.Replicas {
-				log.Infof("!!!The replicas count are different!!! %s '%s' replicas: %d. %s '%s' replicas: %d.", kubeconfig1YamlStruct.Clusters[0].Cluster.Server, deployments1.Items[index1.index].Name, *deployments1.Items[index1.index].Spec.Replicas, kubeconfig2YamlStruct.Clusters[0].Cluster.Server, deployments2.Items[index2.index].Name, *deployments2.Items[index2.index].Spec.Replicas)
+				log.Infof("deployment '%'':  number of replicas is different: %d and %d", deployments1.Items[index1.index].Name, *deployments1.Items[index1.index].Spec.Replicas, *deployments2.Items[index2.index].Spec.Replicas)
 				flag = true
 			} else {
 				//заполняем информацию, которая будет использоваться при сравнении
@@ -50,7 +50,7 @@ func SetInformationAboutDeployments(map1 map[string]CheckerFlag, map2 map[string
 				}
 				err := CompareContainers(object1, object2, namespace, client1, client2)
 				if err != nil {
-					log.Infof("Deployment %s: %w", name, err)
+					log.Infof("Deployment %s: %s", name, err.Error())
 					flag = true
 				}
 			}

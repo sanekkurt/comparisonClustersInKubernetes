@@ -20,10 +20,10 @@ func AddValueSecretsInMap(secrets1 *v12.SecretList, secrets2 *v12.SecretList) (m
 	return mapSecrets1, mapSecrets2
 }
 
-func SetInformationAboutSecrets(map1 map[string]CheckerFlag, map2 map[string]CheckerFlag, secrets1 *v12.SecretList, secrets2 *v12.SecretList) bool{
+func SetInformationAboutSecrets(map1 map[string]CheckerFlag, map2 map[string]CheckerFlag, secrets1 *v12.SecretList, secrets2 *v12.SecretList) bool {
 	var flag bool
 	if len(map1) != len(map2) {
-		log.Infof("!!!The secrets count are different!!!")
+		log.Infof("secret counts are different")
 		flag = true
 	}
 	for name, index1 := range map1 {
@@ -38,12 +38,15 @@ func SetInformationAboutSecrets(map1 map[string]CheckerFlag, map2 map[string]Che
 			} else {
 				log.Debugf("----- Start checking secret: '%s' -----", name)
 				if len(secrets1.Items[index1.index].Data) != len(secrets2.Items[index2.index].Data) {
-					log.Infof("!!!Config map '%s' in 1 kluster have '%d' key value pair but 2 kluster have '%d' key value pair!!!", name, len(secrets1.Items[index1.index].Data), len(secrets2.Items[index2.index].Data))
+					log.Infof("secret '%s' in 1st cluster has '%d' keys but the 2nd - '%d'", name, len(secrets1.Items[index1.index].Data), len(secrets2.Items[index2.index].Data))
 					flag = true
 				} else {
 					for key, value := range secrets1.Items[index1.index].Data {
-						if string(value) != string(secrets2.Items[index2.index].Data[key]) {
-							log.Infof("!!!The key value pair does not match. In 1 kluster %s: %s. In 2 kluster %s: %s.!!!", key, string(value), key, string(secrets2.Items[index2.index].Data[key]))
+						v1 := string(value)
+						v2 := string(secrets2.Items[index2.index].Data[key])
+
+						if v1 != v2 {
+							log.Infof("secret '%s', values by key '%s' do not match: '%s' and %s", name, key, v1, v2)
 							flag = true
 						}
 					}
@@ -54,7 +57,7 @@ func SetInformationAboutSecrets(map1 map[string]CheckerFlag, map2 map[string]Che
 			if checkContinueTypes(secrets1.Items[index1.index].Type) == true {
 				continue
 			} else {
-				log.Infof("Secret '%s' - 1 cluster. Does not exist on another cluster", name)
+				log.Infof("secret '%s' does not exist in 2nd cluster", name)
 				flag = true
 			}
 		}
@@ -64,7 +67,7 @@ func SetInformationAboutSecrets(map1 map[string]CheckerFlag, map2 map[string]Che
 			if checkContinueTypes(secrets2.Items[index.index].Type) == true { //secrets2.Items[index.index].Type == skipType1 || secrets2.Items[index.index].Type == skipType2 || secrets2.Items[index.index].Type == skipType3
 				continue
 			} else {
-				log.Infof("Secret '%s' - 2 cluster. Does not exist on another cluster", name)
+				log.Infof("secret '%s' does not exist in 1st cluster", name)
 				flag = true
 			}
 		}
@@ -72,7 +75,7 @@ func SetInformationAboutSecrets(map1 map[string]CheckerFlag, map2 map[string]Che
 	return flag
 }
 
-func checkContinueTypes (secretType v12.SecretType) bool {
+func checkContinueTypes(secretType v12.SecretType) bool {
 	var skip bool
 	for _, skipType := range skipTypes {
 		if secretType == skipType {

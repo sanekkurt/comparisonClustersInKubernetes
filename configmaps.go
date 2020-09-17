@@ -20,10 +20,10 @@ func AddValueConfigMapsInMap(configMaps1 *v12.ConfigMapList, configMaps2 *v12.Co
 	return mapConfigMap1, mapConfigMap2
 }
 
-func SetInformationAboutConfigMaps(map1 map[string]CheckerFlag, map2 map[string]CheckerFlag, configMaps1 *v12.ConfigMapList, configMaps2 *v12.ConfigMapList) bool{
+func SetInformationAboutConfigMaps(map1 map[string]CheckerFlag, map2 map[string]CheckerFlag, configMaps1 *v12.ConfigMapList, configMaps2 *v12.ConfigMapList) bool {
 	var flag bool
 	if len(map1) != len(map2) {
-		log.Infof("!!!The configmaps count are different!!!")
+		log.Infof("configmaps count are different")
 		flag = true
 	}
 	for name, index1 := range map1 {
@@ -34,12 +34,12 @@ func SetInformationAboutConfigMaps(map1 map[string]CheckerFlag, map2 map[string]
 			map2[name] = index2
 			log.Debugf("----- Start checking configmap: '%s' -----", name)
 			if len(configMaps1.Items[index1.index].Data) != len(configMaps2.Items[index2.index].Data) {
-				log.Infof("!!!Config map '%s' in 1 cluster have '%d' key value pair but 2 kluster have '%d' key value pair!!!", name, len(configMaps1.Items[index1.index].Data), len(configMaps2.Items[index2.index].Data))
+				log.Infof("config map '%s' in 1st cluster has '%d' keys but the 2nd - '%d'", name, len(configMaps1.Items[index1.index].Data), len(configMaps2.Items[index2.index].Data))
 				flag = true
 			} else {
 				for key, value := range configMaps1.Items[index1.index].Data {
 					if configMaps2.Items[index2.index].Data[key] != value {
-						log.Infof("!!!The key value pair does not match. In 1 kluster %s: %s. In 2 kluster %s: %s.!!!", key, value, key, configMaps2.Items[index2.index].Data[key])
+						log.Infof("configmap '%s', values by key '%s' do not match: '%s' and %s", name, key, value, configMaps2.Items[index2.index].Data[key])
 						flag = true
 					}
 				}
