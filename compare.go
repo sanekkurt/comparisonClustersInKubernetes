@@ -6,6 +6,7 @@ import (
 	v12 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"sort"
 	"strings"
 )
 
@@ -79,8 +80,8 @@ func CompareContainers(deploymentSpec1 InformationAboutObject, deploymentSpec2 I
 		fmt.Printf("!!!The number templates of containers differs!!!\n")
 		return ErrorDiffersTemplatesNumber
 	}
-	matchLabelsString1 := ConvertMatchlabelsToString(deploymentSpec1.Selector.MatchLabels)
-	matchLabelsString2 := ConvertMatchlabelsToString(deploymentSpec2.Selector.MatchLabels)
+	matchLabelsString1 := ConvertMatchLabelsToString(deploymentSpec1.Selector.MatchLabels)
+	matchLabelsString2 := ConvertMatchLabelsToString(deploymentSpec2.Selector.MatchLabels)
 	if matchLabelsString1 != matchLabelsString2 {
 		fmt.Printf("!!!MatchLabels are not equal!!!\n")
 		return ErrorMatchlabelsNotEqual
@@ -165,7 +166,7 @@ func GetContainerStatusesInPod(containerStatuses []v12.ContainerStatus) map[int]
 
 //получает айдишник раскатанного образа на контейнерах
 func GetPodsListOnMatchLabels(matchLabels map[string]string, namespace string, clientSet1 kubernetes.Interface, clientSet2 kubernetes.Interface) (*v12.PodList, *v12.PodList) {
-	matchLabelsString := ConvertMatchlabelsToString(matchLabels)
+	matchLabelsString := ConvertMatchLabelsToString(matchLabels)
 	pods1, err := clientSet1.CoreV1().Pods(namespace).List(metav1.ListOptions{LabelSelector: matchLabelsString})
 	if err != nil {
 		panic(err.Error())
@@ -178,11 +179,19 @@ func GetPodsListOnMatchLabels(matchLabels map[string]string, namespace string, c
 	return pods1, pods2
 }
 
-func ConvertMatchlabelsToString(matchLabels map[string]string) string {
-	values := []string{}
-	for key, value := range matchLabels {
-		values = append(values, fmt.Sprintf("%s=%s", key, value))
+func ConvertMatchLabelsToString(matchLabels map[string]string) string {
+	keys := []string{}
+	for key, _ := range matchLabels {
+		keys = append(keys, key)
 	}
+	sort.Strings(keys)
+	values := []string{}
+	for i:=0; i<len(keys); i++ {
+		values = append(values, fmt.Sprintf("%s=%s", keys[i], matchLabels[keys[i]]))
+	}
+	//for key, value := range matchLabels {
+	//	values = append(values, fmt.Sprintf("%s=%s", key, value))
+	//}
 	//супермегафича склеивания строчек
 	return strings.Join(values, ",")
 }

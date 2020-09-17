@@ -14,7 +14,7 @@ import (
 
 var (
 	kubeconfig                      = flag.String("kubeconfig", "", "(optional) absolute path to the kubeconfig file")
-	variableForNamespaces		[]string
+	variableForNamespaces           []string
 	kubeconfig1YamlStruct           KubeconfigYaml
 	kubeconfig2YamlStruct           KubeconfigYaml
 	client1                         *kubernetes.Clientset
@@ -35,12 +35,13 @@ var (
 	ErrorEnvironmentNotEqual        error
 	skipType1                       v12.SecretType = "kubernetes.io/service-account-token"
 	skipType2                       v12.SecretType = "kubernetes.io/dockercfg"
+	skipType3                       v12.SecretType = "helm.sh/release.v1"
 )
 
 var Opts struct {
-	KubeConfig1    string `long:"kube-config1" env:"KUBECONFIG1" required:"true" description:"Path to Kubernetes client1 config file"`
-	KubeConfig2    string `long:"kube-config2" env:"KUBECONFIG2" required:"true" description:"Path to Kubernetes client2 config file"`
-	NameSpaces []string `long:"ns" env:"NAMESPACES" required:"true" description:"Configmaps massive"`
+	KubeConfig1 string   `long:"kube-config1" env:"KUBECONFIG1" required:"true" description:"Path to Kubernetes client1 config file"`
+	KubeConfig2 string   `long:"kube-config2" env:"KUBECONFIG2" required:"true" description:"Path to Kubernetes client2 config file"`
+	NameSpaces  []string `long:"ns" env:"NAMESPACES" required:"true" description:"Configmaps massive"`
 }
 
 func main() {

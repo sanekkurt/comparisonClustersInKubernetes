@@ -32,7 +32,7 @@ func SetInformationAboutSecrets(map1 map[string]CheckerFlag, map2 map[string]Che
 			index2.check = true
 			map2[name] = index2
 			//проверка на тип секрета, который проверять не нужно
-			if secrets1.Items[index1.index].Type == skipType1 || secrets1.Items[index1.index].Type == skipType2 {
+			if secrets1.Items[index1.index].Type == skipType1 || secrets1.Items[index1.index].Type == skipType2 || secrets1.Items[index1.index].Type == skipType3 {
 				continue
 			} else {
 				fmt.Printf("----- Start checking secret: '%s' -----\n", name)
