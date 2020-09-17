@@ -193,55 +193,62 @@ func CompareEnvInContainers(env1 []v12.EnvVar, env2 []v12.EnvVar, namespace stri
 		return ErrorNumberVariables
 	}
 	for i := 0; i < len(env1); i++ {
-		if *env1[i].ValueFrom == *env2[i].ValueFrom {
-			if env1[i].ValueFrom != nil {
-				if env1[i].ValueFrom.ConfigMapKeyRef != nil && env2[i].ValueFrom.ConfigMapKeyRef != nil {
-					//ЛОГИКА ПРОВЕРКИ НА КОНФИГМАП КЕЙ
-					configMap1, err := clientSet1.CoreV1().ConfigMaps(namespace).Get(env1[i].ValueFrom.ConfigMapKeyRef.Name, metav1.GetOptions{})
-					if err != nil {
-						panic(err.Error())
+		if env1[i].ValueFrom != nil && env2[i].ValueFrom != nil {
+			if *env1[i].ValueFrom == *env2[i].ValueFrom {
+					if env1[i].ValueFrom.ConfigMapKeyRef != nil && env2[i].ValueFrom.ConfigMapKeyRef != nil {
+						//ЛОГИКА ПРОВЕРКИ НА КОНФИГМАП КЕЙ
+						configMap1, err := clientSet1.CoreV1().ConfigMaps(namespace).Get(env1[i].ValueFrom.ConfigMapKeyRef.Name, metav1.GetOptions{})
+						if err != nil {
+							panic(err.Error())
+						}
+						configMap2, err := clientSet2.CoreV1().ConfigMaps(namespace).Get(env2[i].ValueFrom.ConfigMapKeyRef.Name, metav1.GetOptions{})
+						if err != nil {
+							panic(err.Error())
+						}
+						if configMap1.Data[env1[i].ValueFrom.ConfigMapKeyRef.Key] != configMap2.Data[env2[i].ValueFrom.ConfigMapKeyRef.Key] {
+							stringError := fmt.Sprintf("The value for the ConfigMapKey is different.\nEnvironment in container 1: ConfigMapKeyRef.Key = %s, value = %s\nEnvironment in container 2: ConfigMapKeyRef.Key = %s, value = %s\n", env1[i].ValueFrom.ConfigMapKeyRef.Key, configMap1.Data[env1[i].ValueFrom.ConfigMapKeyRef.Key], env2[i].ValueFrom.ConfigMapKeyRef.Key, configMap2.Data[env2[i].ValueFrom.ConfigMapKeyRef.Key])
+							fmt.Println(stringError)
+							ErrorDifferentValueConfigMapKey = errors.New(stringError)
+							return ErrorDifferentValueConfigMapKey
+						}
+					} else if env1[i].ValueFrom.SecretKeyRef != nil && env2[i].ValueFrom.SecretKeyRef != nil {
+						//ЛОГИКА ПРОВЕРКИ НА СЕКРЕТ КЕЙ
+						secret1, err := clientSet1.CoreV1().Secrets(namespace).Get(env1[i].ValueFrom.SecretKeyRef.Name, metav1.GetOptions{})
+						if err != nil {
+							panic(err.Error())
+						}
+						secret2, err := clientSet2.CoreV1().Secrets(namespace).Get(env2[i].ValueFrom.SecretKeyRef.Name, metav1.GetOptions{})
+						if err != nil {
+							panic(err.Error())
+						}
+						if string(secret1.Data[env1[i].ValueFrom.SecretKeyRef.Key]) != string(secret2.Data[env2[i].ValueFrom.SecretKeyRef.Key]) {
+							stringError := fmt.Sprintf("The value for the SecretKey is different.\nEnvironment in container 1: SecretKeyRef.Key = %s, value = %s\nEnvironment in container 2: SecretKeyRef.Key = %s, value = %s\n", env1[i].ValueFrom.SecretKeyRef.Key, string(secret1.Data[env1[i].ValueFrom.SecretKeyRef.Key]), env2[i].ValueFrom.SecretKeyRef.Key, string(secret2.Data[env2[i].ValueFrom.SecretKeyRef.Key]))
+							fmt.Println(stringError)
+							ErrorDifferentValueSecretKey = errors.New(stringError)
+							return ErrorDifferentValueSecretKey
+						}
 					}
-					configMap2, err := clientSet2.CoreV1().ConfigMaps(namespace).Get(env2[i].ValueFrom.ConfigMapKeyRef.Name, metav1.GetOptions{})
-					if err != nil {
-						panic(err.Error())
-					}
-					if configMap1.Data[env1[i].ValueFrom.ConfigMapKeyRef.Key] != configMap2.Data[env2[i].ValueFrom.ConfigMapKeyRef.Key] {
-						stringError := fmt.Sprintf("The value for the ConfigMapKey is different.\nEnvironment in container 1: ConfigMapKeyRef.Key = %s, value = %s\nEnvironment in container 2: ConfigMapKeyRef.Key = %s, value = %s\n", env1[i].ValueFrom.ConfigMapKeyRef.Key, configMap1.Data[env1[i].ValueFrom.ConfigMapKeyRef.Key], env2[i].ValueFrom.ConfigMapKeyRef.Key, configMap2.Data[env2[i].ValueFrom.ConfigMapKeyRef.Key])
-						fmt.Println(stringError)
-						ErrorDifferentValueConfigMapKey = errors.New(stringError)
-						return ErrorDifferentValueConfigMapKey
-					}
-				} else if env1[i].ValueFrom.SecretKeyRef != nil && env2[i].ValueFrom.SecretKeyRef != nil {
-					//ЛОГИКА ПРОВЕРКИ НА СЕКРЕТ КЕЙ
-					secret1, err := clientSet1.CoreV1().Secrets(namespace).Get(env1[i].ValueFrom.SecretKeyRef.Name, metav1.GetOptions{})
-					if err != nil {
-						panic(err.Error())
-					}
-					secret2, err := clientSet2.CoreV1().Secrets(namespace).Get(env2[i].ValueFrom.SecretKeyRef.Name, metav1.GetOptions{})
-					if err != nil {
-						panic(err.Error())
-					}
-					if string(secret1.Data[env1[i].ValueFrom.SecretKeyRef.Key]) != string(secret2.Data[env2[i].ValueFrom.SecretKeyRef.Key]) {
-						stringError := fmt.Sprintf("The value for the SecretKey is different.\nEnvironment in container 1: SecretKeyRef.Key = %s, value = %s\nEnvironment in container 2: SecretKeyRef.Key = %s, value = %s\n", env1[i].ValueFrom.SecretKeyRef.Key, string(secret1.Data[env1[i].ValueFrom.SecretKeyRef.Key]), env2[i].ValueFrom.SecretKeyRef.Key, string(secret2.Data[env2[i].ValueFrom.SecretKeyRef.Key]))
-						fmt.Println(stringError)
-						ErrorDifferentValueSecretKey = errors.New(stringError)
-						return ErrorDifferentValueSecretKey
-					}
-				}
+
 			} else {
-				if env1[i].Name != env2[i].Name || env1[i].Value != env2[i].Value {
-					stringError := fmt.Sprintf("Environment in container 1 not equal environment in container 2:\nEnvironment in container 1: name - '%s', value - '%s'\nEnvironment in container 2: name - '%s', value - '%s'\n", env1[i].Name, env1[i].Value, env2[i].Name, env2[i].Value)
-					fmt.Println(stringError)
-					ErrorEnvironmentNotEqual = errors.New(stringError)
-					return ErrorEnvironmentNotEqual
-				}
+				stringError := fmt.Sprintf("Environment in container 1 not equal environment in container 2. Different ValueFrom:\nValueFrom in container 1 - %s\nValueFrom in container 2 - %s\n", env1[i].ValueFrom, env2[i].ValueFrom)
+				fmt.Println(stringError)
+				ErrorEnvironmentNotEqual = errors.New(stringError)
+				return ErrorEnvironmentNotEqual
 			}
-		} else {
+		} else if env1[i].ValueFrom != nil || env2[i].ValueFrom != nil {
 			stringError := fmt.Sprintf("Environment in container 1 not equal environment in container 2. Different ValueFrom:\nValueFrom in container 1 - %s\nValueFrom in container 2 - %s\n", env1[i].ValueFrom, env2[i].ValueFrom)
 			fmt.Println(stringError)
 			ErrorEnvironmentNotEqual = errors.New(stringError)
 			return ErrorEnvironmentNotEqual
+		} else {
+			if env1[i].Name != env2[i].Name || env1[i].Value != env2[i].Value {
+				stringError := fmt.Sprintf("Environment in container 1 not equal environment in container 2:\nEnvironment in container 1: name - '%s', value - '%s'\nEnvironment in container 2: name - '%s', value - '%s'\n", env1[i].Name, env1[i].Value, env2[i].Name, env2[i].Value)
+				fmt.Println(stringError)
+				ErrorEnvironmentNotEqual = errors.New(stringError)
+				return ErrorEnvironmentNotEqual
+			}
 		}
+
 	}
 	return nil
 }
