@@ -21,4 +21,4 @@ jobs:
       run: docker login -u ${{secrets.USER_NAME_DOCKERHUB}} -p ${{secrets.USER_PASSWORD_DOCKERHUB}}
 
     - name: Push Docker image on DockerHub
-      run: docker push comparescript:$(date +%s)
+      run: docker push comparescript
