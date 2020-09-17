@@ -32,7 +32,7 @@ func SetInformationAboutSecrets(map1 map[string]CheckerFlag, map2 map[string]Che
 			index2.check = true
 			map2[name] = index2
 			//проверка на тип секрета, который проверять не нужно
-			if secrets1.Items[index1.index].Type == skipType1 || secrets1.Items[index1.index].Type == skipType2 || secrets1.Items[index1.index].Type == skipType3 {
+			if checkContinueTypes(secrets1.Items[index1.index].Type) == true {
 				continue
 			} else {
 				fmt.Printf("----- Start checking secret: '%s' -----\n", name)
@@ -48,7 +48,7 @@ func SetInformationAboutSecrets(map1 map[string]CheckerFlag, map2 map[string]Che
 			}
 			fmt.Printf("----- End checking secret: '%s' -----\n\n", name)
 		} else {
-			if secrets1.Items[index1.index].Type == skipType1 || secrets1.Items[index1.index].Type == skipType2 {
+			if checkContinueTypes(secrets1.Items[index1.index].Type) == true {
 				continue
 			} else {
 				fmt.Printf("Secret '%s' - 1 cluster. Does not exist on another cluster\n\n", name)
@@ -57,11 +57,21 @@ func SetInformationAboutSecrets(map1 map[string]CheckerFlag, map2 map[string]Che
 	}
 	for name, index := range map2 {
 		if index.check == false {
-			if secrets2.Items[index.index].Type == skipType1 || secrets2.Items[index.index].Type == skipType2 {
+			if checkContinueTypes(secrets2.Items[index.index].Type) == true { //secrets2.Items[index.index].Type == skipType1 || secrets2.Items[index.index].Type == skipType2 || secrets2.Items[index.index].Type == skipType3
 				continue
 			} else {
 				fmt.Printf("Secret '%s' - 2 cluster. Does not exist on another cluster\n\n", name)
 			}
 		}
 	}
+}
+
+func checkContinueTypes (secretType v12.SecretType) bool {
+	var skip bool
+	for _, skipType := range skipTypes {
+		if secretType == skipType {
+			skip = true
+		}
+	}
+	return skip
 }

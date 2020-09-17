@@ -36,6 +36,7 @@ var (
 	skipType1                       v12.SecretType = "kubernetes.io/service-account-token"
 	skipType2                       v12.SecretType = "kubernetes.io/dockercfg"
 	skipType3                       v12.SecretType = "helm.sh/release.v1"
+	skipTypes = []v12.SecretType{"kubernetes.io/service-account-token", "kubernetes.io/dockercfg", "helm.sh/release.v1"}
 )
 
 var Opts struct {
