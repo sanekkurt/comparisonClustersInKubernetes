@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	v12 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1138,9 +1139,9 @@ func TestCompareContainers(t *testing.T) {
 	objectInformation1.Template = deployments1.Items[0].Spec.Template
 	objectInformation2.Selector = deployments2.Items[0].Spec.Selector
 	objectInformation2.Template = deployments2.Items[0].Spec.Template
-	v := CompareContainers(objectInformation1, objectInformation2, "default", clusterClientSet1, clusterClientSet2)
-	if v != ErrorDiffersTemplatesNumber {
-		t.Error("Error expected: 'The number templates of containers differs'. But it was returned: ", v)
+	err := CompareContainers(objectInformation1, objectInformation2, "default", clusterClientSet1, clusterClientSet2)
+	if !errors.Is(err, ErrorDiffersTemplatesNumber) {
+		t.Error("Error expected: 'The number templates of containers differs'. But it was returned: ", err)
 	}
 
 	//Проверка на несовпадение MatchLabels
@@ -1148,9 +1149,9 @@ func TestCompareContainers(t *testing.T) {
 	deployments2, _ = clusterClientSet2.AppsV1().Deployments("default").List(metav1.ListOptions{})
 	objectInformation2.Selector = deployments2.Items[0].Spec.Selector
 	objectInformation2.Template = deployments2.Items[0].Spec.Template
-	v = CompareContainers(objectInformation1, objectInformation2, "default", clusterClientSet1, clusterClientSet2)
-	if v != ErrorMatchlabelsNotEqual {
-		t.Error("Error expected: 'MatchLabels are not equal'. But it was returned: ", v)
+	err = CompareContainers(objectInformation1, objectInformation2, "default", clusterClientSet1, clusterClientSet2)
+	if !errors.Is(err, ErrorMatchlabelsNotEqual) {
+		t.Error("Error expected: 'MatchLabels are not equal'. But it was returned: ", err)
 	}
 
 	//Проверка на несовпадение имен контейнеров в шаблоне
@@ -1161,9 +1162,9 @@ func TestCompareContainers(t *testing.T) {
 	objectInformation1.Template = deployments1.Items[0].Spec.Template
 	objectInformation2.Selector = deployments2.Items[0].Spec.Selector
 	objectInformation2.Template = deployments2.Items[0].Spec.Template
-	v = CompareContainers(objectInformation1, objectInformation2, "default", clusterClientSet1, clusterClientSet2)
-	if v != ErrorContainerNamesTemplate {
-		t.Error("Error expected: 'Container names in template are not equal'. But it was returned: ", v)
+	err = CompareContainers(objectInformation1, objectInformation2, "default", clusterClientSet1, clusterClientSet2)
+	if !errors.Is(err, ErrorContainerNamesTemplate) {
+		t.Error("Error expected: 'Container names in template are not equal'. But it was returned: ", err)
 	}
 
 	//Првоерка на несовпадение имен образов контейнеров в шаблоне
@@ -1174,9 +1175,10 @@ func TestCompareContainers(t *testing.T) {
 	objectInformation1.Template = deployments1.Items[0].Spec.Template
 	objectInformation2.Selector = deployments2.Items[0].Spec.Selector
 	objectInformation2.Template = deployments2.Items[0].Spec.Template
-	v = CompareContainers(objectInformation1, objectInformation2, "default", clusterClientSet1, clusterClientSet2)
-	if v != ErrorContainerImagesTemplate {
-		t.Error("Error expected: 'Container name images in template are not equal'. But it was returned: ", v)
+
+	err = CompareContainers(objectInformation1, objectInformation2, "default", clusterClientSet1, clusterClientSet2)
+	if !errors.Is(err, ErrorContainerImagesTemplate)  {
+		t.Error("Error expected: 'Container name images in template are not equal'. But it was returned: ", err)
 	}
 
 	//Проверка на разное количество Pod'ов
@@ -1187,9 +1189,9 @@ func TestCompareContainers(t *testing.T) {
 	objectInformation1.Template = deployments1.Items[0].Spec.Template
 	objectInformation2.Selector = deployments2.Items[0].Spec.Selector
 	objectInformation2.Template = deployments2.Items[0].Spec.Template
-	v = CompareContainers(objectInformation1, objectInformation2, "default", clusterClientSet1, clusterClientSet2)
-	if v != ErrorPodsCount {
-		t.Error("Error expected: 'The pods count are different'. But it was returned: ", v)
+	err = CompareContainers(objectInformation1, objectInformation2, "default", clusterClientSet1, clusterClientSet2)
+	if !errors.Is(err, ErrorPodsCount) {
+		t.Error("Error expected: 'The pods count are different'. But it was returned: ", err)
 	}
 
 	//Проверка на разное количество контейнеров в Pod'ах
@@ -1200,9 +1202,9 @@ func TestCompareContainers(t *testing.T) {
 	objectInformation1.Template = deployments1.Items[0].Spec.Template
 	objectInformation2.Selector = deployments2.Items[0].Spec.Selector
 	objectInformation2.Template = deployments2.Items[0].Spec.Template
-	v = CompareContainers(objectInformation1, objectInformation2, "default", clusterClientSet1, clusterClientSet2)
-	if v != ErrorContainersCountInPod {
-		t.Error("Error expected: 'The containers count in pod are different'. But it was returned: ", v)
+	err = CompareContainers(objectInformation1, objectInformation2, "default", clusterClientSet1, clusterClientSet2)
+	if !errors.Is(err, ErrorContainersCountInPod) {
+		t.Error("Error expected: 'The containers count in pod are different'. But it was returned: ", err)
 	}
 
 	//Проверка на отличающиеся имена образов в Pod'e и Template
@@ -1213,9 +1215,9 @@ func TestCompareContainers(t *testing.T) {
 	objectInformation1.Template = deployments1.Items[0].Spec.Template
 	objectInformation2.Selector = deployments2.Items[0].Spec.Selector
 	objectInformation2.Template = deployments2.Items[0].Spec.Template
-	v = CompareContainers(objectInformation1, objectInformation2, "default", clusterClientSet1, clusterClientSet2)
-	if v != ErrorContainerImageTemplatePod {
-		t.Error("Error expected: 'The container image in the template does not match the actual image in the Pod'. But it was returned: ", v)
+	err = CompareContainers(objectInformation1, objectInformation2, "default", clusterClientSet1, clusterClientSet2)
+	if !errors.Is(err, ErrorContainerImageTemplatePod) {
+		t.Error("Error expected: 'The container image in the template does not match the actual image in the Pod'. But it was returned: ", err)
 	}
 
 	//Проверка на разные ImageID в Pod'ах
@@ -1226,9 +1228,9 @@ func TestCompareContainers(t *testing.T) {
 	objectInformation1.Template = deployments1.Items[0].Spec.Template
 	objectInformation2.Selector = deployments2.Items[0].Spec.Selector
 	objectInformation2.Template = deployments2.Items[0].Spec.Template
-	v = CompareContainers(objectInformation1, objectInformation2, "default", clusterClientSet1, clusterClientSet2)
-	if v != ErrorDifferentImageIdInPods {
-		t.Error("Error expected: 'The ImageID in Pods is different'. But it was returned: ", v)
+	err = CompareContainers(objectInformation1, objectInformation2, "default", clusterClientSet1, clusterClientSet2)
+	if !errors.Is(errors.Unwrap(err), ErrorDifferentImageIdInPods) {
+		t.Error("Error expected: 'The ImageID in Pods is different'. But it was returned: ", err)
 	}
 
 	//Проверка на случай отсутсвия контейнера в другом Pod'е не нужна она и так в стоке работает, на нее реагирует проверка количества контейнеров
@@ -1377,31 +1379,31 @@ func initEnvironmentForFifthTest2() {
 func TestCompareEnvInContainers(t *testing.T) {
 	initEnvironmentForFirstTest2()
 	err := CompareEnvInContainers(env1, env2, "default", clusterClientSet1, clusterClientSet2)
-	if err != ErrorNumberVariables {
+	if !errors.Is(err, ErrorNumberVariables) {
 		t.Error("Error expected: 'The number of variables in containers differs'. But it was returned: ", err)
 	}
 
 	initEnvironmentForSecondTest2()
 	err = CompareEnvInContainers(env1, env2, "default", clusterClientSet1, clusterClientSet2)
-	if err != ErrorEnvironmentNotEqual {
-		t.Error("Error expected: 'Environment in container 1 not equal environment in container 2'. But it was returned: ", err)
+	if !errors.Is(errors.Unwrap(err), ErrorEnvironmentNotEqual) {
+		t.Error("Error expected: 'The environment in containers not equal'. But it was returned: ", err)
 	}
 
 	initEnvironmentForThirdTest2()
 	err = CompareEnvInContainers(env1, env2, "default", clusterClientSet1, clusterClientSet2)
-	if err != ErrorEnvironmentNotEqual {
-		t.Error("Error expected: 'Environment in container 1 not equal environment in container 2'. But it was returned: ", err)
+	if !errors.Is(errors.Unwrap(err), ErrorEnvironmentNotEqual) {
+		t.Error("Error expected: 'The environment in containers not equal'. But it was returned: ", err)
 	}
 
 	initEnvironmentForFourthTest2()
 	err = CompareEnvInContainers(env1, env2, "default", clusterClientSet1, clusterClientSet2)
-	if err != ErrorDifferentValueSecretKey {
+	if !errors.Is(errors.Unwrap(err), ErrorDifferentValueSecretKey)  {
 		t.Error("Error expected: 'The value for the SecretKey is different'. But it was returned: ", err)
 	}
 
 	initEnvironmentForFifthTest2()
 	err = CompareEnvInContainers(env1, env2, "default", clusterClientSet1, clusterClientSet2)
-	if err != ErrorDifferentValueConfigMapKey {
+	if !errors.Is(errors.Unwrap(err), ErrorDifferentValueConfigMapKey) {
 		t.Error("Error expected: 'The value for the ConfigMapKey is different'. But it was returned: ", err)
 	}
 

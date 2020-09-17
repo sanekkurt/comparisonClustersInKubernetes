@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	v12 "k8s.io/api/core/v1"
 )
 
@@ -21,9 +20,11 @@ func AddValueSecretsInMap(secrets1 *v12.SecretList, secrets2 *v12.SecretList) (m
 	return mapSecrets1, mapSecrets2
 }
 
-func SetInformationAboutSecrets(map1 map[string]CheckerFlag, map2 map[string]CheckerFlag, secrets1 *v12.SecretList, secrets2 *v12.SecretList) {
+func SetInformationAboutSecrets(map1 map[string]CheckerFlag, map2 map[string]CheckerFlag, secrets1 *v12.SecretList, secrets2 *v12.SecretList) bool{
+	var flag bool
 	if len(map1) != len(map2) {
-		fmt.Printf("!!!The secrets count are different!!!\n\n")
+		log.Infof("!!!The secrets count are different!!!")
+		flag = true
 	}
 	for name, index1 := range map1 {
 		if index2, ok := map2[name]; ok == true {
@@ -35,23 +36,26 @@ func SetInformationAboutSecrets(map1 map[string]CheckerFlag, map2 map[string]Che
 			if checkContinueTypes(secrets1.Items[index1.index].Type) == true {
 				continue
 			} else {
-				fmt.Printf("----- Start checking secret: '%s' -----\n", name)
+				log.Debugf("----- Start checking secret: '%s' -----", name)
 				if len(secrets1.Items[index1.index].Data) != len(secrets2.Items[index2.index].Data) {
-					fmt.Printf("!!!Config map '%s' in 1 kluster have '%d' key value pair but 2 kluster have '%d' key value pair!!!\n", name, len(secrets1.Items[index1.index].Data), len(secrets2.Items[index2.index].Data))
+					log.Infof("!!!Config map '%s' in 1 kluster have '%d' key value pair but 2 kluster have '%d' key value pair!!!", name, len(secrets1.Items[index1.index].Data), len(secrets2.Items[index2.index].Data))
+					flag = true
 				} else {
 					for key, value := range secrets1.Items[index1.index].Data {
 						if string(value) != string(secrets2.Items[index2.index].Data[key]) {
-							fmt.Printf("!!!The key value pair does not match. In 1 kluster %s: %s. In 2 kluster %s: %s.!!!\n", key, string(value), key, string(secrets2.Items[index2.index].Data[key]))
+							log.Infof("!!!The key value pair does not match. In 1 kluster %s: %s. In 2 kluster %s: %s.!!!", key, string(value), key, string(secrets2.Items[index2.index].Data[key]))
+							flag = true
 						}
 					}
 				}
 			}
-			fmt.Printf("----- End checking secret: '%s' -----\n\n", name)
+			log.Debugf("----- End checking secret: '%s' -----", name)
 		} else {
 			if checkContinueTypes(secrets1.Items[index1.index].Type) == true {
 				continue
 			} else {
-				fmt.Printf("Secret '%s' - 1 cluster. Does not exist on another cluster\n\n", name)
+				log.Infof("Secret '%s' - 1 cluster. Does not exist on another cluster", name)
+				flag = true
 			}
 		}
 	}
@@ -60,10 +64,12 @@ func SetInformationAboutSecrets(map1 map[string]CheckerFlag, map2 map[string]Che
 			if checkContinueTypes(secrets2.Items[index.index].Type) == true { //secrets2.Items[index.index].Type == skipType1 || secrets2.Items[index.index].Type == skipType2 || secrets2.Items[index.index].Type == skipType3
 				continue
 			} else {
-				fmt.Printf("Secret '%s' - 2 cluster. Does not exist on another cluster\n\n", name)
+				log.Infof("Secret '%s' - 2 cluster. Does not exist on another cluster", name)
+				flag = true
 			}
 		}
 	}
+	return flag
 }
 
 func checkContinueTypes (secretType v12.SecretType) bool {

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	v12 "k8s.io/api/core/v1"
 )
 
@@ -21,9 +20,11 @@ func AddValueConfigMapsInMap(configMaps1 *v12.ConfigMapList, configMaps2 *v12.Co
 	return mapConfigMap1, mapConfigMap2
 }
 
-func SetInformationAboutConfigMaps(map1 map[string]CheckerFlag, map2 map[string]CheckerFlag, configMaps1 *v12.ConfigMapList, configMaps2 *v12.ConfigMapList) {
+func SetInformationAboutConfigMaps(map1 map[string]CheckerFlag, map2 map[string]CheckerFlag, configMaps1 *v12.ConfigMapList, configMaps2 *v12.ConfigMapList) bool{
+	var flag bool
 	if len(map1) != len(map2) {
-		fmt.Printf("!!!The configmaps count are different!!!\n\n")
+		log.Infof("!!!The configmaps count are different!!!")
+		flag = true
 	}
 	for name, index1 := range map1 {
 		if index2, ok := map2[name]; ok == true {
@@ -31,24 +32,29 @@ func SetInformationAboutConfigMaps(map1 map[string]CheckerFlag, map2 map[string]
 			map1[name] = index1
 			index2.check = true
 			map2[name] = index2
-			fmt.Printf("----- Start checking configmap: '%s' -----\n", name)
+			log.Debugf("----- Start checking configmap: '%s' -----", name)
 			if len(configMaps1.Items[index1.index].Data) != len(configMaps2.Items[index2.index].Data) {
-				fmt.Printf("!!!Config map '%s' in 1 cluster have '%d' key value pair but 2 kluster have '%d' key value pair!!!\n", name, len(configMaps1.Items[index1.index].Data), len(configMaps2.Items[index2.index].Data))
+				log.Infof("!!!Config map '%s' in 1 cluster have '%d' key value pair but 2 kluster have '%d' key value pair!!!", name, len(configMaps1.Items[index1.index].Data), len(configMaps2.Items[index2.index].Data))
+				flag = true
 			} else {
 				for key, value := range configMaps1.Items[index1.index].Data {
 					if configMaps2.Items[index2.index].Data[key] != value {
-						fmt.Printf("!!!The key value pair does not match. In 1 kluster %s: %s. In 2 kluster %s: %s.!!!\n", key, value, key, configMaps2.Items[index2.index].Data[key])
+						log.Infof("!!!The key value pair does not match. In 1 kluster %s: %s. In 2 kluster %s: %s.!!!", key, value, key, configMaps2.Items[index2.index].Data[key])
+						flag = true
 					}
 				}
 			}
-			fmt.Printf("----- End checking configmap: '%s' -----\n\n", name)
+			log.Debugf("----- End checking configmap: '%s' -----", name)
 		} else {
-			fmt.Printf("ConfigMap '%s' - 1 cluster. Does not exist on another cluster\n\n", name)
+			log.Infof("ConfigMap '%s' - 1 cluster. Does not exist on another cluster", name)
+			flag = true
 		}
 	}
 	for name, index := range map2 {
 		if index.check == false {
-			fmt.Printf("ConfigMap '%s' - 2 cluster. Does not exist on another cluster\n\n", name)
+			log.Infof("ConfigMap '%s' - 2 cluster. Does not exist on another cluster", name)
+			flag = true
 		}
 	}
+	return flag
 }

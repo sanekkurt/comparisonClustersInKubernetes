@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	v1 "k8s.io/api/apps/v1"
 )
 
@@ -21,9 +20,11 @@ func AddValueDaemonSetsMap(daemonSets1 *v1.DaemonSetList, daemonSets2 *v1.Daemon
 	return mapDaemonSets1, mapDaemonSets2
 }
 
-func SetInformationAboutDaemonSets(map1 map[string]CheckerFlag, map2 map[string]CheckerFlag, daemonSets1 *v1.DaemonSetList, daemonSets2 *v1.DaemonSetList, namespace string) {
+func SetInformationAboutDaemonSets(map1 map[string]CheckerFlag, map2 map[string]CheckerFlag, daemonSets1 *v1.DaemonSetList, daemonSets2 *v1.DaemonSetList, namespace string) bool {
+	var flag bool
 	if len(map1) != len(map2) {
-		fmt.Printf("!!!The daemonsets count are different!!!\n\n")
+		log.Infof("!!!The daemonsets count are different!!!")
+		flag = true
 	}
 	for name, index1 := range map1 {
 		if index2, ok := map2[name]; ok == true {
@@ -31,7 +32,7 @@ func SetInformationAboutDaemonSets(map1 map[string]CheckerFlag, map2 map[string]
 			map1[name] = index1
 			index2.check = true
 			map2[name] = index2
-			fmt.Printf("----- Start checking daemonset: '%s' -----\n", name)
+			log.Debugf("----- Start checking daemonset: '%s' -----", name)
 
 			//заполняем информацию, которая будет использоваться при сравнении
 			object1 := InformationAboutObject{
@@ -42,17 +43,22 @@ func SetInformationAboutDaemonSets(map1 map[string]CheckerFlag, map2 map[string]
 				Template: daemonSets2.Items[index2.index].Spec.Template,
 				Selector: daemonSets2.Items[index2.index].Spec.Selector,
 			}
-			//CompareContainers(deployment1.Items[index1.index].Spec, deployment2.Items[index2.index].Spec, namespace)
-			CompareContainers(object1, object2, namespace, client1, client2)
-
-			fmt.Printf("----- End checking daemonset: '%s' -----\n\n", name)
+			err := CompareContainers(object1, object2, namespace, client1, client2)
+			if err != nil {
+				log.Infof("Daemonset %s: %w", name, err)
+				flag = true
+			}
+			log.Debugf("----- End checking daemonset: '%s' -----", name)
 		} else {
-			fmt.Printf("DaemonSet '%s' - 1 cluster. Does not exist on another cluster\n\n", name)
+			log.Infof("DaemonSet '%s' - 1 cluster. Does not exist on another cluster", name)
+			flag = true
 		}
 	}
 	for name, index := range map2 {
 		if index.check == false {
-			fmt.Printf("DaemonSet '%s' - 2 cluster. Does not exist on another cluster\n\n", name)
+			log.Infof("DaemonSet '%s' - 2 cluster. Does not exist on another cluster", name)
+			flag = true
 		}
 	}
+	return flag
 }
