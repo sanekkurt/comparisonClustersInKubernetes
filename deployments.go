@@ -44,7 +44,8 @@ func SetInformationAboutDeployments(map1 map[string]CheckerFlag, map2 map[string
 					Template: deployments2.Items[index2.index].Spec.Template,
 					Selector: deployments2.Items[index2.index].Spec.Selector,
 				}
-				CompareContainers(object1, object2, namespace, client1, client2)
+				err := CompareContainers(object1, object2, namespace, client1, client2)
+				log.Infof("Deployment %s: %w", name, err)
 			}
 			fmt.Printf("----- End checking deployment: '%s' -----\n\n", name)
 		} else {

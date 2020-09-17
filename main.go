@@ -36,7 +36,7 @@ var (
 	skipType1                       v12.SecretType = "kubernetes.io/service-account-token"
 	skipType2                       v12.SecretType = "kubernetes.io/dockercfg"
 	skipType3                       v12.SecretType = "helm.sh/release.v1"
-	skipTypes = []v12.SecretType{"kubernetes.io/service-account-token", "kubernetes.io/dockercfg", "helm.sh/release.v1"}
+	skipTypes                                      = []v12.SecretType{"kubernetes.io/service-account-token", "kubernetes.io/dockercfg", "helm.sh/release.v1"}
 )
 
 var Opts struct {
@@ -46,6 +46,8 @@ var Opts struct {
 }
 
 func main() {
+	log.Debugw("Starting k8s-cluster-comparator")
+
 	_, err := flags.Parse(&Opts)
 	if err != nil {
 		panic(err.Error())
@@ -77,7 +79,7 @@ func main() {
 	YamlToStruct(*kubeconfig1, &kubeconfig1YamlStruct)
 	YamlToStruct(*kubeconfig2, &kubeconfig2YamlStruct)
 
-	Compare(client1, client2, /*"default"*/ variableForNamespaces)
+	Compare(client1, client2 /*"default"*/, variableForNamespaces)
 }
 
 //переводит yaml в структуру
