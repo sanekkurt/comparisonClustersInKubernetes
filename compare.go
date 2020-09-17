@@ -193,7 +193,7 @@ func CompareEnvInContainers(env1 []v12.EnvVar, env2 []v12.EnvVar, namespace stri
 		return ErrorNumberVariables
 	}
 	for i := 0; i < len(env1); i++ {
-		if env1[i].ValueFrom == env2[i].ValueFrom {
+		if *env1[i].ValueFrom == *env2[i].ValueFrom {
 			if env1[i].ValueFrom != nil {
 				if env1[i].ValueFrom.ConfigMapKeyRef != nil && env2[i].ValueFrom.ConfigMapKeyRef != nil {
 					//ЛОГИКА ПРОВЕРКИ НА КОНФИГМАП КЕЙ
