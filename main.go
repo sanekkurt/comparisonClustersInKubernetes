@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"github.com/jessevdk/go-flags"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
@@ -30,6 +31,11 @@ var Opts struct {
 }
 
 func main() {
+	if err := SetupLogging(); err != nil {
+		fmt.Println("[ERROR] ", err.Error())
+		os.Exit(1)
+	}
+
 	log.Infow("Starting k8s-cluster-comparator")
 
 	_, err := flags.Parse(&Opts)

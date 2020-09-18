@@ -1,0 +1,34 @@
+name: Master Build CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+
+  master-build:
+#    name: build the app and image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go 1.15
+        uses: actions/setup-go@v2
+        with:
+          go-version: ^1.15
+        id: go
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+
+      - name: Test
+        run: go test -v .
+
+      - name: Build the Docker image
+        run: docker build . --file Dockerfile --tag sanekkurt/comparescript:latest
+
+      - name: Login in DockerHub
+        run: docker login -u ${{secrets.USER_NAME_DOCKERHUB}} -p ${{secrets.USER_PASSWORD_DOCKERHUB}}
+
+      - name: Push Docker image on DockerHub
+        run: docker push ${{secrets.USER_NAME_DOCKERHUB}}/comparescript:latest
