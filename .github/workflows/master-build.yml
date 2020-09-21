@@ -3,8 +3,8 @@ name: Master Build
 on:
   push:
     branches: [ master ]
-    paths:
-      - '.github/workflows/master-build.yml'
+#    paths:
+#      - '.github/workflows/master-build.yml'
   pull_request:
     branches: [ master ]
 

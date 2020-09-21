@@ -2,10 +2,10 @@ name: Branch CI
 
 on:
   push:
-    branches:
-      - '!master'
-    paths:
-      - '.github/workflows/branch-build.yml'
+    branches-ignore:
+      - 'master'
+#    paths:
+#      - '.github/workflows/branch-build.yml'
 
 jobs:
   branch-build:
