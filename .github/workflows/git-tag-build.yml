@@ -28,7 +28,7 @@ jobs:
         run: go test -v .
 
       - name: Login in DockerHub
-        run: docker login -u ${{secrets.USER_NAME_DOCKERHUB}} -p ${{secrets.USER_PASSWORD_DOCKERHUB}} ${DOCKER_IMAGE}
+        run: docker login -u ${{secrets.USER_NAME_DOCKERHUB}} -p ${{secrets.USER_PASSWORD_DOCKERHUB}}
 
       - name: Build the Docker image
         run: docker build . --file Dockerfile --tag ${DOCKER_IMAGE}
