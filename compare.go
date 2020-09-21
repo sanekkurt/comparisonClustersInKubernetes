@@ -10,7 +10,7 @@ import (
 	"sync"
 )
 
-// основная сравнивающая функция, поочередно запускает функции для сравнения кластеров по разным параметрам: Deployments, StatefulSets, DaemonSets, ConfigMaps
+// CompareClusters основная сравнивающая функция, поочередно запускает функции для сравнения кластеров по разным параметрам: Deployments, StatefulSets, DaemonSets, ConfigMaps
 func CompareClusters(clientSet1, clientSet2 kubernetes.Interface, namespaces []string) (bool, error) {
 	type ResStr struct {
 		IsClusterDiffer bool
@@ -172,7 +172,7 @@ func CompareClusters(clientSet1, clientSet2 kubernetes.Interface, namespaces []s
 	return false, nil
 }
 
-// Основная функция сравнения контейнеров
+// CompareContainers Основная функция сравнения контейнеров
 func CompareContainers(deploymentSpec1, deploymentSpec2 InformationAboutObject, namespace string, clientSet1, clientSet2 kubernetes.Interface) error {
 	containersDeploymentTemplate1 := deploymentSpec1.Template.Spec.Containers
 	containersDeploymentTemplate2 := deploymentSpec2.Template.Spec.Containers
@@ -216,10 +216,10 @@ func CompareContainers(deploymentSpec1, deploymentSpec2 InformationAboutObject, 
 						if containersStatusesInPod1[f].name == value.name {
 							containerWithSameNameFound = true
 							if containersStatusesInPod1[f].image != value.image {
-								return fmt.Errorf("%w. \nPods name: '%s'. Image name on pod1: '%s'. Image name on pod2: '%s'.", ErrorDifferentImageInPods, value.name, containersStatusesInPod1[j].image, value.image)
+								return fmt.Errorf("%w. \nPods name: '%s'. Image name on pod1: '%s'. Image name on pod2: '%s'", ErrorDifferentImageInPods, value.name, containersStatusesInPod1[j].image, value.image)
 							}
 							if containersStatusesInPod1[f].imageID != value.imageID {
-								return fmt.Errorf("%w. Pods name: '%s'. ImageID on pod1: '%s'. ImageID on pod2: '%s'.", ErrorDifferentImageIdInPods, value.name, containersStatusesInPod1[j].imageID, value.imageID)
+								return fmt.Errorf("%w. Pods name: '%s'. ImageID on pod1: '%s'. ImageID on pod2: '%s'", ErrorDifferentImageIdInPods, value.name, containersStatusesInPod1[j].imageID, value.imageID)
 							}
 						}
 					}

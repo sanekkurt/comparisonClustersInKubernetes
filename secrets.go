@@ -6,7 +6,7 @@ import (
 )
 
 // Добавление значений Secrets в карту для дальнейшего сравнения
-func AddValueSecretsInMap(secrets1, secrets2 *v12.SecretList) (map[string]CheckerFlag, map[string]CheckerFlag) {
+func AddValueSecretsInMap(secrets1, secrets2 *v12.SecretList) (map[string]CheckerFlag, map[string]CheckerFlag) { //nolint:gocritic,unused
 	mapSecrets1 := make(map[string]CheckerFlag)
 	mapSecrets2 := make(map[string]CheckerFlag)
 	var indexCheck CheckerFlag
@@ -51,7 +51,7 @@ func SetInformationAboutSecrets(map1, map2 map[string]CheckerFlag, secrets1, sec
 				map1[name] = index1
 				index2.check = true
 				map2[name] = index2
-				//проверка на тип секрета, который проверять не нужно
+				// проверка на тип секрета, который проверять не нужно
 
 				log.Debugf("----- Start checking secret: '%s' -----", name)
 				if len(secrets1.Items[index1.index].Data) != len(secrets2.Items[index2.index].Data) {

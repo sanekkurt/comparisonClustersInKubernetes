@@ -6,7 +6,7 @@ import (
 )
 
 // Добавление значений ConfigMaps в карту для дальнейшего сравнения
-func AddValueConfigMapsInMap(configMaps1, configMaps2 *v12.ConfigMapList) (map[string]CheckerFlag, map[string]CheckerFlag) {
+func AddValueConfigMapsInMap(configMaps1, configMaps2 *v12.ConfigMapList) (map[string]CheckerFlag, map[string]CheckerFlag) { //nolint:gocritic,unused
 	mapConfigMap1 := make(map[string]CheckerFlag)
 	mapConfigMap2 := make(map[string]CheckerFlag)
 	var indexCheck CheckerFlag

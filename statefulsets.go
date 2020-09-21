@@ -47,7 +47,7 @@ func SetInformationAboutStatefulSets(map1, map2 map[string]CheckerFlag, stateful
 					log.Infof("statefulset '%s':  number of replicas is different: %d and %d", statefulSets1.Items[index1.index].Name, *statefulSets1.Items[index1.index].Spec.Replicas, *statefulSets2.Items[index2.index].Spec.Replicas)
 					flag = true
 				} else {
-					//заполняем информацию, которая будет использоваться при сравнении
+					// заполняем информацию, которая будет использоваться при сравнении
 					object1 := InformationAboutObject{
 						Template: statefulSets1.Items[index1.index].Spec.Template,
 						Selector: statefulSets1.Items[index1.index].Spec.Selector,

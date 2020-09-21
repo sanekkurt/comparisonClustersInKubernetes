@@ -44,7 +44,7 @@ func SetInformationAboutDaemonSets(map1, map2 map[string]CheckerFlag, daemonSets
 				map2[name] = index2
 				log.Debugf("----- Start checking daemonset: '%s' -----", name)
 
-				//заполняем информацию, которая будет использоваться при сравнении
+				// заполняем информацию, которая будет использоваться при сравнении
 				object1 := InformationAboutObject{
 					Template: daemonSets1.Items[index1.index].Spec.Template,
 					Selector: daemonSets1.Items[index1.index].Spec.Selector,

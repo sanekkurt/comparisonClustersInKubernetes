@@ -6,7 +6,7 @@ import (
 )
 
 // Добавление значений Deployments в карту для дальнейшего сравнения
-func AddValueDeploymentsInMap(deployments1, deployments2 *v1.DeploymentList) (map[string]CheckerFlag, map[string]CheckerFlag) {
+func AddValueDeploymentsInMap(deployments1, deployments2 *v1.DeploymentList) (map[string]CheckerFlag, map[string]CheckerFlag) { //nolint:gocritic,unused
 	mapDeployments1 := make(map[string]CheckerFlag)
 	mapDeployments2 := make(map[string]CheckerFlag)
 	var indexCheck CheckerFlag
