@@ -288,7 +288,7 @@ func CompareEnvInContainers(env1, env2 []v12.EnvVar, namespace string, clientSet
 				if env1[i].ValueFrom.ConfigMapKeyRef.Key != env2[i].ValueFrom.ConfigMapKeyRef.Key || env1[i].ValueFrom.ConfigMapKeyRef.Name != env2[i].ValueFrom.ConfigMapKeyRef.Name {
 					return fmt.Errorf("%w. Different ValueFrom: ValueFrom ConfigMapKeyRef in container 1 - %s:%s. ValueFrom ConfigMapKeyRef in container 2 - %s:%s", ErrorEnvironmentNotEqual, env1[i].ValueFrom.ConfigMapKeyRef.Name, env1[i].ValueFrom.ConfigMapKeyRef.Key, env2[i].ValueFrom.ConfigMapKeyRef.Name, env2[i].ValueFrom.ConfigMapKeyRef.Key)
 				}
-				//logic check on configMapKey
+				// logic check on configMapKey
 				configMap1, err := clientSet1.CoreV1().ConfigMaps(namespace).Get(env1[i].ValueFrom.ConfigMapKeyRef.Name, metav1.GetOptions{})
 				if err != nil {
 					panic(err.Error())
@@ -304,7 +304,7 @@ func CompareEnvInContainers(env1, env2 []v12.EnvVar, namespace string, clientSet
 				if env1[i].ValueFrom.SecretKeyRef.Key != env2[i].ValueFrom.SecretKeyRef.Key || env1[i].ValueFrom.SecretKeyRef.Name != env2[i].ValueFrom.SecretKeyRef.Name {
 					return fmt.Errorf("%w. Different ValueFrom: ValueFrom SecretKeyRef in container 1 - %s:%s. ValueFrom SecretKeyRef in container 2 - %s:%s", ErrorEnvironmentNotEqual, env1[i].ValueFrom.SecretKeyRef.Name, env1[i].ValueFrom.SecretKeyRef.Key, env2[i].ValueFrom.SecretKeyRef.Name, env2[i].ValueFrom.SecretKeyRef.Key)
 				}
-				//logic check on secretKey
+				// logic check on secretKey
 				secret1, err := clientSet1.CoreV1().Secrets(namespace).Get(env1[i].ValueFrom.SecretKeyRef.Name, metav1.GetOptions{})
 				if err != nil {
 					panic(err.Error())
