@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	//переменные для теста функции сравнения контейнеров
+	// переменные для теста функции сравнения контейнеров
 	clusterClientSet1 *fake.Clientset
 	clusterClientSet2 *fake.Clientset
 
@@ -27,7 +27,7 @@ var (
 	objectInformation1 InformationAboutObject
 	objectInformation2 InformationAboutObject
 
-	//переменные для теста функции сравнения переменных в контейнерах
+	// переменные для теста функции сравнения переменных в контейнерах
 	env1                  []v1.EnvVar
 	env2                  []v1.EnvVar
 	temp                  v1.EnvVar
@@ -46,8 +46,6 @@ var (
 	pointerEnvVarSource2 *v1.EnvVarSource
 	secretKeyRef2 v1.SecretKeySelector
 	pointerSecretKeyRef2 *v1.SecretKeySelector
-	configMapKeyRef2 v1.ConfigMapKeySelector
-	pointerConfigMapKeyRef2 *v1.ConfigMapKeySelector
 
 )
 
