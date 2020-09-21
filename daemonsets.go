@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-// Добавление значений DaemonSets в карту для дальнейшего сравнения
+// AddValueDaemonSetsMap Добавление значений DaemonSets в карту для дальнейшего сравнения
 func AddValueDaemonSetsMap(daemonSets1, daemonSets2 *v1.DaemonSetList) (map[string]CheckerFlag, map[string]CheckerFlag) { //nolint:gocritic,unused
 	mapDaemonSets1 := make(map[string]CheckerFlag)
 	mapDaemonSets2 := make(map[string]CheckerFlag)
@@ -22,7 +22,7 @@ func AddValueDaemonSetsMap(daemonSets1, daemonSets2 *v1.DaemonSetList) (map[stri
 	return mapDaemonSets1, mapDaemonSets2
 }
 
-// Получение информации о DaemonSets
+// SetInformationAboutDaemonSets Получение информации о DaemonSets
 func SetInformationAboutDaemonSets(map1, map2 map[string]CheckerFlag, daemonSets1, daemonSets2 *v1.DaemonSetList, namespace string) bool {
 	var flag bool
 	if len(map1) != len(map2) {

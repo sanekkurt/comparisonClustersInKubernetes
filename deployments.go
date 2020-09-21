@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-// Добавление значений Deployments в карту для дальнейшего сравнения
+// AddValueDeploymentsInMap Добавление значений Deployments в карту для дальнейшего сравнения
 func AddValueDeploymentsInMap(deployments1, deployments2 *v1.DeploymentList) (map[string]CheckerFlag, map[string]CheckerFlag) { //nolint:gocritic,unused
 	mapDeployments1 := make(map[string]CheckerFlag)
 	mapDeployments2 := make(map[string]CheckerFlag)
@@ -22,7 +22,7 @@ func AddValueDeploymentsInMap(deployments1, deployments2 *v1.DeploymentList) (ma
 	return mapDeployments1, mapDeployments2
 }
 
-// Получение информации о деплойментах
+// SetInformationAboutDeployments Получение информации о деплойментах
 func SetInformationAboutDeployments(map1, map2 map[string]CheckerFlag, deployments1, deployments2 *v1.DeploymentList, namespace string) bool {
 	var flag bool
 	if len(map1) != len(map2) {

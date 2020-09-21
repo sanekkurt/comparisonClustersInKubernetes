@@ -236,7 +236,7 @@ func CompareContainers(deploymentSpec1, deploymentSpec2 InformationAboutObject, 
 	return nil
 }
 
-// Получает статус контейнеров в Pod'е
+// GetContainerStatusesInPod получает статус контейнеров в Pod'е
 func GetContainerStatusesInPod(containerStatuses []v12.ContainerStatus) map[int]Container {
 	infoAboutContainer := make(map[int]Container)
 	var container Container
@@ -249,7 +249,7 @@ func GetContainerStatusesInPod(containerStatuses []v12.ContainerStatus) map[int]
 	return infoAboutContainer
 }
 
-// получает айдишник раскатанного образа на контейнерах
+// GetPodsListOnMatchLabels получает айдишник раскатанного образа на контейнерах
 func GetPodsListOnMatchLabels(matchLabels map[string]string, namespace string, clientSet1, clientSet2 kubernetes.Interface) (*v12.PodList, *v12.PodList) { //nolint:gocritic,unused
 	matchLabelsString := ConvertMatchLabelsToString(matchLabels)
 	pods1, err := clientSet1.CoreV1().Pods(namespace).List(metav1.ListOptions{LabelSelector: matchLabelsString})
@@ -263,10 +263,10 @@ func GetPodsListOnMatchLabels(matchLabels map[string]string, namespace string, c
 	return pods1, pods2
 }
 
-// Конвертация MatchLabels в строку
+// ConvertMatchLabelsToString конвертирует MatchLabels в строку
 func ConvertMatchLabelsToString(matchLabels map[string]string) string {
 	keys := []string{}
-	for key, _ := range matchLabels {
+	for key, _ := range matchLabels { //nolint
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
@@ -277,7 +277,7 @@ func ConvertMatchLabelsToString(matchLabels map[string]string) string {
 	return strings.Join(values, ",")
 }
 
-// Сравнение переменных в контейнерах
+// CompareEnvInContainers Сравнивает переменные в контейнерах
 func CompareEnvInContainers(env1, env2 []v12.EnvVar, namespace string, clientSet1, clientSet2 kubernetes.Interface) error {
 	if len(env1) != len(env2) {
 		return ErrorNumberVariables

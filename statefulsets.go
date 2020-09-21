@@ -5,8 +5,8 @@ import (
 	"sync"
 )
 
-// Добавление значений StatefulSets в карту для дальнейшего сравнения
-func AddValueStatefulSetsInMap(stateFulSets1, stateFulSets2 *v1.StatefulSetList) (map[string]CheckerFlag, map[string]CheckerFlag) {
+// AddValueStatefulSetsInMap добавление значений StatefulSets в карту для дальнейшего сравнения
+func AddValueStatefulSetsInMap(stateFulSets1, stateFulSets2 *v1.StatefulSetList) (map[string]CheckerFlag, map[string]CheckerFlag) { //nolint:gocritic,unused
 	mapStatefulSets1 := make(map[string]CheckerFlag)
 	mapStatefulSets2 := make(map[string]CheckerFlag)
 	var indexCheck CheckerFlag
@@ -22,7 +22,7 @@ func AddValueStatefulSetsInMap(stateFulSets1, stateFulSets2 *v1.StatefulSetList)
 	return mapStatefulSets1, mapStatefulSets2
 }
 
-// Получение информации о StatefulSets
+// SetInformationAboutStatefulSets получение информации о StatefulSets
 func SetInformationAboutStatefulSets(map1, map2 map[string]CheckerFlag, statefulSets1, statefulSets2 *v1.StatefulSetList, namespace string) bool {
 	var flag bool
 	if len(map1) != len(map2) {
