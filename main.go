@@ -79,7 +79,7 @@ func main() {
 
 // YamlToStruct переводит yaml в структуру
 func YamlToStruct(nameYamlFile string, nameStruct *KubeconfigYaml) {
-	data, err := ioutil.ReadFile(nameYamlFile)
+	data, err := ioutil.ReadFile(nameYamlFile) //nolint
 	if err != nil {
 		panic(err.Error())
 	}
