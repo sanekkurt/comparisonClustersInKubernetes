@@ -22,7 +22,7 @@ var (
 	skipTypes = []v12.SecretType{"kubernetes.io/service-account-token", "kubernetes.io/dockercfg", "helm.sh/release.v1"}
 )
 
-// Структура описывающая входную информацию о кластерах и namespaces для сравнения
+// Opts Структура описывающая входную информацию о кластерах и namespaces для сравнения
 var Opts struct {
 	KubeConfig1 string   `long:"kube-config1" env:"KUBECONFIG1" required:"true" description:"Path to Kubernetes client1 config file"`
 	KubeConfig2 string   `long:"kube-config2" env:"KUBECONFIG2" required:"true" description:"Path to Kubernetes client2 config file"`
@@ -77,7 +77,7 @@ func main() {
 	os.Exit(ret)
 }
 
-// переводит yaml в структуру
+// YamlToStruct переводит yaml в структуру
 func YamlToStruct(nameYamlFile string, nameStruct *KubeconfigYaml) {
 	data, err := ioutil.ReadFile(nameYamlFile)
 	if err != nil {
@@ -89,7 +89,7 @@ func YamlToStruct(nameYamlFile string, nameStruct *KubeconfigYaml) {
 	}
 }
 
-// читает конфигурацию из yaml файла по переданному пути
+// GetClientSet читает конфигурацию из yaml файла по переданному пути
 func GetClientSet(kubeconfig *string) *kubernetes.Clientset {
 	config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
 	if err != nil {

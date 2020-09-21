@@ -9,7 +9,7 @@ var (
 	log    *zap.SugaredLogger
 )
 
-func SetupLogging() error {
+func SetupLogging() error { //nolint
 	var err error
 
 	zapConfig := zap.NewDevelopmentConfig()

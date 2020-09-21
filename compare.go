@@ -219,7 +219,7 @@ func CompareContainers(deploymentSpec1, deploymentSpec2 InformationAboutObject, 
 								return fmt.Errorf("%w. \nPods name: '%s'. Image name on pod1: '%s'. Image name on pod2: '%s'", ErrorDifferentImageInPods, value.name, containersStatusesInPod1[j].image, value.image)
 							}
 							if containersStatusesInPod1[f].imageID != value.imageID {
-								return fmt.Errorf("%w. Pods name: '%s'. ImageID on pod1: '%s'. ImageID on pod2: '%s'", ErrorDifferentImageIdInPods, value.name, containersStatusesInPod1[j].imageID, value.imageID)
+								return fmt.Errorf("%w. Pods name: '%s'. ImageID on pod1: '%s'. ImageID on pod2: '%s'", ErrorDifferentImageIDInPods, value.name, containersStatusesInPod1[j].imageID, value.imageID)
 							}
 						}
 					}
