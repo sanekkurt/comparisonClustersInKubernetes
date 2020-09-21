@@ -10,8 +10,8 @@ import (
 	"sync"
 )
 
-//основная сравнивающая функция, поочередно запускает функции для сравнения кластеров по разным параметрам: Deployments, StatefulSets, DaemonSets, ConfigMaps
-func Compare(clientSet1 kubernetes.Interface, clientSet2 kubernetes.Interface, namespaces []string) (bool, error) {
+// CompareClusters main compare function, runs functions for comparing clusters by different parameters one at a time: Deployments, StatefulSets, DaemonSets, ConfigMaps
+func CompareClusters(clientSet1, clientSet2 kubernetes.Interface, namespaces []string) (bool, error) {
 	type ResStr struct {
 		IsClusterDiffer bool
 		Err             error
@@ -172,60 +172,54 @@ func Compare(clientSet1 kubernetes.Interface, clientSet2 kubernetes.Interface, n
 	return false, nil
 }
 
-func CompareContainers(deploymentSpec1 InformationAboutObject, deploymentSpec2 InformationAboutObject, namespace string, clientSet1 kubernetes.Interface, clientSet2 kubernetes.Interface) error {
+// CompareContainers main function for compare containers
+func CompareContainers(deploymentSpec1, deploymentSpec2 InformationAboutObject, namespace string, clientSet1, clientSet2 kubernetes.Interface) error {
 	containersDeploymentTemplate1 := deploymentSpec1.Template.Spec.Containers
 	containersDeploymentTemplate2 := deploymentSpec2.Template.Spec.Containers
 	if len(containersDeploymentTemplate1) != len(containersDeploymentTemplate2) {
-		//fmt.Printf("!!!The number templates of containers differs!!!\n")
 		return ErrorDiffersTemplatesNumber
 	}
 	matchLabelsString1 := ConvertMatchLabelsToString(deploymentSpec1.Selector.MatchLabels)
 	matchLabelsString2 := ConvertMatchLabelsToString(deploymentSpec2.Selector.MatchLabels)
 	if matchLabelsString1 != matchLabelsString2 {
-		//fmt.Printf("!!!MatchLabels are not equal!!!\n")
 		return ErrorMatchlabelsNotEqual
 	}
 	pods1, pods2 := GetPodsListOnMatchLabels(deploymentSpec1.Selector.MatchLabels, namespace, clientSet1, clientSet2)
 	for i := 0; i < len(containersDeploymentTemplate1); i++ {
 		if containersDeploymentTemplate1[i].Name != containersDeploymentTemplate2[i].Name {
-			//fmt.Printf("!!!Container names in template are not equal!!!\n")
 			return ErrorContainerNamesTemplate
 		}
 		if containersDeploymentTemplate1[i].Image != containersDeploymentTemplate2[i].Image {
-			//fmt.Printf("!!!Container name images in template are not equal!!!\n")
 			return ErrorContainerImagesTemplate
 		}
 		if err := CompareEnvInContainers(containersDeploymentTemplate1[i].Env, containersDeploymentTemplate2[i].Env, namespace, clientSet1, clientSet2); err != nil {
 			return err
 		}
 		if len(pods1.Items) != len(pods2.Items) {
-			//fmt.Printf("!!!The pods count are different!!!\n")
 			return ErrorPodsCount
 		}
 		for j := 0; j < len(pods1.Items); j++ {
 			containersStatusesInPod1 := GetContainerStatusesInPod(pods1.Items[j].Status.ContainerStatuses)
 			containersStatusesInPod2 := GetContainerStatusesInPod(pods2.Items[j].Status.ContainerStatuses)
 			if len(containersStatusesInPod1) != len(containersStatusesInPod2) {
-				//fmt.Printf("!!!The containers count in pod are different!!!\n")
 				return ErrorContainersCountInPod
 			}
 			var flag int
 			var containerWithSameNameFound bool
 			for f := 0; f < len(containersStatusesInPod1); f++ {
-				if containersDeploymentTemplate1[i].Name == containersStatusesInPod1[f].name && containersDeploymentTemplate1[i].Name == containersStatusesInPod2[f].name {
+				if containersDeploymentTemplate1[i].Name == containersStatusesInPod1[f].name && containersDeploymentTemplate1[i].Name == containersStatusesInPod2[f].name { //nolint:gocritic,unused
 					flag++
 					if containersDeploymentTemplate1[i].Image != containersStatusesInPod1[f].image || containersDeploymentTemplate1[i].Image != containersStatusesInPod2[f].image {
-						//fmt.Printf("!!!The container image in the template does not match the actual image in the Pod!!!\n")
 						return ErrorContainerImageTemplatePod
 					}
 					for _, value := range containersStatusesInPod2 {
 						if containersStatusesInPod1[f].name == value.name {
 							containerWithSameNameFound = true
 							if containersStatusesInPod1[f].image != value.image {
-								return fmt.Errorf("%w. \nPods name: '%s'. Image name on pod1: '%s'. Image name on pod2: '%s'.", ErrorDifferentImageInPods, value.name, containersStatusesInPod1[j].image, value.image)
+								return fmt.Errorf("%w. \nPods name: '%s'. Image name on pod1: '%s'. Image name on pod2: '%s'", ErrorDifferentImageInPods, value.name, containersStatusesInPod1[j].image, value.image)
 							}
 							if containersStatusesInPod1[f].imageID != value.imageID {
-								return fmt.Errorf("%w. Pods name: '%s'. ImageID on pod1: '%s'. ImageID on pod2: '%s'.", ErrorDifferentImageIdInPods, value.name, containersStatusesInPod1[j].imageID, value.imageID)
+								return fmt.Errorf("%w. Pods name: '%s'. ImageID on pod1: '%s'. ImageID on pod2: '%s'", ErrorDifferentImageIDInPods, value.name, containersStatusesInPod1[j].imageID, value.imageID)
 							}
 						}
 					}
@@ -242,6 +236,7 @@ func CompareContainers(deploymentSpec1 InformationAboutObject, deploymentSpec2 I
 	return nil
 }
 
+// GetContainerStatusesInPod get statuses containers in Pod
 func GetContainerStatusesInPod(containerStatuses []v12.ContainerStatus) map[int]Container {
 	infoAboutContainer := make(map[int]Container)
 	var container Container
@@ -254,8 +249,8 @@ func GetContainerStatusesInPod(containerStatuses []v12.ContainerStatus) map[int]
 	return infoAboutContainer
 }
 
-//получает айдишник раскатанного образа на контейнерах
-func GetPodsListOnMatchLabels(matchLabels map[string]string, namespace string, clientSet1 kubernetes.Interface, clientSet2 kubernetes.Interface) (*v12.PodList, *v12.PodList) {
+// GetPodsListOnMatchLabels get pods list
+func GetPodsListOnMatchLabels(matchLabels map[string]string, namespace string, clientSet1, clientSet2 kubernetes.Interface) (*v12.PodList, *v12.PodList) { //nolint:gocritic,unused
 	matchLabelsString := ConvertMatchLabelsToString(matchLabels)
 	pods1, err := clientSet1.CoreV1().Pods(namespace).List(metav1.ListOptions{LabelSelector: matchLabelsString})
 	if err != nil {
@@ -265,13 +260,13 @@ func GetPodsListOnMatchLabels(matchLabels map[string]string, namespace string, c
 	if err != nil {
 		panic(err.Error())
 	}
-	//return pods1.Items[0].Status.ContainerStatuses[0].ImageID, pods2.Items[0].Status.ContainerStatuses[0].ImageID
 	return pods1, pods2
 }
 
+// ConvertMatchLabelsToString convert MatchLabels to string
 func ConvertMatchLabelsToString(matchLabels map[string]string) string {
 	keys := []string{}
-	for key, _ := range matchLabels {
+	for key, _ := range matchLabels { //nolint
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
@@ -279,14 +274,11 @@ func ConvertMatchLabelsToString(matchLabels map[string]string) string {
 	for i := 0; i < len(keys); i++ {
 		values = append(values, fmt.Sprintf("%s=%s", keys[i], matchLabels[keys[i]]))
 	}
-	//for key, value := range matchLabels {
-	//	values = append(values, fmt.Sprintf("%s=%s", key, value))
-	//}
-	//супермегафича склеивания строчек
 	return strings.Join(values, ",")
 }
 
-func CompareEnvInContainers(env1 []v12.EnvVar, env2 []v12.EnvVar, namespace string, clientSet1 kubernetes.Interface, clientSet2 kubernetes.Interface) error {
+// CompareEnvInContainers compare environment in containers
+func CompareEnvInContainers(env1, env2 []v12.EnvVar, namespace string, clientSet1, clientSet2 kubernetes.Interface) error {
 	if len(env1) != len(env2) {
 		return ErrorNumberVariables
 	}
@@ -296,7 +288,7 @@ func CompareEnvInContainers(env1 []v12.EnvVar, env2 []v12.EnvVar, namespace stri
 				if env1[i].ValueFrom.ConfigMapKeyRef.Key != env2[i].ValueFrom.ConfigMapKeyRef.Key || env1[i].ValueFrom.ConfigMapKeyRef.Name != env2[i].ValueFrom.ConfigMapKeyRef.Name {
 					return fmt.Errorf("%w. Different ValueFrom: ValueFrom ConfigMapKeyRef in container 1 - %s:%s. ValueFrom ConfigMapKeyRef in container 2 - %s:%s", ErrorEnvironmentNotEqual, env1[i].ValueFrom.ConfigMapKeyRef.Name, env1[i].ValueFrom.ConfigMapKeyRef.Key, env2[i].ValueFrom.ConfigMapKeyRef.Name, env2[i].ValueFrom.ConfigMapKeyRef.Key)
 				}
-				//ЛОГИКА ПРОВЕРКИ НА КОНФИГМАП КЕЙ
+				// logic check on configMapKey
 				configMap1, err := clientSet1.CoreV1().ConfigMaps(namespace).Get(env1[i].ValueFrom.ConfigMapKeyRef.Name, metav1.GetOptions{})
 				if err != nil {
 					panic(err.Error())
@@ -312,7 +304,7 @@ func CompareEnvInContainers(env1 []v12.EnvVar, env2 []v12.EnvVar, namespace stri
 				if env1[i].ValueFrom.SecretKeyRef.Key != env2[i].ValueFrom.SecretKeyRef.Key || env1[i].ValueFrom.SecretKeyRef.Name != env2[i].ValueFrom.SecretKeyRef.Name {
 					return fmt.Errorf("%w. Different ValueFrom: ValueFrom SecretKeyRef in container 1 - %s:%s. ValueFrom SecretKeyRef in container 2 - %s:%s", ErrorEnvironmentNotEqual, env1[i].ValueFrom.SecretKeyRef.Name, env1[i].ValueFrom.SecretKeyRef.Key, env2[i].ValueFrom.SecretKeyRef.Name, env2[i].ValueFrom.SecretKeyRef.Key)
 				}
-				//ЛОГИКА ПРОВЕРКИ НА СЕКРЕТ КЕЙ
+				// logic check on secretKey
 				secret1, err := clientSet1.CoreV1().Secrets(namespace).Get(env1[i].ValueFrom.SecretKeyRef.Name, metav1.GetOptions{})
 				if err != nil {
 					panic(err.Error())

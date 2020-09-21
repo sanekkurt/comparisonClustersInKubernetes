@@ -3,7 +3,7 @@ package main
 import "errors"
 
 var (
-	ErrorDiffersTemplatesNumber     = errors.New("the number templates of containers differs")
+	ErrorDiffersTemplatesNumber     = errors.New("the number templates of containers differs") //nolint
 	ErrorMatchlabelsNotEqual        = errors.New("matchLabels are not equal")
 	ErrorContainerNamesTemplate     = errors.New("container names in template are not equal")
 	ErrorContainerImagesTemplate    = errors.New("container name images in template are not equal")
@@ -11,7 +11,7 @@ var (
 	ErrorContainersCountInPod       = errors.New("the containers count in pod are different")
 	ErrorContainerImageTemplatePod  = errors.New("the container image in the template does not match the actual image in the Pod")
 	ErrorDifferentImageInPods       = errors.New("the Image in Pods is different")
-	ErrorDifferentImageIdInPods     = errors.New("the ImageID in Pods is different")
+	ErrorDifferentImageIDInPods     = errors.New("the ImageID in Pods is different")
 	ErrorContainerNotFound          = errors.New("container not found")
 	ErrorNumberVariables            = errors.New("the number of variables in containers differs")
 	ErrorDifferentValueConfigMapKey = errors.New("the value for the ConfigMapKey is different")

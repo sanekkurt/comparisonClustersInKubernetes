@@ -9,7 +9,7 @@ var (
 	log    *zap.SugaredLogger
 )
 
-func init() {
+func SetupLogging() error { //nolint
 	var err error
 
 	zapConfig := zap.NewDevelopmentConfig()
@@ -22,4 +22,6 @@ func init() {
 	log = logger.Sugar()
 
 	zap.ReplaceGlobals(logger)
+
+	return nil
 }

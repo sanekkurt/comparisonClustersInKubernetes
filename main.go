@@ -1,7 +1,7 @@
 package main
 
 import (
-	"flag"
+	"fmt"
 	"github.com/jessevdk/go-flags"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
@@ -13,7 +13,6 @@ import (
 )
 
 var (
-	kubeconfig            = flag.String("kubeconfig", "", "(optional) absolute path to the kubeconfig file")
 	variableForNamespaces []string
 	kubeconfig1YamlStruct KubeconfigYaml
 	kubeconfig2YamlStruct KubeconfigYaml
@@ -23,6 +22,7 @@ var (
 	skipTypes = []v12.SecretType{"kubernetes.io/service-account-token", "kubernetes.io/dockercfg", "helm.sh/release.v1"}
 )
 
+// Opts structure describing input information about clusters and namespaces for comparison
 var Opts struct {
 	KubeConfig1 string   `long:"kube-config1" env:"KUBECONFIG1" required:"true" description:"Path to Kubernetes client1 config file"`
 	KubeConfig2 string   `long:"kube-config2" env:"KUBECONFIG2" required:"true" description:"Path to Kubernetes client2 config file"`
@@ -30,25 +30,22 @@ var Opts struct {
 }
 
 func main() {
+	if err := SetupLogging(); err != nil {
+		fmt.Println("[ERROR] ", err.Error())
+		os.Exit(1)
+	}
+
 	log.Infow("Starting k8s-cluster-comparator")
 
 	_, err := flags.Parse(&Opts)
 	if err != nil {
 		panic(err.Error())
 	}
-	//home, err := os.Getwd()
-	//if err != nil {
-	//	panic(err.Error())
-	//}
-	//kubeconfig1 := flag.String("kubeconfig1", filepath.Join(home, "kubeconfig1.yaml"), "(optional) absolute path to the kubeconfig file")
-	//kubeconfig2 := flag.String("kubeconfig2", filepath.Join(home, "kubeconfig2.yaml"), "(optional) absolute path to the kubeconfig file")
 
-	for _, value := range Opts.NameSpaces[0] {
-		if value == 44 {
-			variableForNamespaces = strings.Split(Opts.NameSpaces[0], ",")
-			break
-		}
+	if strings.Contains(Opts.NameSpaces[0], ",") {
+		variableForNamespaces = strings.Split(Opts.NameSpaces[0], ",")
 	}
+
 	if variableForNamespaces == nil {
 		variableForNamespaces = Opts.NameSpaces
 	}
@@ -59,13 +56,13 @@ func main() {
 	client1 = GetClientSet(kubeconfig1)
 	client2 = GetClientSet(kubeconfig2)
 
-	//распарсинг yaml файлов в глобальные переменные, чтобы в будущем получить из них URL
+	// parse yaml files in global environment
 	YamlToStruct(*kubeconfig1, &kubeconfig1YamlStruct)
 	YamlToStruct(*kubeconfig2, &kubeconfig2YamlStruct)
 
 	ret := 0
 
-	isClusterDiffer, err := Compare(client1, client2 /*"default"*/, variableForNamespaces)
+	isClusterDiffer, err := CompareClusters(client1, client2 /*"default"*/, variableForNamespaces)
 	if err != nil {
 		log.Errorf("cannot compare clusters: %s", err.Error())
 		os.Exit(2)
@@ -80,9 +77,9 @@ func main() {
 	os.Exit(ret)
 }
 
-//переводит yaml в структуру
+// YamlToStruct parse yaml file into structure
 func YamlToStruct(nameYamlFile string, nameStruct *KubeconfigYaml) {
-	data, err := ioutil.ReadFile(nameYamlFile)
+	data, err := ioutil.ReadFile(nameYamlFile) //nolint
 	if err != nil {
 		panic(err.Error())
 	}
@@ -92,7 +89,7 @@ func YamlToStruct(nameYamlFile string, nameStruct *KubeconfigYaml) {
 	}
 }
 
-//читает конфигурацию из yaml файла по переданному пути
+// GetClientSet reads the configuration from the yaml file using the passed path
 func GetClientSet(kubeconfig *string) *kubernetes.Clientset {
 	config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
 	if err != nil {

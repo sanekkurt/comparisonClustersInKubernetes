@@ -1,0 +1,39 @@
+name: Master Build
+
+on:
+  push:
+    branches: [ master ]
+#    paths:
+#      - '.github/workflows/master-build.yml'
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  master-build:
+    #    name: build the app and image
+    runs-on: ubuntu-latest
+
+    env:
+      DOCKER_IMAGE: ${{secrets.USER_NAME_DOCKERHUB}}/k8s-cluster-comparator:latest
+
+    steps:
+      - name: Set up Go 1.15
+        uses: actions/setup-go@v2
+        with:
+          go-version: ^1.15
+        id: go
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+
+      - name: Test
+        run: go test -v .
+
+      - name: Login in DockerHub
+        run: docker login -u ${{secrets.USER_NAME_DOCKERHUB}} -p ${{secrets.USER_PASSWORD_DOCKERHUB}}
+
+      - name: Build the Docker image
+        run: docker build . --file Dockerfile --tag ${DOCKER_IMAGE}
+
+      - name: Push Docker image on DockerHub
+        run: docker push  ${DOCKER_IMAGE}
