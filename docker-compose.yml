@@ -1,0 +1,15 @@
+version: '3.4'
+
+services:
+  k8s-cluster-comparator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    network_mode: host
+    volumes:
+      - './kubeconfig1.yml:/kubeconfig1.yaml'
+      - './kubeconfig1.yml:/kubeconfig2.yaml'
+    environment:
+      NAMESPACES: ns1,ns2,...
+      KUBECONFIG1: /kubeconfig1.yaml
+      KUBECONFIG2: /kubeconfig2.yaml
