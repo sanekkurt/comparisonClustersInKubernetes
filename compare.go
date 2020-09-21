@@ -207,7 +207,7 @@ func CompareContainers(deploymentSpec1, deploymentSpec2 InformationAboutObject, 
 			var flag int
 			var containerWithSameNameFound bool
 			for f := 0; f < len(containersStatusesInPod1); f++ {
-				if containersDeploymentTemplate1[i].Name == containersStatusesInPod1[f].name && containersDeploymentTemplate1[i].Name == containersStatusesInPod2[f].name {
+				if containersDeploymentTemplate1[i].Name == containersStatusesInPod1[f].name && containersDeploymentTemplate1[i].Name == containersStatusesInPod2[f].name { //nolint:gocritic,unused
 					flag++
 					if containersDeploymentTemplate1[i].Image != containersStatusesInPod1[f].image || containersDeploymentTemplate1[i].Image != containersStatusesInPod2[f].image {
 						return ErrorContainerImageTemplatePod
@@ -250,7 +250,7 @@ func GetContainerStatusesInPod(containerStatuses []v12.ContainerStatus) map[int]
 }
 
 // получает айдишник раскатанного образа на контейнерах
-func GetPodsListOnMatchLabels(matchLabels map[string]string, namespace string, clientSet1, clientSet2 kubernetes.Interface) (*v12.PodList, *v12.PodList) {
+func GetPodsListOnMatchLabels(matchLabels map[string]string, namespace string, clientSet1, clientSet2 kubernetes.Interface) (*v12.PodList, *v12.PodList) { //nolint:gocritic,unused
 	matchLabelsString := ConvertMatchLabelsToString(matchLabels)
 	pods1, err := clientSet1.CoreV1().Pods(namespace).List(metav1.ListOptions{LabelSelector: matchLabelsString})
 	if err != nil {
@@ -288,7 +288,7 @@ func CompareEnvInContainers(env1, env2 []v12.EnvVar, namespace string, clientSet
 				if env1[i].ValueFrom.ConfigMapKeyRef.Key != env2[i].ValueFrom.ConfigMapKeyRef.Key || env1[i].ValueFrom.ConfigMapKeyRef.Name != env2[i].ValueFrom.ConfigMapKeyRef.Name {
 					return fmt.Errorf("%w. Different ValueFrom: ValueFrom ConfigMapKeyRef in container 1 - %s:%s. ValueFrom ConfigMapKeyRef in container 2 - %s:%s", ErrorEnvironmentNotEqual, env1[i].ValueFrom.ConfigMapKeyRef.Name, env1[i].ValueFrom.ConfigMapKeyRef.Key, env2[i].ValueFrom.ConfigMapKeyRef.Name, env2[i].ValueFrom.ConfigMapKeyRef.Key)
 				}
-				//ЛОГИКА ПРОВЕРКИ НА КОНФИГМАП КЕЙ
+				// ЛОГИКА ПРОВЕРКИ НА КОНФИГМАП КЕЙ
 				configMap1, err := clientSet1.CoreV1().ConfigMaps(namespace).Get(env1[i].ValueFrom.ConfigMapKeyRef.Name, metav1.GetOptions{})
 				if err != nil {
 					panic(err.Error())
