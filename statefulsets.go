@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-// AddValueStatefulSetsInMap добавление значений StatefulSets в карту для дальнейшего сравнения
+// AddValueStatefulSetsInMap add value StatefulSets in map
 func AddValueStatefulSetsInMap(stateFulSets1, stateFulSets2 *v1.StatefulSetList) (map[string]CheckerFlag, map[string]CheckerFlag) { //nolint:gocritic,unused
 	mapStatefulSets1 := make(map[string]CheckerFlag)
 	mapStatefulSets2 := make(map[string]CheckerFlag)
@@ -22,7 +22,7 @@ func AddValueStatefulSetsInMap(stateFulSets1, stateFulSets2 *v1.StatefulSetList)
 	return mapStatefulSets1, mapStatefulSets2
 }
 
-// SetInformationAboutStatefulSets получение информации о StatefulSets
+// SetInformationAboutStatefulSets set information about StatefulSets
 func SetInformationAboutStatefulSets(map1, map2 map[string]CheckerFlag, statefulSets1, statefulSets2 *v1.StatefulSetList, namespace string) bool {
 	var flag bool
 	if len(map1) != len(map2) {
@@ -47,7 +47,7 @@ func SetInformationAboutStatefulSets(map1, map2 map[string]CheckerFlag, stateful
 					log.Infof("statefulset '%s':  number of replicas is different: %d and %d", statefulSets1.Items[index1.index].Name, *statefulSets1.Items[index1.index].Spec.Replicas, *statefulSets2.Items[index2.index].Spec.Replicas)
 					flag = true
 				} else {
-					// заполняем информацию, которая будет использоваться при сравнении
+					// fill in the information that will be used for comparison
 					object1 := InformationAboutObject{
 						Template: statefulSets1.Items[index1.index].Spec.Template,
 						Selector: statefulSets1.Items[index1.index].Spec.Selector,

@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	// переменные для теста функции сравнения контейнеров
+	// variables for the container comparison function test
 	clusterClientSet1 *fake.Clientset
 	clusterClientSet2 *fake.Clientset
 
@@ -27,7 +27,7 @@ var (
 	objectInformation1 InformationAboutObject
 	objectInformation2 InformationAboutObject
 
-	// переменные для теста функции сравнения переменных в контейнерах
+	// variables for testing the variable comparison function in containers
 	env1                  []v1.EnvVar
 	env2                  []v1.EnvVar
 	temp                  v1.EnvVar
@@ -1130,7 +1130,7 @@ func initEnvironmentForEighthTest() {
 
 // TestCompareContainers check CompareContainers function
 func TestCompareContainers(t *testing.T) {
-	// проверка на разное количество контейнеров в шаблонах
+	// Checking for different number of containers in templates
 	initEnvironmentForFirstTest()
 	deployments1, _ := clusterClientSet1.AppsV1().Deployments("default").List(metav1.ListOptions{})
 	deployments2, _ := clusterClientSet2.AppsV1().Deployments("default").List(metav1.ListOptions{})
@@ -1143,7 +1143,7 @@ func TestCompareContainers(t *testing.T) {
 		t.Error("Error expected: 'The number templates of containers differs'. But it was returned: ", err)
 	}
 
-	// Проверка на несовпадение MatchLabels
+	// Checking for MatchLabels mismatch
 	initEnvironmentForSecondTest()
 	deployments2, _ = clusterClientSet2.AppsV1().Deployments("default").List(metav1.ListOptions{})
 	objectInformation2.Selector = deployments2.Items[0].Spec.Selector
@@ -1153,7 +1153,7 @@ func TestCompareContainers(t *testing.T) {
 		t.Error("Error expected: 'MatchLabels are not equal'. But it was returned: ", err)
 	}
 
-	// Проверка на несовпадение имен контейнеров в шаблоне
+	// Check for mismatch of names of the containers in the template
 	initEnvironmentForThirdTest()
 	deployments1, _ = clusterClientSet1.AppsV1().Deployments("default").List(metav1.ListOptions{})
 	deployments2, _ = clusterClientSet2.AppsV1().Deployments("default").List(metav1.ListOptions{})
@@ -1166,7 +1166,7 @@ func TestCompareContainers(t *testing.T) {
 		t.Error("Error expected: 'Container names in template are not equal'. But it was returned: ", err)
 	}
 
-	// Проверка на несовпадение имен образов контейнеров в шаблоне
+	// Checking for mismatched container image names in the template
 	initEnvironmentForFourthTest()
 	deployments1, _ = clusterClientSet1.AppsV1().Deployments("default").List(metav1.ListOptions{})
 	deployments2, _ = clusterClientSet2.AppsV1().Deployments("default").List(metav1.ListOptions{})
@@ -1180,7 +1180,7 @@ func TestCompareContainers(t *testing.T) {
 		t.Error("Error expected: 'Container name images in template are not equal'. But it was returned: ", err)
 	}
 
-	// Проверка на разное количество Pod'ов
+	// Checking for different counts Pods
 	initEnvironmentForFifthTest()
 	deployments1, _ = clusterClientSet1.AppsV1().Deployments("default").List(metav1.ListOptions{})
 	deployments2, _ = clusterClientSet2.AppsV1().Deployments("default").List(metav1.ListOptions{})
@@ -1193,7 +1193,7 @@ func TestCompareContainers(t *testing.T) {
 		t.Error("Error expected: 'The pods count are different'. But it was returned: ", err)
 	}
 
-	// Проверка на разное количество контейнеров в Pod'ах
+	// Checking for different number of containers in Pods
 	initEnvironmentForSixthTest()
 	deployments1, _ = clusterClientSet1.AppsV1().Deployments("default").List(metav1.ListOptions{})
 	deployments2, _ = clusterClientSet2.AppsV1().Deployments("default").List(metav1.ListOptions{})
@@ -1206,7 +1206,7 @@ func TestCompareContainers(t *testing.T) {
 		t.Error("Error expected: 'The containers count in pod are different'. But it was returned: ", err)
 	}
 
-	// Проверка на отличающиеся имена образов в Pod'e и Template
+	// Checking for different image names in Pod and Template
 	initEnvironmentForSeventhTest()
 	deployments1, _ = clusterClientSet1.AppsV1().Deployments("default").List(metav1.ListOptions{})
 	deployments2, _ = clusterClientSet2.AppsV1().Deployments("default").List(metav1.ListOptions{})
@@ -1219,7 +1219,7 @@ func TestCompareContainers(t *testing.T) {
 		t.Error("Error expected: 'The container image in the template does not match the actual image in the Pod'. But it was returned: ", err)
 	}
 
-	// Проверка на разные ImageID в Pod'ах
+	// Checking for different ImageID's in Pods
 	initEnvironmentForEighthTest()
 	deployments1, _ = clusterClientSet1.AppsV1().Deployments("default").List(metav1.ListOptions{})
 	deployments2, _ = clusterClientSet2.AppsV1().Deployments("default").List(metav1.ListOptions{})
@@ -1231,8 +1231,6 @@ func TestCompareContainers(t *testing.T) {
 	if !errors.Is(errors.Unwrap(err), ErrorDifferentImageIDInPods) {
 		t.Error("Error expected: 'The ImageID in Pods is different'. But it was returned: ", err)
 	}
-
-	// Проверка на случай отсутсвия контейнера в другом Pod'е не нужна она и так в стоке работает, на нее реагирует проверка количества контейнеров
 }
 
 func initEnvironmentForFirstTest2() {

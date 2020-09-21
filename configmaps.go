@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-// AddValueConfigMapsInMap Добавление значений ConfigMaps в карту для дальнейшего сравнения
+// AddValueConfigMapsInMap add value ConfigMaps in map
 func AddValueConfigMapsInMap(configMaps1, configMaps2 *v12.ConfigMapList) (map[string]CheckerFlag, map[string]CheckerFlag) { //nolint:gocritic,unused
 	mapConfigMap1 := make(map[string]CheckerFlag)
 	mapConfigMap2 := make(map[string]CheckerFlag)
@@ -22,7 +22,7 @@ func AddValueConfigMapsInMap(configMaps1, configMaps2 *v12.ConfigMapList) (map[s
 	return mapConfigMap1, mapConfigMap2
 }
 
-// SetInformationAboutConfigMaps Получение информации о ConfigMaps
+// SetInformationAboutConfigMaps set information about config maps
 func SetInformationAboutConfigMaps(map1, map2 map[string]CheckerFlag, configMaps1, configMaps2 *v12.ConfigMapList) bool {
 	var flag bool
 	if len(map1) != len(map2) {

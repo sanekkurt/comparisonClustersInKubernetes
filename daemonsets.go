@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-// AddValueDaemonSetsMap Добавление значений DaemonSets в карту для дальнейшего сравнения
+// AddValueDaemonSetsMap add value daemonSets in map
 func AddValueDaemonSetsMap(daemonSets1, daemonSets2 *v1.DaemonSetList) (map[string]CheckerFlag, map[string]CheckerFlag) { //nolint:gocritic,unused
 	mapDaemonSets1 := make(map[string]CheckerFlag)
 	mapDaemonSets2 := make(map[string]CheckerFlag)
@@ -22,7 +22,7 @@ func AddValueDaemonSetsMap(daemonSets1, daemonSets2 *v1.DaemonSetList) (map[stri
 	return mapDaemonSets1, mapDaemonSets2
 }
 
-// SetInformationAboutDaemonSets Получение информации о DaemonSets
+// SetInformationAboutDaemonSets set information about daemonSets
 func SetInformationAboutDaemonSets(map1, map2 map[string]CheckerFlag, daemonSets1, daemonSets2 *v1.DaemonSetList, namespace string) bool {
 	var flag bool
 	if len(map1) != len(map2) {
@@ -44,7 +44,7 @@ func SetInformationAboutDaemonSets(map1, map2 map[string]CheckerFlag, daemonSets
 				map2[name] = index2
 				log.Debugf("----- Start checking daemonset: '%s' -----", name)
 
-				// заполняем информацию, которая будет использоваться при сравнении
+				// fill in the information that will be used for comparison
 				object1 := InformationAboutObject{
 					Template: daemonSets1.Items[index1.index].Spec.Template,
 					Selector: daemonSets1.Items[index1.index].Spec.Selector,

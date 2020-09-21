@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-// AddValueSecretsInMap Добавление значений Secrets в карту для дальнейшего сравнения
+// AddValueSecretsInMap add value secrets in map
 func AddValueSecretsInMap(secrets1, secrets2 *v12.SecretList) (map[string]CheckerFlag, map[string]CheckerFlag) { //nolint:gocritic,unused
 	mapSecrets1 := make(map[string]CheckerFlag)
 	mapSecrets2 := make(map[string]CheckerFlag)
@@ -31,7 +31,7 @@ func AddValueSecretsInMap(secrets1, secrets2 *v12.SecretList) (map[string]Checke
 	return mapSecrets1, mapSecrets2
 }
 
-// SetInformationAboutSecrets Получение информации о Secrets
+// SetInformationAboutSecrets set information about secrets
 func SetInformationAboutSecrets(map1, map2 map[string]CheckerFlag, secrets1, secrets2 *v12.SecretList) bool {
 	var flag bool
 	if len(map1) != len(map2) {
