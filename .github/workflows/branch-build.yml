@@ -1,6 +1,11 @@
 name: Branch CI
 
-on: [push, pull_request]
+on:
+  push:
+    branches-ignore:
+      - 'master'
+    paths:
+      - '.github/workflows/branch-build.yml'
 
 jobs:
   branch-build:
@@ -19,7 +24,7 @@ jobs:
         run: |
           curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh| sh -s -- -b $GITHUB_WORKSPACE v1.27.0
 
-      - name: test and lint backend
+      - name: test and lint app
         run: |
           go test -race -timeout=60s -v ./...
           $GITHUB_WORKSPACE/golangci-lint --config ${GITHUB_WORKSPACE}/.golangci.yml run --out-format=github-actions ./...

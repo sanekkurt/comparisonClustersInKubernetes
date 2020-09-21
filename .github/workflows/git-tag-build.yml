@@ -1,20 +1,18 @@
-name: Master Build
+name: Git Tag Build
 
 on:
   push:
-    branches: [ master ]
+    tags:
+      - v*
     paths:
-      - '.github/workflows/master-build.yml'
-  pull_request:
-    branches: [ master ]
+      - '.github/workflows/git-tag-build.yml'
 
 jobs:
-  master-build:
-    #    name: build the app and image
+  tag-build:
     runs-on: ubuntu-latest
 
     env:
-      DOCKER_IMAGE: ${{secrets.USER_NAME_DOCKERHUB}}/k8s-cluster-comparator:latest
+      DOCKER_IMAGE: ${{secrets.USER_NAME_DOCKERHUB}}/k8s-cluster-comparator:${{ github.ref }}
 
     steps:
       - name: Set up Go 1.15
@@ -33,7 +31,7 @@ jobs:
         run: docker login -u ${{secrets.USER_NAME_DOCKERHUB}} -p ${{secrets.USER_PASSWORD_DOCKERHUB}} ${DOCKER_IMAGE}
 
       - name: Build the Docker image
-        run: docker build . --file Dockerfile --tag  ${DOCKER_IMAGE}
+        run: docker build . --file Dockerfile --tag ${DOCKER_IMAGE}
 
       - name: Push Docker image on DockerHub
-        run: docker push  ${DOCKER_IMAGE}
+        run: docker push ${DOCKER_IMAGE}
