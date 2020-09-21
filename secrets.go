@@ -4,7 +4,7 @@ import (
 	v12 "k8s.io/api/core/v1"
 )
 
-func AddValueSecretsInMap(secrets1 *v12.SecretList, secrets2 *v12.SecretList) (map[string]CheckerFlag, map[string]CheckerFlag) {
+func AddValueSecretsInMap(secrets1, secrets2 *v12.SecretList) (map[string]CheckerFlag, map[string]CheckerFlag) {
 	mapSecrets1 := make(map[string]CheckerFlag)
 	mapSecrets2 := make(map[string]CheckerFlag)
 	var indexCheck CheckerFlag
@@ -29,7 +29,7 @@ func AddValueSecretsInMap(secrets1 *v12.SecretList, secrets2 *v12.SecretList) (m
 	return mapSecrets1, mapSecrets2
 }
 
-func SetInformationAboutSecrets(map1 map[string]CheckerFlag, map2 map[string]CheckerFlag, secrets1 *v12.SecretList, secrets2 *v12.SecretList) bool {
+func SetInformationAboutSecrets(map1, map2 map[string]CheckerFlag, secrets1, secrets2 *v12.SecretList) bool {
 	var flag bool
 	if len(map1) != len(map2) {
 		log.Infof("secret counts are different")

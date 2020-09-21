@@ -4,7 +4,7 @@ import (
 	v12 "k8s.io/api/core/v1"
 )
 
-func AddValueConfigMapsInMap(configMaps1 *v12.ConfigMapList, configMaps2 *v12.ConfigMapList) (map[string]CheckerFlag, map[string]CheckerFlag) {
+func AddValueConfigMapsInMap(configMaps1, configMaps2 *v12.ConfigMapList) (map[string]CheckerFlag, map[string]CheckerFlag) {
 	mapConfigMap1 := make(map[string]CheckerFlag)
 	mapConfigMap2 := make(map[string]CheckerFlag)
 	var indexCheck CheckerFlag
@@ -20,7 +20,7 @@ func AddValueConfigMapsInMap(configMaps1 *v12.ConfigMapList, configMaps2 *v12.Co
 	return mapConfigMap1, mapConfigMap2
 }
 
-func SetInformationAboutConfigMaps(map1 map[string]CheckerFlag, map2 map[string]CheckerFlag, configMaps1 *v12.ConfigMapList, configMaps2 *v12.ConfigMapList) bool {
+func SetInformationAboutConfigMaps(map1, map2 map[string]CheckerFlag, configMaps1, configMaps2 *v12.ConfigMapList) bool {
 	var flag bool
 	if len(map1) != len(map2) {
 		log.Infof("configmaps count are different")

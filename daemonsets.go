@@ -4,7 +4,7 @@ import (
 	v1 "k8s.io/api/apps/v1"
 )
 
-func AddValueDaemonSetsMap(daemonSets1 *v1.DaemonSetList, daemonSets2 *v1.DaemonSetList) (map[string]CheckerFlag, map[string]CheckerFlag) {
+func AddValueDaemonSetsMap(daemonSets1, daemonSets2 *v1.DaemonSetList) (map[string]CheckerFlag, map[string]CheckerFlag) {
 	mapDaemonSets1 := make(map[string]CheckerFlag)
 	mapDaemonSets2 := make(map[string]CheckerFlag)
 	var indexCheck CheckerFlag
@@ -20,7 +20,7 @@ func AddValueDaemonSetsMap(daemonSets1 *v1.DaemonSetList, daemonSets2 *v1.Daemon
 	return mapDaemonSets1, mapDaemonSets2
 }
 
-func SetInformationAboutDaemonSets(map1 map[string]CheckerFlag, map2 map[string]CheckerFlag, daemonSets1 *v1.DaemonSetList, daemonSets2 *v1.DaemonSetList, namespace string) bool {
+func SetInformationAboutDaemonSets(map1, map2 map[string]CheckerFlag, daemonSets1, daemonSets2 *v1.DaemonSetList, namespace string) bool {
 	var flag bool
 	if len(map1) != len(map2) {
 		log.Infof("DaemonSet count are different")

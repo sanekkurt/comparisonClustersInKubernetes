@@ -49,12 +49,16 @@ func main() {
 	//kubeconfig1 := flag.String("kubeconfig1", filepath.Join(home, "kubeconfig1.yaml"), "(optional) absolute path to the kubeconfig file")
 	//kubeconfig2 := flag.String("kubeconfig2", filepath.Join(home, "kubeconfig2.yaml"), "(optional) absolute path to the kubeconfig file")
 
-	for _, value := range Opts.NameSpaces[0] {
-		if value == 44 {
-			variableForNamespaces = strings.Split(Opts.NameSpaces[0], ",")
-			break
-		}
+	if strings.Contains(Opts.NameSpaces[0], ",") {
+		variableForNamespaces = strings.Split(Opts.NameSpaces[0], ",")
 	}
+
+	//for _, value := range Opts.NameSpaces[0] {
+	//	if value == 44 {
+	//		variableForNamespaces = strings.Split(Opts.NameSpaces[0], ",")
+	//		break
+	//	}
+	//}
 	if variableForNamespaces == nil {
 		variableForNamespaces = Opts.NameSpaces
 	}

@@ -11,7 +11,7 @@ import (
 )
 
 //основная сравнивающая функция, поочередно запускает функции для сравнения кластеров по разным параметрам: Deployments, StatefulSets, DaemonSets, ConfigMaps
-func Compare(clientSet1 kubernetes.Interface, clientSet2 kubernetes.Interface, namespaces []string) (bool, error) {
+func Compare(clientSet1, clientSet2 kubernetes.Interface, namespaces []string) (bool, error) {
 	type ResStr struct {
 		IsClusterDiffer bool
 		Err             error
@@ -172,7 +172,7 @@ func Compare(clientSet1 kubernetes.Interface, clientSet2 kubernetes.Interface, n
 	return false, nil
 }
 
-func CompareContainers(deploymentSpec1 InformationAboutObject, deploymentSpec2 InformationAboutObject, namespace string, clientSet1 kubernetes.Interface, clientSet2 kubernetes.Interface) error {
+func CompareContainers(deploymentSpec1, deploymentSpec2 InformationAboutObject, namespace string, clientSet1 kubernetes.Interface, clientSet2 kubernetes.Interface) error {
 	containersDeploymentTemplate1 := deploymentSpec1.Template.Spec.Containers
 	containersDeploymentTemplate2 := deploymentSpec2.Template.Spec.Containers
 	if len(containersDeploymentTemplate1) != len(containersDeploymentTemplate2) {
@@ -255,7 +255,7 @@ func GetContainerStatusesInPod(containerStatuses []v12.ContainerStatus) map[int]
 }
 
 //получает айдишник раскатанного образа на контейнерах
-func GetPodsListOnMatchLabels(matchLabels map[string]string, namespace string, clientSet1 kubernetes.Interface, clientSet2 kubernetes.Interface) (*v12.PodList, *v12.PodList) {
+func GetPodsListOnMatchLabels(matchLabels map[string]string, namespace string, clientSet1, clientSet2 kubernetes.Interface) (*v12.PodList, *v12.PodList) {
 	matchLabelsString := ConvertMatchLabelsToString(matchLabels)
 	pods1, err := clientSet1.CoreV1().Pods(namespace).List(metav1.ListOptions{LabelSelector: matchLabelsString})
 	if err != nil {
@@ -286,7 +286,7 @@ func ConvertMatchLabelsToString(matchLabels map[string]string) string {
 	return strings.Join(values, ",")
 }
 
-func CompareEnvInContainers(env1 []v12.EnvVar, env2 []v12.EnvVar, namespace string, clientSet1 kubernetes.Interface, clientSet2 kubernetes.Interface) error {
+func CompareEnvInContainers(env1, env2 []v12.EnvVar, namespace string, clientSet1, clientSet2 kubernetes.Interface) error {
 	if len(env1) != len(env2) {
 		return ErrorNumberVariables
 	}

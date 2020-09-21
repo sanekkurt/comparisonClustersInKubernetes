@@ -4,7 +4,7 @@ import (
 	v1 "k8s.io/api/apps/v1"
 )
 
-func AddValueDeploymentsInMap(deployments1 *v1.DeploymentList, deployments2 *v1.DeploymentList) (map[string]CheckerFlag, map[string]CheckerFlag) {
+func AddValueDeploymentsInMap(deployments1, deployments2 *v1.DeploymentList) (map[string]CheckerFlag, map[string]CheckerFlag) {
 	mapDeployments1 := make(map[string]CheckerFlag)
 	mapDeployments2 := make(map[string]CheckerFlag)
 	var indexCheck CheckerFlag
@@ -20,7 +20,7 @@ func AddValueDeploymentsInMap(deployments1 *v1.DeploymentList, deployments2 *v1.
 	return mapDeployments1, mapDeployments2
 }
 
-func SetInformationAboutDeployments(map1 map[string]CheckerFlag, map2 map[string]CheckerFlag, deployments1 *v1.DeploymentList, deployments2 *v1.DeploymentList, namespace string) bool {
+func SetInformationAboutDeployments(map1, map2 map[string]CheckerFlag, deployments1, deployments2 *v1.DeploymentList, namespace string) bool {
 	var flag bool
 	if len(map1) != len(map2) {
 		log.Infof("deployment counts are different")

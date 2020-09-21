@@ -4,7 +4,7 @@ import (
 	v1 "k8s.io/api/apps/v1"
 )
 
-func AddValueStatefulSetsInMap(stateFulSets1 *v1.StatefulSetList, stateFulSets2 *v1.StatefulSetList) (map[string]CheckerFlag, map[string]CheckerFlag) {
+func AddValueStatefulSetsInMap(stateFulSets1, stateFulSets2 *v1.StatefulSetList) (map[string]CheckerFlag, map[string]CheckerFlag) {
 	mapStatefulSets1 := make(map[string]CheckerFlag)
 	mapStatefulSets2 := make(map[string]CheckerFlag)
 	var indexCheck CheckerFlag
@@ -20,7 +20,7 @@ func AddValueStatefulSetsInMap(stateFulSets1 *v1.StatefulSetList, stateFulSets2 
 	return mapStatefulSets1, mapStatefulSets2
 }
 
-func SetInformationAboutStatefulSets(map1 map[string]CheckerFlag, map2 map[string]CheckerFlag, statefulSets1 *v1.StatefulSetList, statefulSets2 *v1.StatefulSetList, namespace string) bool {
+func SetInformationAboutStatefulSets(map1, map2 map[string]CheckerFlag, statefulSets1, statefulSets2 *v1.StatefulSetList, namespace string) bool {
 	var flag bool
 	if len(map1) != len(map2) {
 		log.Infof("StatefulSets count are different")
