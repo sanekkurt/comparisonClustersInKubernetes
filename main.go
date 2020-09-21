@@ -62,7 +62,7 @@ func main() {
 
 	ret := 0
 
-	isClusterDiffer, err := Compare(client1, client2 /*"default"*/, variableForNamespaces)
+	isClusterDiffer, err := CompareClusters(client1, client2 /*"default"*/, variableForNamespaces)
 	if err != nil {
 		log.Errorf("cannot compare clusters: %s", err.Error())
 		os.Exit(2)

@@ -11,7 +11,7 @@ import (
 )
 
 // основная сравнивающая функция, поочередно запускает функции для сравнения кластеров по разным параметрам: Deployments, StatefulSets, DaemonSets, ConfigMaps
-func Compare(clientSet1, clientSet2 kubernetes.Interface, namespaces []string) (bool, error) {
+func CompareClusters(clientSet1, clientSet2 kubernetes.Interface, namespaces []string) (bool, error) {
 	type ResStr struct {
 		IsClusterDiffer bool
 		Err             error
@@ -274,10 +274,6 @@ func ConvertMatchLabelsToString(matchLabels map[string]string) string {
 	for i := 0; i < len(keys); i++ {
 		values = append(values, fmt.Sprintf("%s=%s", keys[i], matchLabels[keys[i]]))
 	}
-	//for key, value := range matchLabels {
-	//	values = append(values, fmt.Sprintf("%s=%s", key, value))
-	//}
-	//супермегафича склеивания строчек
 	return strings.Join(values, ",")
 }
 
@@ -308,7 +304,7 @@ func CompareEnvInContainers(env1, env2 []v12.EnvVar, namespace string, clientSet
 				if env1[i].ValueFrom.SecretKeyRef.Key != env2[i].ValueFrom.SecretKeyRef.Key || env1[i].ValueFrom.SecretKeyRef.Name != env2[i].ValueFrom.SecretKeyRef.Name {
 					return fmt.Errorf("%w. Different ValueFrom: ValueFrom SecretKeyRef in container 1 - %s:%s. ValueFrom SecretKeyRef in container 2 - %s:%s", ErrorEnvironmentNotEqual, env1[i].ValueFrom.SecretKeyRef.Name, env1[i].ValueFrom.SecretKeyRef.Key, env2[i].ValueFrom.SecretKeyRef.Name, env2[i].ValueFrom.SecretKeyRef.Key)
 				}
-				//ЛОГИКА ПРОВЕРКИ НА СЕКРЕТ КЕЙ
+				// ЛОГИКА ПРОВЕРКИ НА СЕКРЕТ КЕЙ
 				secret1, err := clientSet1.CoreV1().Secrets(namespace).Get(env1[i].ValueFrom.SecretKeyRef.Name, metav1.GetOptions{})
 				if err != nil {
 					panic(err.Error())
