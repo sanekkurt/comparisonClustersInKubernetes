@@ -2,6 +2,7 @@ package main
 
 import (
 	v1 "k8s.io/api/apps/v1"
+	"sync"
 )
 
 // Добавление значений StatefulSets в карту для дальнейшего сравнения
@@ -28,37 +29,53 @@ func SetInformationAboutStatefulSets(map1, map2 map[string]CheckerFlag, stateful
 		log.Infof("StatefulSets count are different")
 		flag = true
 	}
+	wg := &sync.WaitGroup{}
+	channel := make(chan bool, len(map1))
 	for name, index1 := range map1 {
-		if index2, ok := map2[name]; ok {
-			index1.check = true
-			map1[name] = index1
-			index2.check = true
-			map2[name] = index2
-			log.Debugf("----- Start checking statefulset: '%s' -----", name)
-			if *statefulSets1.Items[index1.index].Spec.Replicas != *statefulSets2.Items[index2.index].Spec.Replicas {
-				log.Infof("statefulset '%'':  number of replicas is different: %d and %d", statefulSets1.Items[index1.index].Name, *statefulSets1.Items[index1.index].Spec.Replicas, *statefulSets2.Items[index2.index].Spec.Replicas)
-				flag = true
-			} else {
-				//заполняем информацию, которая будет использоваться при сравнении
-				object1 := InformationAboutObject{
-					Template: statefulSets1.Items[index1.index].Spec.Template,
-					Selector: statefulSets1.Items[index1.index].Spec.Selector,
-				}
-				object2 := InformationAboutObject{
-					Template: statefulSets2.Items[index2.index].Spec.Template,
-					Selector: statefulSets2.Items[index2.index].Spec.Selector,
-				}
-
-				err := CompareContainers(object1, object2, namespace, client1, client2)
-				if err != nil {
-					log.Infof("StatefulSet %s: %s", name, err.Error())
+		wg.Add(1)
+		go func(wg *sync.WaitGroup, channel chan bool, name string, index1 CheckerFlag, map1, map2 map[string]CheckerFlag) {
+			defer func() {
+				wg.Done()
+			}()
+			if index2, ok := map2[name]; ok {
+				index1.check = true
+				map1[name] = index1
+				index2.check = true
+				map2[name] = index2
+				log.Debugf("----- Start checking statefulset: '%s' -----", name)
+				if *statefulSets1.Items[index1.index].Spec.Replicas != *statefulSets2.Items[index2.index].Spec.Replicas {
+					log.Infof("statefulset '%s':  number of replicas is different: %d and %d", statefulSets1.Items[index1.index].Name, *statefulSets1.Items[index1.index].Spec.Replicas, *statefulSets2.Items[index2.index].Spec.Replicas)
 					flag = true
-				}
+				} else {
+					//заполняем информацию, которая будет использоваться при сравнении
+					object1 := InformationAboutObject{
+						Template: statefulSets1.Items[index1.index].Spec.Template,
+						Selector: statefulSets1.Items[index1.index].Spec.Selector,
+					}
+					object2 := InformationAboutObject{
+						Template: statefulSets2.Items[index2.index].Spec.Template,
+						Selector: statefulSets2.Items[index2.index].Spec.Selector,
+					}
 
+					err := CompareContainers(object1, object2, namespace, client1, client2)
+					if err != nil {
+						log.Infof("StatefulSet %s: %s", name, err.Error())
+						flag = true
+					}
+
+				}
+				log.Debugf("----- End checking statefulset: '%s' -----", name)
+			} else {
+				log.Infof("StatefulSet '%s' does not exist in 2nd cluster", name)
+				flag = true
 			}
-			log.Debugf("----- End checking statefulset: '%s' -----", name)
-		} else {
-			log.Infof("StatefulSet '%s' does not exist in 2nd cluster", name)
+			channel <- flag
+			}(wg, channel, name,index1, map1, map2)
+	}
+	wg.Wait()
+	close(channel)
+	for ch := range channel {
+		if ch {
 			flag = true
 		}
 	}

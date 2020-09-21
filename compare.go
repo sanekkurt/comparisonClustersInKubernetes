@@ -177,37 +177,31 @@ func CompareContainers(deploymentSpec1, deploymentSpec2 InformationAboutObject, 
 	containersDeploymentTemplate1 := deploymentSpec1.Template.Spec.Containers
 	containersDeploymentTemplate2 := deploymentSpec2.Template.Spec.Containers
 	if len(containersDeploymentTemplate1) != len(containersDeploymentTemplate2) {
-		//fmt.Printf("!!!The number templates of containers differs!!!\n")
 		return ErrorDiffersTemplatesNumber
 	}
 	matchLabelsString1 := ConvertMatchLabelsToString(deploymentSpec1.Selector.MatchLabels)
 	matchLabelsString2 := ConvertMatchLabelsToString(deploymentSpec2.Selector.MatchLabels)
 	if matchLabelsString1 != matchLabelsString2 {
-		//fmt.Printf("!!!MatchLabels are not equal!!!\n")
 		return ErrorMatchlabelsNotEqual
 	}
 	pods1, pods2 := GetPodsListOnMatchLabels(deploymentSpec1.Selector.MatchLabels, namespace, clientSet1, clientSet2)
 	for i := 0; i < len(containersDeploymentTemplate1); i++ {
 		if containersDeploymentTemplate1[i].Name != containersDeploymentTemplate2[i].Name {
-			//fmt.Printf("!!!Container names in template are not equal!!!\n")
 			return ErrorContainerNamesTemplate
 		}
 		if containersDeploymentTemplate1[i].Image != containersDeploymentTemplate2[i].Image {
-			//fmt.Printf("!!!Container name images in template are not equal!!!\n")
 			return ErrorContainerImagesTemplate
 		}
 		if err := CompareEnvInContainers(containersDeploymentTemplate1[i].Env, containersDeploymentTemplate2[i].Env, namespace, clientSet1, clientSet2); err != nil {
 			return err
 		}
 		if len(pods1.Items) != len(pods2.Items) {
-			//fmt.Printf("!!!The pods count are different!!!\n")
 			return ErrorPodsCount
 		}
 		for j := 0; j < len(pods1.Items); j++ {
 			containersStatusesInPod1 := GetContainerStatusesInPod(pods1.Items[j].Status.ContainerStatuses)
 			containersStatusesInPod2 := GetContainerStatusesInPod(pods2.Items[j].Status.ContainerStatuses)
 			if len(containersStatusesInPod1) != len(containersStatusesInPod2) {
-				//fmt.Printf("!!!The containers count in pod are different!!!\n")
 				return ErrorContainersCountInPod
 			}
 			var flag int
