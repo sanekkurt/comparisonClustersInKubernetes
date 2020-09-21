@@ -4,6 +4,7 @@ import (
 	v12 "k8s.io/api/core/v1"
 )
 
+//Добавление значений ConfigMaps в карту для дальнейшего сравнения
 func AddValueConfigMapsInMap(configMaps1, configMaps2 *v12.ConfigMapList) (map[string]CheckerFlag, map[string]CheckerFlag) {
 	mapConfigMap1 := make(map[string]CheckerFlag)
 	mapConfigMap2 := make(map[string]CheckerFlag)
@@ -20,6 +21,7 @@ func AddValueConfigMapsInMap(configMaps1, configMaps2 *v12.ConfigMapList) (map[s
 	return mapConfigMap1, mapConfigMap2
 }
 
+//Получение информации о ConfigMaps
 func SetInformationAboutConfigMaps(map1, map2 map[string]CheckerFlag, configMaps1, configMaps2 *v12.ConfigMapList) bool {
 	var flag bool
 	if len(map1) != len(map2) {
@@ -27,7 +29,7 @@ func SetInformationAboutConfigMaps(map1, map2 map[string]CheckerFlag, configMaps
 		flag = true
 	}
 	for name, index1 := range map1 {
-		if index2, ok := map2[name]; ok == true {
+		if index2, ok := map2[name]; ok {
 			index1.check = true
 			map1[name] = index1
 			index2.check = true
@@ -51,7 +53,7 @@ func SetInformationAboutConfigMaps(map1, map2 map[string]CheckerFlag, configMaps
 		}
 	}
 	for name, index := range map2 {
-		if index.check == false {
+		if !index.check {
 			log.Infof("ConfigMap '%s' - 2 cluster. Does not exist on another cluster", name)
 			flag = true
 		}

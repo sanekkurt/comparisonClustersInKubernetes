@@ -5,6 +5,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+//Структура для указания сравнивали ли информацию данной сущности
 type CheckerFlag struct {
 	index int
 	check bool
@@ -17,13 +18,13 @@ type Container struct {
 	imageID string
 }
 
-//структура для универсализации сравнительной функции, позволяет в нее передать информацию как deployment'ов, так и statefulset'ов
+//Структура для универсализации сравнительной функции, позволяет в нее передать информацию как deployment'ов, так и statefulset'ов
 type InformationAboutObject struct {
 	Template v12.PodTemplateSpec
 	Selector *v1.LabelSelector
-	//Pods *v12.PodList
 }
 
+//Структура для описания Yaml файла kubeconfig
 type KubeconfigYaml struct {
 	APIVersion string `json:"apiVersion"`
 	Clusters   []struct {

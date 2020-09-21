@@ -4,6 +4,7 @@ import (
 	v1 "k8s.io/api/apps/v1"
 )
 
+//Добавление значений Deployments в карту для дальнейшего сравнения
 func AddValueDeploymentsInMap(deployments1, deployments2 *v1.DeploymentList) (map[string]CheckerFlag, map[string]CheckerFlag) {
 	mapDeployments1 := make(map[string]CheckerFlag)
 	mapDeployments2 := make(map[string]CheckerFlag)
@@ -20,6 +21,7 @@ func AddValueDeploymentsInMap(deployments1, deployments2 *v1.DeploymentList) (ma
 	return mapDeployments1, mapDeployments2
 }
 
+//Получение информации о деплойментах
 func SetInformationAboutDeployments(map1, map2 map[string]CheckerFlag, deployments1, deployments2 *v1.DeploymentList, namespace string) bool {
 	var flag bool
 	if len(map1) != len(map2) {
@@ -27,14 +29,13 @@ func SetInformationAboutDeployments(map1, map2 map[string]CheckerFlag, deploymen
 		flag = true
 	}
 	for name, index1 := range map1 {
-		if index2, ok := map2[name]; ok == true {
+		if index2, ok := map2[name]; ok {
 			index1.check = true
 			map1[name] = index1
 			index2.check = true
 			map2[name] = index2
 
 			log.Debugf("----- Start checking deployment: '%s' -----", name)
-			//fmt.Printf("----- Start checking deployment: '%s' -----\n", name)
 			if *deployments1.Items[index1.index].Spec.Replicas != *deployments2.Items[index2.index].Spec.Replicas {
 				log.Infof("deployment '%s':  number of replicas is different: %d and %d", deployments1.Items[index1.index].Name, *deployments1.Items[index1.index].Spec.Replicas, *deployments2.Items[index2.index].Spec.Replicas)
 				flag = true
@@ -61,7 +62,7 @@ func SetInformationAboutDeployments(map1, map2 map[string]CheckerFlag, deploymen
 		}
 	}
 	for name, index := range map2 {
-		if index.check == false {
+		if !index.check {
 			log.Infof("Deployment '%s' - 2 cluster. Does not exist on another cluster", name)
 			flag = true
 		}

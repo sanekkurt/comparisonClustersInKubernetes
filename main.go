@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"github.com/jessevdk/go-flags"
 	"gopkg.in/yaml.v2"
@@ -14,7 +13,7 @@ import (
 )
 
 var (
-	kubeconfig            = flag.String("kubeconfig", "", "(optional) absolute path to the kubeconfig file")
+	//kubeconfig            = flag.String("kubeconfig", "", "(optional) absolute path to the kubeconfig file")
 	variableForNamespaces []string
 	kubeconfig1YamlStruct KubeconfigYaml
 	kubeconfig2YamlStruct KubeconfigYaml
@@ -24,6 +23,7 @@ var (
 	skipTypes = []v12.SecretType{"kubernetes.io/service-account-token", "kubernetes.io/dockercfg", "helm.sh/release.v1"}
 )
 
+//Структура описывающая входную информацию о кластерах и namespaces для сравнения
 var Opts struct {
 	KubeConfig1 string   `long:"kube-config1" env:"KUBECONFIG1" required:"true" description:"Path to Kubernetes client1 config file"`
 	KubeConfig2 string   `long:"kube-config2" env:"KUBECONFIG2" required:"true" description:"Path to Kubernetes client2 config file"`
@@ -42,23 +42,11 @@ func main() {
 	if err != nil {
 		panic(err.Error())
 	}
-	//home, err := os.Getwd()
-	//if err != nil {
-	//	panic(err.Error())
-	//}
-	//kubeconfig1 := flag.String("kubeconfig1", filepath.Join(home, "kubeconfig1.yaml"), "(optional) absolute path to the kubeconfig file")
-	//kubeconfig2 := flag.String("kubeconfig2", filepath.Join(home, "kubeconfig2.yaml"), "(optional) absolute path to the kubeconfig file")
 
 	if strings.Contains(Opts.NameSpaces[0], ",") {
 		variableForNamespaces = strings.Split(Opts.NameSpaces[0], ",")
 	}
 
-	//for _, value := range Opts.NameSpaces[0] {
-	//	if value == 44 {
-	//		variableForNamespaces = strings.Split(Opts.NameSpaces[0], ",")
-	//		break
-	//	}
-	//}
 	if variableForNamespaces == nil {
 		variableForNamespaces = Opts.NameSpaces
 	}

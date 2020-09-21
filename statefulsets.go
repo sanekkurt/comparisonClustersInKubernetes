@@ -4,6 +4,7 @@ import (
 	v1 "k8s.io/api/apps/v1"
 )
 
+//Добавление значений StatefulSets в карту для дальнейшего сравнения
 func AddValueStatefulSetsInMap(stateFulSets1, stateFulSets2 *v1.StatefulSetList) (map[string]CheckerFlag, map[string]CheckerFlag) {
 	mapStatefulSets1 := make(map[string]CheckerFlag)
 	mapStatefulSets2 := make(map[string]CheckerFlag)
@@ -20,6 +21,7 @@ func AddValueStatefulSetsInMap(stateFulSets1, stateFulSets2 *v1.StatefulSetList)
 	return mapStatefulSets1, mapStatefulSets2
 }
 
+//Получение информации о StatefulSets
 func SetInformationAboutStatefulSets(map1, map2 map[string]CheckerFlag, statefulSets1, statefulSets2 *v1.StatefulSetList, namespace string) bool {
 	var flag bool
 	if len(map1) != len(map2) {
@@ -27,7 +29,7 @@ func SetInformationAboutStatefulSets(map1, map2 map[string]CheckerFlag, stateful
 		flag = true
 	}
 	for name, index1 := range map1 {
-		if index2, ok := map2[name]; ok == true {
+		if index2, ok := map2[name]; ok {
 			index1.check = true
 			map1[name] = index1
 			index2.check = true
@@ -61,7 +63,7 @@ func SetInformationAboutStatefulSets(map1, map2 map[string]CheckerFlag, stateful
 		}
 	}
 	for name, index := range map2 {
-		if index.check == false {
+		if !index.check {
 			log.Infof("StatefulSet '%s' does not exist in 1st cluster", name)
 			flag = true
 		}

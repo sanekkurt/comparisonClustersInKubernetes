@@ -4,6 +4,7 @@ import (
 	v1 "k8s.io/api/apps/v1"
 )
 
+//Добавление значений DaemonSets в карту для дальнейшего сравнения
 func AddValueDaemonSetsMap(daemonSets1, daemonSets2 *v1.DaemonSetList) (map[string]CheckerFlag, map[string]CheckerFlag) {
 	mapDaemonSets1 := make(map[string]CheckerFlag)
 	mapDaemonSets2 := make(map[string]CheckerFlag)
@@ -20,6 +21,7 @@ func AddValueDaemonSetsMap(daemonSets1, daemonSets2 *v1.DaemonSetList) (map[stri
 	return mapDaemonSets1, mapDaemonSets2
 }
 
+//Получение информации о DaemonSets
 func SetInformationAboutDaemonSets(map1, map2 map[string]CheckerFlag, daemonSets1, daemonSets2 *v1.DaemonSetList, namespace string) bool {
 	var flag bool
 	if len(map1) != len(map2) {
@@ -27,7 +29,7 @@ func SetInformationAboutDaemonSets(map1, map2 map[string]CheckerFlag, daemonSets
 		flag = true
 	}
 	for name, index1 := range map1 {
-		if index2, ok := map2[name]; ok == true {
+		if index2, ok := map2[name]; ok {
 			index1.check = true
 			map1[name] = index1
 			index2.check = true
@@ -55,7 +57,7 @@ func SetInformationAboutDaemonSets(map1, map2 map[string]CheckerFlag, daemonSets
 		}
 	}
 	for name, index := range map2 {
-		if index.check == false {
+		if !index.check {
 			log.Infof("DaemonSet '%s' does not exist in 1s cluster", name)
 			flag = true
 		}

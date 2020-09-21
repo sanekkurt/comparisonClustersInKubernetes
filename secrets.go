@@ -4,6 +4,7 @@ import (
 	v12 "k8s.io/api/core/v1"
 )
 
+//Добавление значений Secrets в карту для дальнейшего сравнения
 func AddValueSecretsInMap(secrets1, secrets2 *v12.SecretList) (map[string]CheckerFlag, map[string]CheckerFlag) {
 	mapSecrets1 := make(map[string]CheckerFlag)
 	mapSecrets2 := make(map[string]CheckerFlag)
@@ -29,6 +30,7 @@ func AddValueSecretsInMap(secrets1, secrets2 *v12.SecretList) (map[string]Checke
 	return mapSecrets1, mapSecrets2
 }
 
+//Получение информации о Secrets
 func SetInformationAboutSecrets(map1, map2 map[string]CheckerFlag, secrets1, secrets2 *v12.SecretList) bool {
 	var flag bool
 	if len(map1) != len(map2) {
@@ -36,7 +38,7 @@ func SetInformationAboutSecrets(map1, map2 map[string]CheckerFlag, secrets1, sec
 		flag = true
 	}
 	for name, index1 := range map1 {
-		if index2, ok := map2[name]; ok == true {
+		if index2, ok := map2[name]; ok {
 			index1.check = true
 			map1[name] = index1
 			index2.check = true
@@ -68,7 +70,7 @@ func SetInformationAboutSecrets(map1, map2 map[string]CheckerFlag, secrets1, sec
 		}
 	}
 	for name, index := range map2 {
-		if index.check == false {
+		if !index.check {
 
 			log.Infof("secret '%s' does not exist in 1st cluster", name)
 			flag = true
