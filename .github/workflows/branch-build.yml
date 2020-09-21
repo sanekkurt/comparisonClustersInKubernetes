@@ -2,6 +2,7 @@ name: Branch CI
 
 on:
   push:
+    branches: ["*"]
     branches-ignore:
       - 'master'
     paths:
