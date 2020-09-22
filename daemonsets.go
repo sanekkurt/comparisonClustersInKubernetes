@@ -12,10 +12,16 @@ func AddValueDaemonSetsMap(daemonSets1, daemonSets2 *v1.DaemonSetList) (map[stri
 	var indexCheck CheckerFlag
 
 	for index, value := range daemonSets1.Items {
+		if _, ok := entities["daemonsets"][value.Name]; ok {
+			continue
+		}
 		indexCheck.index = index
 		mapDaemonSets1[value.Name] = indexCheck
 	}
 	for index, value := range daemonSets2.Items {
+		if _, ok := entities["daemonsets"][value.Name]; ok {
+			continue
+		}
 		indexCheck.index = index
 		mapDaemonSets2[value.Name] = indexCheck
 	}

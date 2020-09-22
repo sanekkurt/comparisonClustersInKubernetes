@@ -12,10 +12,16 @@ func AddValueConfigMapsInMap(configMaps1, configMaps2 *v12.ConfigMapList) (map[s
 	var indexCheck CheckerFlag
 
 	for index, value := range configMaps1.Items {
+		if _, ok := entities["configmaps"][value.Name]; ok {
+			continue
+		}
 		indexCheck.index = index
 		mapConfigMap1[value.Name] = indexCheck
 	}
 	for index, value := range configMaps2.Items {
+		if _, ok := entities["configmaps"][value.Name]; ok {
+			continue
+		}
 		indexCheck.index = index
 		mapConfigMap2[value.Name] = indexCheck
 	}

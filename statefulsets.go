@@ -12,10 +12,16 @@ func AddValueStatefulSetsInMap(stateFulSets1, stateFulSets2 *v1.StatefulSetList)
 	var indexCheck CheckerFlag
 
 	for index, value := range stateFulSets1.Items {
+		if _, ok := entities["statefulsets"][value.Name]; ok {
+			continue
+		}
 		indexCheck.index = index
 		mapStatefulSets1[value.Name] = indexCheck
 	}
 	for index, value := range stateFulSets2.Items {
+		if _, ok := entities["statefulsets"][value.Name]; ok {
+			continue
+		}
 		indexCheck.index = index
 		mapStatefulSets2[value.Name] = indexCheck
 	}

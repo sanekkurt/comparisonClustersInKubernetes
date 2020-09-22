@@ -12,10 +12,16 @@ func AddValueDeploymentsInMap(deployments1, deployments2 *v1.DeploymentList) (ma
 	var indexCheck CheckerFlag
 
 	for index, value := range deployments1.Items {
+		if _, ok := entities["deployments"][value.Name]; ok {
+			continue
+		}
 		indexCheck.index = index
 		mapDeployments1[value.Name] = indexCheck
 	}
 	for index, value := range deployments2.Items {
+		if _, ok := entities["deployments"][value.Name]; ok {
+			continue
+		}
 		indexCheck.index = index
 		mapDeployments2[value.Name] = indexCheck
 	}

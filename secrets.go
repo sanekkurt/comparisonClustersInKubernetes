@@ -14,19 +14,25 @@ func AddValueSecretsInMap(secrets1, secrets2 *v12.SecretList) (map[string]Checke
 	for index, value := range secrets1.Items {
 		if checkContinueTypes(value.Type) {
 			continue
-		} else {
-			indexCheck.index = index
-			mapSecrets1[value.Name] = indexCheck
 		}
+		if _, ok := entities["secrets"][value.Name]; ok {
+			continue
+		}
+		indexCheck.index = index
+		mapSecrets1[value.Name] = indexCheck
+
 
 	}
 	for index, value := range secrets2.Items {
 		if checkContinueTypes(value.Type) {
 			continue
-		} else {
-			indexCheck.index = index
-			mapSecrets2[value.Name] = indexCheck
 		}
+		if _, ok := entities["secrets"][value.Name]; ok {
+			continue
+		}
+		indexCheck.index = index
+		mapSecrets2[value.Name] = indexCheck
+
 	}
 	return mapSecrets1, mapSecrets2
 }
