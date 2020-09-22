@@ -45,7 +45,6 @@ func main() {
 	_, err := flags.Parse(&Opts)
 	if err != nil {
 		panic(err.Error())
-		//log.Error(err)
 	}
 
 	if strings.Contains(Opts.NameSpaces[0], ",") {
