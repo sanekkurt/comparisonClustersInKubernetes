@@ -1,0 +1,18 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "..fullname" . }}
+  labels:
+{{ include "..labels" . | indent 4 }}
+rules:
+  - apiGroups: [""]
+    resources:
+      - pods
+      - deployments
+      - statefulsets
+      - daemonsets
+      - jobs
+      - cronjobs
+      - configmaps
+      - secrets
+    verbs: ["get", "watch", "list"]
