@@ -1,11 +1,11 @@
-package main
+package logging
 
 import (
 	"go.uber.org/zap"
 )
 
 var (
-	log    *zap.SugaredLogger
+	Log    *zap.SugaredLogger
 )
 
 func SetupLogging() error { //nolint
@@ -16,10 +16,10 @@ func SetupLogging() error { //nolint
 	zapConfig.Level = zap.NewAtomicLevelAt(zap.InfoLevel)
 
 	if logger, err = zapConfig.Build(); err != nil {
-		log = zap.NewNop().Sugar()
+		Log = zap.NewNop().Sugar()
 	}
 
-	log = logger.Sugar()
+	Log = logger.Sugar()
 
 	zap.ReplaceGlobals(logger)
 

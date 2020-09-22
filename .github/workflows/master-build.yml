@@ -27,7 +27,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Test
-        run: go test -v .
+        run: go test -v ./internal/kubernetes/...
 
       - name: Login in DockerHub
         run: docker login -u ${{secrets.USER_NAME_DOCKERHUB}} -p ${{secrets.USER_PASSWORD_DOCKERHUB}}

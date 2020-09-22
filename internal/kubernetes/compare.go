@@ -1,4 +1,4 @@
-package main
+package kubernetes
 
 import (
 	"fmt"
@@ -207,24 +207,24 @@ func CompareContainers(deploymentSpec1, deploymentSpec2 InformationAboutObject, 
 			var flag int
 			var containerWithSameNameFound bool
 			for f := 0; f < len(containersStatusesInPod1); f++ {
-				if containersDeploymentTemplate1[i].Name == containersStatusesInPod1[f].name && containersDeploymentTemplate1[i].Name == containersStatusesInPod2[f].name { //nolint:gocritic,unused
+				if containersDeploymentTemplate1[i].Name == containersStatusesInPod1[f].Name && containersDeploymentTemplate1[i].Name == containersStatusesInPod2[f].Name { //nolint:gocritic,unused
 					flag++
-					if containersDeploymentTemplate1[i].Image != containersStatusesInPod1[f].image || containersDeploymentTemplate1[i].Image != containersStatusesInPod2[f].image {
+					if containersDeploymentTemplate1[i].Image != containersStatusesInPod1[f].Image || containersDeploymentTemplate1[i].Image != containersStatusesInPod2[f].Image {
 						return ErrorContainerImageTemplatePod
 					}
 					for _, value := range containersStatusesInPod2 {
-						if containersStatusesInPod1[f].name == value.name {
+						if containersStatusesInPod1[f].Name == value.Name {
 							containerWithSameNameFound = true
-							if containersStatusesInPod1[f].image != value.image {
-								return fmt.Errorf("%w. \nPods name: '%s'. Image name on pod1: '%s'. Image name on pod2: '%s'", ErrorDifferentImageInPods, value.name, containersStatusesInPod1[j].image, value.image)
+							if containersStatusesInPod1[f].Image != value.Image {
+								return fmt.Errorf("%w. \nPods name: '%s'. Image name on pod1: '%s'. Image name on pod2: '%s'", ErrorDifferentImageInPods, value.Name, containersStatusesInPod1[j].Image, value.Image)
 							}
-							if containersStatusesInPod1[f].imageID != value.imageID {
-								return fmt.Errorf("%w. Pods name: '%s'. ImageID on pod1: '%s'. ImageID on pod2: '%s'", ErrorDifferentImageIDInPods, value.name, containersStatusesInPod1[j].imageID, value.imageID)
+							if containersStatusesInPod1[f].ImageID != value.ImageID {
+								return fmt.Errorf("%w. Pods name: '%s'. ImageID on pod1: '%s'. ImageID on pod2: '%s'", ErrorDifferentImageIDInPods, value.Name, containersStatusesInPod1[j].ImageID, value.ImageID)
 							}
 						}
 					}
 					if !containerWithSameNameFound {
-						return fmt.Errorf("%w. Name container: %s", ErrorContainerNotFound, containersStatusesInPod1[j].name)
+						return fmt.Errorf("%w. Name container: %s", ErrorContainerNotFound, containersStatusesInPod1[j].Name)
 					}
 
 				}
@@ -241,9 +241,9 @@ func GetContainerStatusesInPod(containerStatuses []v12.ContainerStatus) map[int]
 	infoAboutContainer := make(map[int]Container)
 	var container Container
 	for index, value := range containerStatuses {
-		container.name = value.Name
-		container.image = value.Image
-		container.imageID = value.ImageID
+		container.Name = value.Name
+		container.Image = value.Image
+		container.ImageID = value.ImageID
 		infoAboutContainer[index] = container
 	}
 	return infoAboutContainer

@@ -1,6 +1,7 @@
-package main
+package kubernetes
 
 import (
+	"k8s-cluster-comparator/internal/logging"
 	v1 "k8s.io/api/apps/v1"
 	"sync"
 )
@@ -12,17 +13,17 @@ func AddValueDeploymentsInMap(deployments1, deployments2 *v1.DeploymentList) (ma
 	var indexCheck CheckerFlag
 
 	for index, value := range deployments1.Items {
-		if _, ok := entities["deployments"][value.Name]; ok {
+		if _, ok := Entities["deployments"][value.Name]; ok {
 			continue
 		}
-		indexCheck.index = index
+		indexCheck.Index = index
 		mapDeployments1[value.Name] = indexCheck
 	}
 	for index, value := range deployments2.Items {
-		if _, ok := entities["deployments"][value.Name]; ok {
+		if _, ok := Entities["deployments"][value.Name]; ok {
 			continue
 		}
-		indexCheck.index = index
+		indexCheck.Index = index
 		mapDeployments2[value.Name] = indexCheck
 	}
 	return mapDeployments1, mapDeployments2
@@ -32,7 +33,7 @@ func AddValueDeploymentsInMap(deployments1, deployments2 *v1.DeploymentList) (ma
 func SetInformationAboutDeployments(map1, map2 map[string]CheckerFlag, deployments1, deployments2 *v1.DeploymentList, namespace string) bool {
 	var flag bool
 	if len(map1) != len(map2) {
-		log.Infof("deployment counts are different")
+		logging.Log.Infof("deployment counts are different")
 		flag = true
 	}
 	wg := &sync.WaitGroup{}
@@ -44,34 +45,34 @@ func SetInformationAboutDeployments(map1, map2 map[string]CheckerFlag, deploymen
 				wg.Done()
 			}()
 			if index2, ok := map2[name]; ok {
-				index1.check = true
+				index1.Check = true
 				map1[name] = index1
-				index2.check = true
+				index2.Check = true
 				map2[name] = index2
 
-				log.Debugf("----- Start checking deployment: '%s' -----", name)
-				if *deployments1.Items[index1.index].Spec.Replicas != *deployments2.Items[index2.index].Spec.Replicas {
-					log.Infof("deployment '%s':  number of replicas is different: %d and %d", deployments1.Items[index1.index].Name, *deployments1.Items[index1.index].Spec.Replicas, *deployments2.Items[index2.index].Spec.Replicas)
+				logging.Log.Debugf("----- Start checking deployment: '%s' -----", name)
+				if *deployments1.Items[index1.Index].Spec.Replicas != *deployments2.Items[index2.Index].Spec.Replicas {
+					logging.Log.Infof("deployment '%s':  number of replicas is different: %d and %d", deployments1.Items[index1.Index].Name, *deployments1.Items[index1.Index].Spec.Replicas, *deployments2.Items[index2.Index].Spec.Replicas)
 					flag = true
 				} else {
 					// fill in the information that will be used for comparison
 					object1 := InformationAboutObject{
-						Template: deployments1.Items[index1.index].Spec.Template,
-						Selector: deployments1.Items[index1.index].Spec.Selector,
+						Template: deployments1.Items[index1.Index].Spec.Template,
+						Selector: deployments1.Items[index1.Index].Spec.Selector,
 					}
 					object2 := InformationAboutObject{
-						Template: deployments2.Items[index2.index].Spec.Template,
-						Selector: deployments2.Items[index2.index].Spec.Selector,
+						Template: deployments2.Items[index2.Index].Spec.Template,
+						Selector: deployments2.Items[index2.Index].Spec.Selector,
 					}
-					err := CompareContainers(object1, object2, namespace, client1, client2)
+					err := CompareContainers(object1, object2, namespace, Client1, Client2)
 					if err != nil {
-						log.Infof("Deployment %s: %s", name, err.Error())
+						logging.Log.Infof("Deployment %s: %s", name, err.Error())
 						flag = true
 					}
 				}
-				log.Debugf("----- End checking deployment: '%s' -----", name)
+				logging.Log.Debugf("----- End checking deployment: '%s' -----", name)
 			} else {
-				log.Infof("Deployment '%s' - 1 cluster. Does not exist on another cluster", name)
+				logging.Log.Infof("Deployment '%s' - 1 cluster. Does not exist on another cluster", name)
 				flag = true
 			}
 		channel <- flag
@@ -86,8 +87,8 @@ func SetInformationAboutDeployments(map1, map2 map[string]CheckerFlag, deploymen
 		}
 	}
 	for name, index := range map2 {
-		if !index.check {
-			log.Infof("Deployment '%s' - 2 cluster. Does not exist on another cluster", name)
+		if !index.Check {
+			logging.Log.Infof("Deployment '%s' - 2 cluster. Does not exist on another cluster", name)
 			flag = true
 		}
 	}

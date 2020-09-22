@@ -14,7 +14,7 @@ RUN apk add --no-cache \
 RUN CGO_ENABLED=0 \
     GOOS=linux \
     GOARCH=amd64 \
-        go build -ldflags="-w -s" -mod vendor -o /app .
+        go build -ldflags="-w -s" -mod vendor -o /app ./cmd/...
 
 RUN upx -q /app && \
     upx -t /app

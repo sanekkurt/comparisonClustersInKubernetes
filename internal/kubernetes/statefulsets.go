@@ -1,6 +1,7 @@
-package main
+package kubernetes
 
 import (
+	"k8s-cluster-comparator/internal/logging"
 	v1 "k8s.io/api/apps/v1"
 	"sync"
 )
@@ -12,17 +13,17 @@ func AddValueStatefulSetsInMap(stateFulSets1, stateFulSets2 *v1.StatefulSetList)
 	var indexCheck CheckerFlag
 
 	for index, value := range stateFulSets1.Items {
-		if _, ok := entities["statefulsets"][value.Name]; ok {
+		if _, ok := Entities["statefulsets"][value.Name]; ok {
 			continue
 		}
-		indexCheck.index = index
+		indexCheck.Index = index
 		mapStatefulSets1[value.Name] = indexCheck
 	}
 	for index, value := range stateFulSets2.Items {
-		if _, ok := entities["statefulsets"][value.Name]; ok {
+		if _, ok := Entities["statefulsets"][value.Name]; ok {
 			continue
 		}
-		indexCheck.index = index
+		indexCheck.Index = index
 		mapStatefulSets2[value.Name] = indexCheck
 	}
 	return mapStatefulSets1, mapStatefulSets2
@@ -32,7 +33,7 @@ func AddValueStatefulSetsInMap(stateFulSets1, stateFulSets2 *v1.StatefulSetList)
 func SetInformationAboutStatefulSets(map1, map2 map[string]CheckerFlag, statefulSets1, statefulSets2 *v1.StatefulSetList, namespace string) bool {
 	var flag bool
 	if len(map1) != len(map2) {
-		log.Infof("StatefulSets count are different")
+		logging.Log.Infof("StatefulSets count are different")
 		flag = true
 	}
 	wg := &sync.WaitGroup{}
@@ -44,35 +45,35 @@ func SetInformationAboutStatefulSets(map1, map2 map[string]CheckerFlag, stateful
 				wg.Done()
 			}()
 			if index2, ok := map2[name]; ok {
-				index1.check = true
+				index1.Check = true
 				map1[name] = index1
-				index2.check = true
+				index2.Check = true
 				map2[name] = index2
-				log.Debugf("----- Start checking statefulset: '%s' -----", name)
-				if *statefulSets1.Items[index1.index].Spec.Replicas != *statefulSets2.Items[index2.index].Spec.Replicas {
-					log.Infof("statefulset '%s':  number of replicas is different: %d and %d", statefulSets1.Items[index1.index].Name, *statefulSets1.Items[index1.index].Spec.Replicas, *statefulSets2.Items[index2.index].Spec.Replicas)
+				logging.Log.Debugf("----- Start checking statefulset: '%s' -----", name)
+				if *statefulSets1.Items[index1.Index].Spec.Replicas != *statefulSets2.Items[index2.Index].Spec.Replicas {
+					logging.Log.Infof("statefulset '%s':  number of replicas is different: %d and %d", statefulSets1.Items[index1.Index].Name, *statefulSets1.Items[index1.Index].Spec.Replicas, *statefulSets2.Items[index2.Index].Spec.Replicas)
 					flag = true
 				} else {
 					// fill in the information that will be used for comparison
 					object1 := InformationAboutObject{
-						Template: statefulSets1.Items[index1.index].Spec.Template,
-						Selector: statefulSets1.Items[index1.index].Spec.Selector,
+						Template: statefulSets1.Items[index1.Index].Spec.Template,
+						Selector: statefulSets1.Items[index1.Index].Spec.Selector,
 					}
 					object2 := InformationAboutObject{
-						Template: statefulSets2.Items[index2.index].Spec.Template,
-						Selector: statefulSets2.Items[index2.index].Spec.Selector,
+						Template: statefulSets2.Items[index2.Index].Spec.Template,
+						Selector: statefulSets2.Items[index2.Index].Spec.Selector,
 					}
 
-					err := CompareContainers(object1, object2, namespace, client1, client2)
+					err := CompareContainers(object1, object2, namespace, Client1, Client2)
 					if err != nil {
-						log.Infof("StatefulSet %s: %s", name, err.Error())
+						logging.Log.Infof("StatefulSet %s: %s", name, err.Error())
 						flag = true
 					}
 
 				}
-				log.Debugf("----- End checking statefulset: '%s' -----", name)
+				logging.Log.Debugf("----- End checking statefulset: '%s' -----", name)
 			} else {
-				log.Infof("StatefulSet '%s' does not exist in 2nd cluster", name)
+				logging.Log.Infof("StatefulSet '%s' does not exist in 2nd cluster", name)
 				flag = true
 			}
 			channel <- flag
@@ -86,8 +87,8 @@ func SetInformationAboutStatefulSets(map1, map2 map[string]CheckerFlag, stateful
 		}
 	}
 	for name, index := range map2 {
-		if !index.check {
-			log.Infof("StatefulSet '%s' does not exist in 1st cluster", name)
+		if !index.Check {
+			logging.Log.Infof("StatefulSet '%s' does not exist in 1st cluster", name)
 			flag = true
 		}
 	}

@@ -1,4 +1,4 @@
-module compareScript
+module k8s-cluster-comparator
 
 go 1.14
 

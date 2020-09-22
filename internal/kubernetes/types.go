@@ -1,4 +1,4 @@
-package main
+package kubernetes
 
 import (
 	v12 "k8s.io/api/core/v1"
@@ -7,15 +7,15 @@ import (
 
 // CheckerFlag to indicate whether the information of this entity was compared
 type CheckerFlag struct {
-	index int
-	check bool
+	Index int
+	Check bool
 }
 
 // Container to describe the main information in the comparison container
 type Container struct {
-	name string
-	image string
-	imageID string
+	Name string
+	Image string
+	ImageID string
 }
 
 // InformationAboutObject for generalizing the comparison function, which allows you to pass information to it from both deployment and statefulset
