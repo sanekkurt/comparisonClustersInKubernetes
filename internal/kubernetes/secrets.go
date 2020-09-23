@@ -58,8 +58,6 @@ func SetInformationAboutSecrets(map1, map2 map[string]CheckerFlag, secrets1, sec
 				map1[name] = index1
 				index2.Check = true
 				map2[name] = index2
-				// проверка на тип секрета, который проверять не нужно
-
 				logging.Log.Debugf("----- Start checking secret: '%s' -----", name)
 				if len(secrets1.Items[index1.Index].Data) != len(secrets2.Items[index2.Index].Data) {
 					logging.Log.Infof("secret '%s' in 1st cluster has '%d' keys but the 2nd - '%d'", name, len(secrets1.Items[index1.Index].Data), len(secrets2.Items[index2.Index].Data))
