@@ -107,25 +107,25 @@ func GetClientSet(kubeconfig string) *kubernetes.Clientset {
 // GetMissEntities gets information about entities to skip from a environment
 func GetMissEntities() error {
 	if strings.Contains(Opts.Skip, ";") {
-		temp:= strings.Split(Opts.Skip, ";")
+		temp := strings.Split(Opts.Skip, ";")
 		var tempSlice []string
-		kube.Entities = make(map[string]kube.NameComponents)
-		tempMap := kube.NameComponents{}
+		kube.ToSkipEntities = make(map[string]kube.ToSkipComponentNames)
+		tempMap := kube.ToSkipComponentNames{}
 		for _, value := range temp {
 			if strings.Contains(value, ":") {
 				tempSlice = strings.Split(value, ":")
 				if strings.Contains(tempSlice[1], ",") {
-					for _, val := range strings.Split(tempSlice[1], ","){
+					for _, val := range strings.Split(tempSlice[1], ",") {
 						tempMap[val] = struct{}{}
 					}
-					kube.Entities[tempSlice[0]] = make(map[string]struct{})
+					kube.ToSkipEntities[tempSlice[0]] = make(map[string]struct{})
 					for key, value := range tempMap {
-						kube.Entities[tempSlice[0]][key] = value
+						kube.ToSkipEntities[tempSlice[0]][key] = value
 						delete(tempMap, key)
 					}
 				} else {
-					kube.Entities[tempSlice[0]] = make(map[string]struct{})
-					kube.Entities[tempSlice[0]][tempSlice[1]] = struct{}{}
+					kube.ToSkipEntities[tempSlice[0]] = make(map[string]struct{})
+					kube.ToSkipEntities[tempSlice[0]][tempSlice[1]] = struct{}{}
 				}
 			} else {
 				return errors.New("does not contain valid data in the 'skip' variable. The enumeration of the names of entities start after ':' please or don't finish the line ';'")
@@ -134,6 +134,5 @@ func GetMissEntities() error {
 		return nil
 	}
 	return errors.New("does not contain valid data in the 'skip' variable. Between entities put ';' please")
-
 
 }

@@ -13,4 +13,4 @@ services:
       NAMESPACES: ns1,ns2,...
       KUBECONFIG1: /kubeconfig1.yaml
       KUBECONFIG2: /kubeconfig2.yaml
-      SKIP: deployments:whoami-11,whoami-24;daemonsets:whoami-0,whoami-8
+      SKIP: deployment:whoami-11,whoami-24;daemonset:whoami-0,whoami-8

@@ -7,20 +7,20 @@ import (
 )
 
 // AddValueConfigMapsInMap add value ConfigMaps in map
-func AddValueConfigMapsInMap(configMaps1, configMaps2 *v12.ConfigMapList) (map[string]CheckerFlag, map[string]CheckerFlag) { //nolint:gocritic,unused
-	mapConfigMap1 := make(map[string]CheckerFlag)
-	mapConfigMap2 := make(map[string]CheckerFlag)
-	var indexCheck CheckerFlag
+func AddValueConfigMapsInMap(configMaps1, configMaps2 *v12.ConfigMapList) (map[string]IsAlreadyComparedFlag, map[string]IsAlreadyComparedFlag) { //nolint:gocritic,unused
+	mapConfigMap1 := make(map[string]IsAlreadyComparedFlag)
+	mapConfigMap2 := make(map[string]IsAlreadyComparedFlag)
+	var indexCheck IsAlreadyComparedFlag
 
 	for index, value := range configMaps1.Items {
-		if _, ok := Entities["configmaps"][value.Name]; ok {
+		if _, ok := ToSkipEntities["configmaps"][value.Name]; ok {
 			continue
 		}
 		indexCheck.Index = index
 		mapConfigMap1[value.Name] = indexCheck
 	}
 	for index, value := range configMaps2.Items {
-		if _, ok := Entities["configmaps"][value.Name]; ok {
+		if _, ok := ToSkipEntities["configmaps"][value.Name]; ok {
 			continue
 		}
 		indexCheck.Index = index
@@ -30,7 +30,7 @@ func AddValueConfigMapsInMap(configMaps1, configMaps2 *v12.ConfigMapList) (map[s
 }
 
 // SetInformationAboutConfigMaps set information about config maps
-func SetInformationAboutConfigMaps(map1, map2 map[string]CheckerFlag, configMaps1, configMaps2 *v12.ConfigMapList) bool {
+func SetInformationAboutConfigMaps(map1, map2 map[string]IsAlreadyComparedFlag, configMaps1, configMaps2 *v12.ConfigMapList) bool {
 	var flag bool
 	if len(map1) != len(map2) {
 		logging.Log.Infof("configmaps count are different")
@@ -40,7 +40,7 @@ func SetInformationAboutConfigMaps(map1, map2 map[string]CheckerFlag, configMaps
 	channel := make(chan bool, len(map1))
 	for name, index1 := range map1 {
 		wg.Add(1)
-		go func(wg *sync.WaitGroup, channel chan bool, name string, index1 CheckerFlag, map1, map2 map[string]CheckerFlag) {
+		go func(wg *sync.WaitGroup, channel chan bool, name string, index1 IsAlreadyComparedFlag, map1, map2 map[string]IsAlreadyComparedFlag) {
 			defer func() {
 				wg.Done()
 			}()
@@ -67,7 +67,7 @@ func SetInformationAboutConfigMaps(map1, map2 map[string]CheckerFlag, configMaps
 				flag = true
 			}
 			channel <- flag
-		}(wg, channel, name,index1, map1, map2)
+		}(wg, channel, name, index1, map1, map2)
 	}
 	wg.Wait()
 	close(channel)

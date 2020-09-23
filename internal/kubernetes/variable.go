@@ -5,7 +5,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-type NameComponents map[string]struct{}
+// ToSkipComponentNames is a map of blank structs of k8s objects that must be skipped from the comparison
+type ToSkipComponentNames map[string]struct{}
 
 var (
 	VariableForNamespaces []string
@@ -14,6 +15,6 @@ var (
 	Client1               *kubernetes.Clientset
 	Client2               *kubernetes.Clientset
 
-	Entities              map[string]NameComponents
-	SkipTypes             = [3]v12.SecretType{"kubernetes.io/service-account-token", "kubernetes.io/dockercfg", "helm.sh/release.v1"}
+	ToSkipEntities map[string]ToSkipComponentNames
+	SkipTypes      = [3]v12.SecretType{"kubernetes.io/service-account-token", "kubernetes.io/dockercfg", "helm.sh/release.v1"}
 )

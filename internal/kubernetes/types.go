@@ -5,16 +5,16 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// CheckerFlag to indicate whether the information of this entity was compared
-type CheckerFlag struct {
+// IsAlreadyComparedFlag to indicate whether the information of this entity was compared
+type IsAlreadyComparedFlag struct {
 	Index int
 	Check bool
 }
 
 // Container to describe the main information in the comparison container
 type Container struct {
-	Name string
-	Image string
+	Name    string
+	Image   string
 	ImageID string
 }
 

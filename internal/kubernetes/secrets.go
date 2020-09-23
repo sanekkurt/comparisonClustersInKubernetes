@@ -7,28 +7,27 @@ import (
 )
 
 // AddValueSecretsInMap add value secrets in map
-func AddValueSecretsInMap(secrets1, secrets2 *v12.SecretList) (map[string]CheckerFlag, map[string]CheckerFlag) { //nolint:gocritic,unused
-	mapSecrets1 := make(map[string]CheckerFlag)
-	mapSecrets2 := make(map[string]CheckerFlag)
-	var indexCheck CheckerFlag
+func AddValueSecretsInMap(secrets1, secrets2 *v12.SecretList) (map[string]IsAlreadyComparedFlag, map[string]IsAlreadyComparedFlag) { //nolint:gocritic,unused
+	mapSecrets1 := make(map[string]IsAlreadyComparedFlag)
+	mapSecrets2 := make(map[string]IsAlreadyComparedFlag)
+	var indexCheck IsAlreadyComparedFlag
 
 	for index, value := range secrets1.Items {
 		if checkContinueTypes(value.Type) {
 			continue
 		}
-		if _, ok := Entities["secrets"][value.Name]; ok {
+		if _, ok := ToSkipEntities["secrets"][value.Name]; ok {
 			continue
 		}
 		indexCheck.Index = index
 		mapSecrets1[value.Name] = indexCheck
-
 
 	}
 	for index, value := range secrets2.Items {
 		if checkContinueTypes(value.Type) {
 			continue
 		}
-		if _, ok := Entities["secrets"][value.Name]; ok {
+		if _, ok := ToSkipEntities["secrets"][value.Name]; ok {
 			continue
 		}
 		indexCheck.Index = index
@@ -39,7 +38,7 @@ func AddValueSecretsInMap(secrets1, secrets2 *v12.SecretList) (map[string]Checke
 }
 
 // SetInformationAboutSecrets set information about secrets
-func SetInformationAboutSecrets(map1, map2 map[string]CheckerFlag, secrets1, secrets2 *v12.SecretList) bool {
+func SetInformationAboutSecrets(map1, map2 map[string]IsAlreadyComparedFlag, secrets1, secrets2 *v12.SecretList) bool {
 	var flag bool
 	if len(map1) != len(map2) {
 		logging.Log.Infof("secret counts are different")
@@ -49,7 +48,7 @@ func SetInformationAboutSecrets(map1, map2 map[string]CheckerFlag, secrets1, sec
 	channel := make(chan bool, len(map1))
 	for name, index1 := range map1 {
 		wg.Add(1)
-		go func(wg *sync.WaitGroup, channel chan bool, name string, index1 CheckerFlag, map1, map2 map[string]CheckerFlag) {
+		go func(wg *sync.WaitGroup, channel chan bool, name string, index1 IsAlreadyComparedFlag, map1, map2 map[string]IsAlreadyComparedFlag) {
 			defer func() {
 				wg.Done()
 			}()
@@ -83,7 +82,7 @@ func SetInformationAboutSecrets(map1, map2 map[string]CheckerFlag, secrets1, sec
 				flag = true
 				channel <- flag
 			}
-		}(wg, channel, name,index1, map1, map2)
+		}(wg, channel, name, index1, map1, map2)
 	}
 	wg.Wait()
 	close(channel)

@@ -53,8 +53,8 @@ func CompareClusters(clientSet1, clientSet2 kubernetes.Interface, namespaces []s
 				return
 			}
 
-			mapDeployments1, mapDeployments2 := AddValueDeploymentsInMap(depl1, depl2)
-			if SetInformationAboutDeployments(mapDeployments1, mapDeployments2, depl1, depl2, namespace) {
+			apc1List, map1, apc2List, map2 := PrepareDeploymentMaps(depl1, depl2)
+			if ComparePodControllerSpecs(map1, map2, apc1List, apc2List, namespace) {
 				isClustersDiffer = true
 			}
 
@@ -76,8 +76,8 @@ func CompareClusters(clientSet1, clientSet2 kubernetes.Interface, namespaces []s
 				return
 			}
 
-			mapStatefulSets1, mapStatefulSets2 := AddValueStatefulSetsInMap(statefulSet1, statefulSet2)
-			if SetInformationAboutStatefulSets(mapStatefulSets1, mapStatefulSets2, statefulSet1, statefulSet2, namespace) {
+			apc1List, map1, apc2List, map2 = PrepareStatefulSetMaps(statefulSet1, statefulSet2)
+			if ComparePodControllerSpecs(map1, map2, apc1List, apc2List, namespace) {
 				isClustersDiffer = true
 			}
 
@@ -98,8 +98,8 @@ func CompareClusters(clientSet1, clientSet2 kubernetes.Interface, namespaces []s
 				return
 			}
 
-			mapDaemonSets1, mapDaemonSets2 := AddValueDaemonSetsMap(daemonSets1, daemonSets2)
-			if SetInformationAboutDaemonSets(mapDaemonSets1, mapDaemonSets2, daemonSets1, daemonSets2, namespace) {
+			apc1List, map1, apc2List, map2 = PrepareDaemonSetMaps(daemonSets1, daemonSets2)
+			if ComparePodControllerSpecs(map1, map2, apc1List, apc2List, namespace) {
 				isClustersDiffer = true
 			}
 
