@@ -10,9 +10,9 @@ import (
 
 // AbstractPodController is an generalized abstraction above deployment/statefulset/daemonset/etc kubernetes pod controllers
 type AbstractPodController struct {
-	Kind string
-
 	Name string
+
+	Metadata AbstractObjectMetadata
 
 	Labels      map[string]string
 	Annotations map[string]string
@@ -59,11 +59,13 @@ func ComparePodControllerSpecs(map1, map2 map[string]IsAlreadyComparedFlag, apc1
 
 				apc1 := apc1List[index1.Index]
 				apc2 := apc2List[index2.Index]
-				kind := apc1.Kind
+				kind := ObjectKindWrapper(apc1.Metadata.Type.Kind)
 
-				if apc1.Kind != apc2.Kind {
-					logging.Log.Warnf("%s: objects kind are not the same: %s and %s. most likely this is an error", apc1.Name, apc1.Kind, apc2.Kind)
+				if _, err := CompareAbstractObjectMetadata(apc1.Metadata, apc2.Metadata); err != nil {
+					logging.Log.Infof("metadata compare error: %s", err.Error())
+
 					channel <- true
+
 					return
 				}
 

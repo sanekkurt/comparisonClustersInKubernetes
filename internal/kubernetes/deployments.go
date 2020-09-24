@@ -25,7 +25,10 @@ func PrepareDeploymentMaps(obj1, obj2 *v1.DeploymentList) ([]AbstractPodControll
 		map1[value.Name] = indexCheck
 
 		apc1List = append(apc1List, AbstractPodController{
-			Kind:             ObjectKindWrapper(value.Kind),
+			Metadata: AbstractObjectMetadata{
+				Type: value.TypeMeta,
+				Meta: value.ObjectMeta,
+			},
 			Name:             value.Name,
 			Labels:           value.Labels,
 			Annotations:      value.Annotations,
@@ -43,7 +46,10 @@ func PrepareDeploymentMaps(obj1, obj2 *v1.DeploymentList) ([]AbstractPodControll
 		map2[value.Name] = indexCheck
 
 		apc2List = append(apc2List, AbstractPodController{
-			Kind:             ObjectKindWrapper(value.Kind),
+			Metadata: AbstractObjectMetadata{
+				Type: value.TypeMeta,
+				Meta: value.ObjectMeta,
+			},
 			Name:             value.Name,
 			Labels:           value.Labels,
 			Annotations:      value.Annotations,
