@@ -7,13 +7,13 @@ import (
 )
 
 // AddValueServicesInMap add value secrets in map
-func AddValueServicesInMap(services1, services2 *v12.ServiceList) (map[string]CheckerFlag, map[string]CheckerFlag) { //nolint:gocritic,unused
-	mapServices1 := make(map[string]CheckerFlag)
-	mapServices2 := make(map[string]CheckerFlag)
-	var indexCheck CheckerFlag
+func AddValueServicesInMap(services1, services2 *v12.ServiceList) (map[string]IsAlreadyComparedFlag, map[string]IsAlreadyComparedFlag) { //nolint:gocritic,unused
+	mapServices1 := make(map[string]IsAlreadyComparedFlag)
+	mapServices2 := make(map[string]IsAlreadyComparedFlag)
+	var indexCheck IsAlreadyComparedFlag
 
 	for index, value := range services1.Items {
-		if _, ok := Entities["services"][value.Name]; ok {
+		if _, ok := ToSkipEntities["services"][value.Name]; ok {
 			continue
 		}
 		indexCheck.Index = index
@@ -22,7 +22,7 @@ func AddValueServicesInMap(services1, services2 *v12.ServiceList) (map[string]Ch
 
 	}
 	for index, value := range services2.Items {
-		if _, ok := Entities["services"][value.Name]; ok {
+		if _, ok := ToSkipEntities["services"][value.Name]; ok {
 			continue
 		}
 		indexCheck.Index = index
@@ -33,7 +33,7 @@ func AddValueServicesInMap(services1, services2 *v12.ServiceList) (map[string]Ch
 }
 
 // SetInformationAboutServices set information about services
-func SetInformationAboutServices(map1, map2 map[string]CheckerFlag, services1, services2 *v12.ServiceList) bool {
+func SetInformationAboutServices(map1, map2 map[string]IsAlreadyComparedFlag, services1, services2 *v12.ServiceList) bool {
 	var flag bool
 	if len(map1) != len(map2) {
 		logging.Log.Infof("service counts are different")
@@ -43,7 +43,7 @@ func SetInformationAboutServices(map1, map2 map[string]CheckerFlag, services1, s
 	channel := make(chan bool, len(map1))
 	for name, index1 := range map1 {
 		wg.Add(1)
-		go func(wg *sync.WaitGroup, channel chan bool, name string, index1 CheckerFlag, map1, map2 map[string]CheckerFlag) {
+		go func(wg *sync.WaitGroup, channel chan bool, name string, index1 IsAlreadyComparedFlag, map1, map2 map[string]IsAlreadyComparedFlag) {
 			defer func() {
 				wg.Done()
 			}()

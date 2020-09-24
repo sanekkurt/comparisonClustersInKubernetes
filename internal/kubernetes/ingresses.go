@@ -7,13 +7,13 @@ import (
 )
 
 // AddValueIngressesInMap add value secrets in map
-func AddValueIngressesInMap(ingresses1, ingresses2 *v1beta12.IngressList) (map[string]CheckerFlag, map[string]CheckerFlag) { //nolint:gocritic,unused
-	mapIngresses1 := make(map[string]CheckerFlag)
-	mapIngresses2 := make(map[string]CheckerFlag)
-	var indexCheck CheckerFlag
+func AddValueIngressesInMap(ingresses1, ingresses2 *v1beta12.IngressList) (map[string]IsAlreadyComparedFlag, map[string]IsAlreadyComparedFlag) { //nolint:gocritic,unused
+	mapIngresses1 := make(map[string]IsAlreadyComparedFlag)
+	mapIngresses2 := make(map[string]IsAlreadyComparedFlag)
+	var indexCheck IsAlreadyComparedFlag
 
 	for index, value := range ingresses1.Items {
-		if _, ok := Entities["ingresses"][value.Name]; ok {
+		if _, ok := ToSkipEntities["ingresses"][value.Name]; ok {
 			continue
 		}
 		indexCheck.Index = index
@@ -22,7 +22,7 @@ func AddValueIngressesInMap(ingresses1, ingresses2 *v1beta12.IngressList) (map[s
 
 	}
 	for index, value := range ingresses2.Items {
-		if _, ok := Entities["ingresses"][value.Name]; ok {
+		if _, ok := ToSkipEntities["ingresses"][value.Name]; ok {
 			continue
 		}
 		indexCheck.Index = index
@@ -33,7 +33,7 @@ func AddValueIngressesInMap(ingresses1, ingresses2 *v1beta12.IngressList) (map[s
 }
 
 // SetInformationAboutIngresses set information about services
-func SetInformationAboutIngresses(map1, map2 map[string]CheckerFlag, ingresses1, ingresses2 *v1beta12.IngressList) bool {
+func SetInformationAboutIngresses(map1, map2 map[string]IsAlreadyComparedFlag, ingresses1, ingresses2 *v1beta12.IngressList) bool {
 	var flag bool
 	if len(map1) != len(map2) {
 		logging.Log.Infof("ingress counts are different")
@@ -43,7 +43,7 @@ func SetInformationAboutIngresses(map1, map2 map[string]CheckerFlag, ingresses1,
 	channel := make(chan bool, len(map1))
 	for name, index1 := range map1 {
 		wg.Add(1)
-		go func(wg *sync.WaitGroup, channel chan bool, name string, index1 CheckerFlag, map1, map2 map[string]CheckerFlag) {
+		go func(wg *sync.WaitGroup, channel chan bool, name string, index1 IsAlreadyComparedFlag, map1, map2 map[string]IsAlreadyComparedFlag) {
 			defer func() {
 				wg.Done()
 			}()
