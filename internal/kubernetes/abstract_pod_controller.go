@@ -61,19 +61,11 @@ func ComparePodControllerSpecs(map1, map2 map[string]IsAlreadyComparedFlag, apc1
 				apc2 := apc2List[index2.Index]
 				kind := ObjectKindWrapper(apc1.Metadata.Type.Kind)
 
-				if _, err := CompareAbstractObjectMetadata(apc1.Metadata, apc2.Metadata); err != nil {
-					logging.Log.Infof("metadata compare error: %s", err.Error())
-
-					channel <- true
-
-					return
-				}
-
 				logging.Log.Debugf("----- Start checking '%s:%s' pod controller spec -----", kind, apc1.Name)
 
 				if apc1.Replicas != nil || apc2.Replicas != nil {
 					if *apc1.Replicas != *apc2.Replicas {
-						logging.Log.Infof("%s:%s: number of replicas is different: %d and %d", kind, apc1.Replicas, apc2.Replicas)
+						logging.Log.Infof("%s:%s: number of replicas is different: %d and %d", kind, name, *apc1.Replicas, *apc2.Replicas)
 						flag = true
 					}
 				}
@@ -100,7 +92,7 @@ func ComparePodControllerSpecs(map1, map2 map[string]IsAlreadyComparedFlag, apc1
 
 				logging.Log.Debugf("----- End checking %s: '%s' -----", kind, name)
 			} else {
-				logging.Log.Infof("%s %s presents in 1st cluster but absents in 2nd one", name)
+				logging.Log.Infof("%s %s presents in 1st cluster but absents in 2nd one",apc1List[index1.Index].Metadata.Type.Kind, name)
 				flag = true
 			}
 			channel <- flag
@@ -120,7 +112,7 @@ func ComparePodControllerSpecs(map1, map2 map[string]IsAlreadyComparedFlag, apc1
 
 	for name, index := range map2 {
 		if !index.Check {
-			logging.Log.Infof("%s %s presents in 2nd cluster but absents in 1st one", name)
+			logging.Log.Infof("%s %s presents in 2nd cluster but absents in 1st one",apc2List[index.Index].Metadata.Type.Kind, name)
 			flag = true
 		}
 	}

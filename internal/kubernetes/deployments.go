@@ -2,6 +2,7 @@ package kubernetes
 
 import (
 	v1 "k8s.io/api/apps/v1"
+	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // PrepareDeploymentMaps prepare deployment maps for comparison
@@ -26,7 +27,10 @@ func PrepareDeploymentMaps(obj1, obj2 *v1.DeploymentList) ([]AbstractPodControll
 
 		apc1List = append(apc1List, AbstractPodController{
 			Metadata: AbstractObjectMetadata{
-				Type: value.TypeMeta,
+				Type: v12.TypeMeta{
+					Kind:       "deployments",
+					APIVersion: "apps/v1",
+				},
 				Meta: value.ObjectMeta,
 			},
 			Name:             value.Name,
@@ -47,7 +51,10 @@ func PrepareDeploymentMaps(obj1, obj2 *v1.DeploymentList) ([]AbstractPodControll
 
 		apc2List = append(apc2List, AbstractPodController{
 			Metadata: AbstractObjectMetadata{
-				Type: value.TypeMeta,
+				Type: v12.TypeMeta{
+					Kind:       "deployments",
+					APIVersion: "apps/v1",
+				},
 				Meta: value.ObjectMeta,
 			},
 			Name:             value.Name,

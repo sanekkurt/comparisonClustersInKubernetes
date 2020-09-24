@@ -191,7 +191,6 @@ func CompareClusters(clientSet1, clientSet2 kubernetes.Interface, namespaces []s
 
 			mapIngresses1, mapIngresses2 := AddValueIngressesInMap(ingresses1, ingresses2)
 			SetInformationAboutIngresses(mapIngresses1, mapIngresses2, ingresses1, ingresses2)
-			fmt.Println(mapIngresses1, mapIngresses2)
 
 			resCh <- ResStr{
 				IsClusterDiffer: isClustersDiffer,
