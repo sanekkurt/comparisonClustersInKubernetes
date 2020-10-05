@@ -1,9 +1,14 @@
-package kubernetes
+package types
 
 import (
+	"sync"
+
 	v12 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+type ObjectKind string
+type ObjectName string
 
 // IsAlreadyComparedFlag to indicate whether the information of this entity was compared
 type IsAlreadyComparedFlag struct {
@@ -22,6 +27,38 @@ type Container struct {
 type InformationAboutObject struct {
 	Template v12.PodTemplateSpec
 	Selector *v1.LabelSelector
+}
+
+type AbstractObjectMetadata struct {
+	Type v1.TypeMeta
+	Meta v1.ObjectMeta
+}
+
+type OnceSettableFlag struct {
+	m    sync.Mutex
+	flag bool
+}
+
+func (o *OnceSettableFlag) SetFlag(v bool) {
+	//o.m.Lock()
+	//defer func() {
+	//	o.m.Unlock()
+	//}()
+
+	if o.flag {
+		return
+	}
+
+	o.flag = true
+}
+
+func (o *OnceSettableFlag) GetFlag() bool {
+	//o.m.Lock()
+	//defer func() {
+	//	o.m.Unlock()
+	//}()
+
+	return o.flag
 }
 
 // KubeconfigYaml structure for describing the kubeconfig Yaml file

@@ -1,4 +1,4 @@
-package kubernetes
+package kv_maps
 
 import (
 	"reflect"

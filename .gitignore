@@ -1,3 +1,5 @@
 secret
+build
 /.idea
 app
+*.env

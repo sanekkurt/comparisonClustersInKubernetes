@@ -2,13 +2,14 @@ package kubernetes
 
 import (
 	"errors"
+	"testing"
+
 	v12 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes/fake"
-	"testing"
 )
 
 var (
@@ -1658,8 +1659,7 @@ func initEnvironmentForFirthTest4() {
 			Name:      "testIngress",
 			Namespace: "default",
 		},
-		Spec: v1beta1.IngressSpec{
-		},
+		Spec: v1beta1.IngressSpec{},
 	})
 }
 
@@ -2161,7 +2161,7 @@ func initEnvironmentForFourteenthTest4() {
 		},
 	}
 	rule1 := v1beta1.IngressRule{
-		Host:             "host",
+		Host: "host",
 	}
 	rule2 := v1beta1.IngressRule{
 		Host:             "host",

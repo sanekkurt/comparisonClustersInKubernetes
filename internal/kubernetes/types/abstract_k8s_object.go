@@ -1,16 +1,11 @@
-package kubernetes
+package types
 
 import (
 	"fmt"
-	"k8s-cluster-comparator/internal/logging"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"reflect"
-)
 
-type AbstractObjectMetadata struct {
-	Type v1.TypeMeta
-	Meta v1.ObjectMeta
-}
+	"k8s-cluster-comparator/internal/logging"
+)
 
 // CompareAbstractObjectMetadata compares metadata of two abstract k8s objects
 func CompareAbstractObjectMetadata(obj1, obj2 AbstractObjectMetadata) (bool, error) {

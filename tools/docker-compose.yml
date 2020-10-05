@@ -1,0 +1,17 @@
+version: '3'
+
+services:
+  go-run:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - ../dot.env
+    volumes:
+    - ../:/go/src/
+    working_dir: /go/src/
+    command:
+      - go
+      - run
+      - -race
+      - ./cmd/
