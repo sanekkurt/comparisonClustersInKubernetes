@@ -7,11 +7,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	"k8s-cluster-comparator/internal/config"
-	"k8s-cluster-comparator/internal/logging"
+	"k8s-cluster-comparator/internal/kubernetes/skipper"
+	"k8s-cluster-comparator/internal/kubernetes/types"
 )
 
-func CompareStateFulSets(clientSet1, clientSet2 kubernetes.Interface, namespace string, skipEntities config.SkipEntitiesList) (bool, error) {
+func CompareStateFulSets(clientSet1, clientSet2 kubernetes.Interface, namespace string, skipEntityList skipper.SkipEntitiesList) (bool, error) {
 	var (
 		isClustersDiffer bool
 	)
@@ -25,28 +25,36 @@ func CompareStateFulSets(clientSet1, clientSet2 kubernetes.Interface, namespace 
 		return false, fmt.Errorf("cannot obtain statefulsets list from 2nd cluster: %w", err)
 	}
 
-	apc1List, map1, apc2List, map2 := PrepareStatefulSetMaps(statefulSet1, statefulSet2)
+	apc1List, map1, apc2List, map2 := prepareStatefulSetMaps(statefulSet1, statefulSet2, skipEntityList.GetByKind("statefulsets"))
 
-	isClustersDiffer = ComparePodControllerSpecs(map1, map2, apc1List, apc2List, namespace)
+	isClustersDiffer = comparePodControllerSpecs(&clusterCompareTask{
+		Client:                   clientSet1,
+		APCList:                  apc1List,
+		IsAlreadyCheckedFlagsMap: map1,
+	}, &clusterCompareTask{
+		Client:                   clientSet2,
+		APCList:                  apc2List,
+		IsAlreadyCheckedFlagsMap: map2,
+	}, namespace)
 
 	return isClustersDiffer, nil
 }
 
-// PrepareStatefulSetMaps prepares StatefulSet maps for comparison
-func PrepareStatefulSetMaps(obj1, obj2 *v1.StatefulSetList) ([]AbstractPodController, map[string]IsAlreadyComparedFlag, []AbstractPodController, map[string]IsAlreadyComparedFlag) { //nolint:gocritic,unused
+// prepareStatefulSetMaps prepares StatefulSet maps for comparison
+func prepareStatefulSetMaps(obj1, obj2 *v1.StatefulSetList, skipEntities skipper.SkipComponentNames) ([]AbstractPodController, map[string]types.IsAlreadyComparedFlag, []AbstractPodController, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
 	var (
-		map1     = make(map[string]IsAlreadyComparedFlag)
+		map1     = make(map[string]types.IsAlreadyComparedFlag)
 		apc1List = make([]AbstractPodController, 0)
 
-		map2     = make(map[string]IsAlreadyComparedFlag)
+		map2     = make(map[string]types.IsAlreadyComparedFlag)
 		apc2List = make([]AbstractPodController, 0)
 
-		indexCheck IsAlreadyComparedFlag
+		indexCheck types.IsAlreadyComparedFlag
 	)
 
 	for index, value := range obj1.Items {
-		if _, ok := ToSkipEntities[ObjectKindWrapper(value.Kind)][value.Name]; ok {
-			logging.Log.Debugf("statefulset %s is skipped from comparison due to its name", value.Name)
+		if skipEntities.IsSkippedEntity(value.Name) {
+			log.Debugf("statefulset %s is skipped from comparison due to its name", value.Name)
 			continue
 		}
 
@@ -54,7 +62,7 @@ func PrepareStatefulSetMaps(obj1, obj2 *v1.StatefulSetList) ([]AbstractPodContro
 		map1[value.Name] = indexCheck
 
 		apc1List = append(apc1List, AbstractPodController{
-			Metadata: AbstractObjectMetadata{
+			Metadata: types.AbstractObjectMetadata{
 				Type: metav1.TypeMeta{
 					Kind:       "statefulsets",
 					APIVersion: "apps/v1",
@@ -71,15 +79,15 @@ func PrepareStatefulSetMaps(obj1, obj2 *v1.StatefulSetList) ([]AbstractPodContro
 	}
 
 	for index, value := range obj2.Items {
-		if _, ok := ToSkipEntities[ObjectKindWrapper(value.Kind)][value.Name]; ok {
-			logging.Log.Debugf("statefulset %s is skipped from comparison due to its name", value.Name)
+		if skipEntities.IsSkippedEntity(value.Name) {
+			log.Debugf("statefulset %s is skipped from comparison due to its name", value.Name)
 			continue
 		}
 		indexCheck.Index = index
 		map2[value.Name] = indexCheck
 
 		apc2List = append(apc2List, AbstractPodController{
-			Metadata: AbstractObjectMetadata{
+			Metadata: types.AbstractObjectMetadata{
 				Type: metav1.TypeMeta{
 					Kind:       "statefulsets",
 					APIVersion: "apps/v1",

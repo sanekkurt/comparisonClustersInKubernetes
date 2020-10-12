@@ -1,6 +1,7 @@
 package types
 
 import (
+	"strings"
 	"sync"
 
 	v12 "k8s.io/api/core/v1"
@@ -9,6 +10,11 @@ import (
 
 type ObjectKind string
 type ObjectName string
+
+// ObjectKindWrapper is a wrapper function that transforms object kind name to a canonical form
+func ObjectKindWrapper(kind string) string {
+	return strings.ToLower(kind)
+}
 
 // IsAlreadyComparedFlag to indicate whether the information of this entity was compared
 type IsAlreadyComparedFlag struct {

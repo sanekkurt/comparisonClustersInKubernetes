@@ -27,16 +27,19 @@ func main() {
 
 	log := logging.FromContext(ctx)
 
-	log.Infow("Starting k8s-cluster-comparator")
-
 	cfg, err := config.Parse(ctx)
 	if err != nil {
-		log.Fatalf("configuration error: %s", err.Error())
+		if err == config.ErrHelpShown {
+			os.Exit(0)
+		}
+		os.Exit(1)
 	}
+
+	log.Infow("Starting k8s-cluster-comparator")
 
 	ret := 0
 
-	isClustersDiffer, err := kube.CompareClusters(cfg)
+	isClustersDiffer, err := kube.CompareClusters(ctx, cfg)
 	if err != nil {
 		log.Errorf("cannot compare clusters: %s", err.Error())
 		os.Exit(2)

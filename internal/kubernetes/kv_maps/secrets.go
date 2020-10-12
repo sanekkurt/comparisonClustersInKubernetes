@@ -5,18 +5,23 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	"k8s-cluster-comparator/internal/config"
-	"k8s-cluster-comparator/internal/logging"
+	"k8s-cluster-comparator/internal/kubernetes/skipper"
+	"k8s-cluster-comparator/internal/kubernetes/types"
 
 	"fmt"
 	"sync"
 )
 
 var (
-	SkipSecretTypes = [3]v12.SecretType{"kubernetes.io/service-account-token", "kubernetes.io/dockercfg", "helm.sh/release.v1"}
+	skipSecretTypes = [3]v12.SecretType{
+		"kubernetes.io/service-account-token",
+		"kubernetes.io/dockercfg",
+		"helm.sh/release.v1",
+	}
 )
 
-func CompareSecrets(clientSet1, clientSet2 kubernetes.Interface, namespace string, skipEntities config.SkipEntitiesList) (bool, error) {
+// CompareSecrets compares list of secret objects in two given k8s-clusters
+func CompareSecrets(clientSet1, clientSet2 kubernetes.Interface, namespace string, skipEntityList skipper.SkipEntitiesList) (bool, error) {
 	var (
 		isClustersDiffer bool
 	)
@@ -30,26 +35,26 @@ func CompareSecrets(clientSet1, clientSet2 kubernetes.Interface, namespace strin
 		return false, fmt.Errorf("cannot obtain secrets list from 2nd cluster: %w", err)
 	}
 
-	mapSecrets1, mapSecrets2 := AddValueSecretsInMap(secrets1, secrets2)
+	mapSecrets1, mapSecrets2 := prepareSecretMaps(secrets1, secrets2, skipEntityList.GetByKind("secrets"))
 
-	isClustersDiffer = CompareSecretsSpecs(mapSecrets1, mapSecrets2, secrets1, secrets2)
+	isClustersDiffer = compareSecretsSpecs(mapSecrets1, mapSecrets2, secrets1, secrets2)
 
 	return isClustersDiffer, nil
 }
 
-// AddValueSecretsInMap add value secrets in map
-func AddValueSecretsInMap(secrets1, secrets2 *v12.SecretList) (map[string]IsAlreadyComparedFlag, map[string]IsAlreadyComparedFlag) { //nolint:gocritic,unused
-	mapSecrets1 := make(map[string]IsAlreadyComparedFlag)
-	mapSecrets2 := make(map[string]IsAlreadyComparedFlag)
-	var indexCheck IsAlreadyComparedFlag
+// prepareSecretMaps add value secrets in map
+func prepareSecretMaps(secrets1, secrets2 *v12.SecretList, skipEntities skipper.SkipComponentNames) (map[string]types.IsAlreadyComparedFlag, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
+	mapSecrets1 := make(map[string]types.IsAlreadyComparedFlag)
+	mapSecrets2 := make(map[string]types.IsAlreadyComparedFlag)
+	var indexCheck types.IsAlreadyComparedFlag
 
 	for index, value := range secrets1.Items {
 		if checkContinueTypes(value.Type) {
-			logging.Log.Debugf("secret %s is skipped from comparison due to its '%s' type", value.Name, value.Type)
+			log.Debugf("secret %s is skipped from comparison due to its '%s' type", value.Name, value.Type)
 			continue
 		}
-		if _, ok := ToSkipEntities["secrets"][value.Name]; ok {
-			logging.Log.Debugf("secret %s is skipped from comparison due to its name", value.Name)
+		if skipEntities.IsSkippedEntity(value.Name) {
+			log.Debugf("secret %s is skipped from comparison due to its name", value.Name)
 			continue
 		}
 		indexCheck.Index = index
@@ -58,11 +63,11 @@ func AddValueSecretsInMap(secrets1, secrets2 *v12.SecretList) (map[string]IsAlre
 	}
 	for index, value := range secrets2.Items {
 		if checkContinueTypes(value.Type) {
-			logging.Log.Debugf("secret %s is skipped from comparison due to its '%s' type", value.Name, value.Type)
+			log.Debugf("secret %s is skipped from comparison due to its '%s' type", value.Name, value.Type)
 			continue
 		}
-		if _, ok := ToSkipEntities["secrets"][value.Name]; ok {
-			logging.Log.Debugf("secret %s is skipped from comparison due to its name", value.Name)
+		if skipEntities.IsSkippedEntity(value.Name) {
+			log.Debugf("secret %s is skipped from comparison due to its name", value.Name)
 			continue
 		}
 		indexCheck.Index = index
@@ -81,10 +86,10 @@ func compareSecretSpecInternals(wg *sync.WaitGroup, channel chan bool, name stri
 		wg.Done()
 	}()
 
-	logging.Log.Debugf("----- Start checking secret: '%s' -----", name)
+	log.Debugf("----- Start checking secret: '%s' -----", name)
 
 	if len(secret1.Data) != len(secret2.Data) {
-		logging.Log.Infof("secret '%s' in 1st cluster has '%d' keys but the 2nd - '%d'", name, len(secret1.Data), len(secret2.Data))
+		log.Infof("secret '%s' in 1st cluster has '%d' keys but the 2nd - '%d'", name, len(secret1.Data), len(secret2.Data))
 		flag = true
 	} else {
 		for key, value := range secret1.Data {
@@ -92,25 +97,25 @@ func compareSecretSpecInternals(wg *sync.WaitGroup, channel chan bool, name stri
 			v2 := string(secret2.Data[key])
 
 			if v1 != v2 {
-				logging.Log.Infof("secret '%s', values by key '%s' do not match: '%s' and %s", name, key, v1, v2)
+				log.Infof("secret '%s', values by key '%s' do not match: '%s' and %s", name, key, v1, v2)
 				flag = true
 			}
 		}
 	}
 
-	logging.Log.Debugf("----- End checking secret: '%s' -----", name)
+	log.Debugf("----- End checking secret: '%s' -----", name)
 
 	channel <- flag
 }
 
-// CompareSecretsSpecs set information about secrets
-func CompareSecretsSpecs(map1, map2 map[string]IsAlreadyComparedFlag, secrets1, secrets2 *v12.SecretList) bool {
+// compareSecretsSpecs set information about secrets
+func compareSecretsSpecs(map1, map2 map[string]types.IsAlreadyComparedFlag, secrets1, secrets2 *v12.SecretList) bool {
 	var (
 		flag bool
 	)
 
 	if len(map1) != len(map2) {
-		logging.Log.Infof("secret counts are different")
+		log.Infof("secret counts are different")
 		flag = true
 	}
 
@@ -128,7 +133,7 @@ func CompareSecretsSpecs(map1, map2 map[string]IsAlreadyComparedFlag, secrets1, 
 
 			compareSecretSpecInternals(wg, channel, name, &secrets1.Items[index1.Index], &secrets2.Items[index2.Index])
 		} else {
-			logging.Log.Infof("secret '%s' does not exist in 2nd cluster", name)
+			log.Infof("secret '%s' does not exist in 2nd cluster", name)
 			flag = true
 		}
 	}
@@ -145,7 +150,7 @@ func CompareSecretsSpecs(map1, map2 map[string]IsAlreadyComparedFlag, secrets1, 
 	for name, index := range map2 {
 		if !index.Check {
 
-			logging.Log.Infof("secret '%s' does not exist in 1st cluster", name)
+			log.Infof("secret '%s' does not exist in 1st cluster", name)
 			flag = true
 
 		}
@@ -155,7 +160,7 @@ func CompareSecretsSpecs(map1, map2 map[string]IsAlreadyComparedFlag, secrets1, 
 
 func checkContinueTypes(secretType v12.SecretType) bool {
 	var skip bool
-	for _, skipType := range SkipTypes {
+	for _, skipType := range skipSecretTypes {
 		if secretType == skipType {
 			skip = true
 		}

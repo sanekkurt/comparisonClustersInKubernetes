@@ -7,10 +7,11 @@ services:
       dockerfile: Dockerfile
     network_mode: host
     volumes:
-      - './kubeconfig1.yml:/kubeconfig1.yaml'
-      - './kubeconfig1.yml:/kubeconfig2.yaml'
+      - './secret/kubeconfig_nvc.yaml:/kubeconfig1.yaml'
+      - './secret/kubeconfig_rvc.yaml:/kubeconfig2.yaml'
     environment:
       NAMESPACES: ns1,ns2,...
       KUBECONFIG1: /kubeconfig1.yaml
       KUBECONFIG2: /kubeconfig2.yaml
       SKIP: deployment:whoami-11,whoami-24;daemonset:whoami-0,whoami-8
+      DEBUG: "true"

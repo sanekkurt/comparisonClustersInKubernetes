@@ -9,12 +9,11 @@ import (
 
 	"k8s-cluster-comparator/internal/kubernetes/common"
 	"k8s-cluster-comparator/internal/kubernetes/types"
-	"k8s-cluster-comparator/internal/logging"
 )
 
 // CompareContainers main function for compare containers
 func CompareContainers(deploymentSpec1, deploymentSpec2 types.InformationAboutObject, namespace string, clientSet1, clientSet2 kubernetes.Interface) error {
-	logging.Log.Debug("Start checking containers")
+	log.Debug("Start checking containers")
 
 	containersDeploymentTemplate1 := deploymentSpec1.Template.Spec.Containers
 	containersDeploymentTemplate2 := deploymentSpec2.Template.Spec.Containers

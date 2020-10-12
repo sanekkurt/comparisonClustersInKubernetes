@@ -7,11 +7,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	"k8s-cluster-comparator/internal/config"
-	"k8s-cluster-comparator/internal/logging"
+	"k8s-cluster-comparator/internal/kubernetes/skipper"
+	"k8s-cluster-comparator/internal/kubernetes/types"
 )
 
-func CompareDeployments(clientSet1, clientSet2 kubernetes.Interface, namespace string, skipEntities config.SkipEntitiesList) (bool, error) {
+func CompareDeployments(clientSet1, clientSet2 kubernetes.Interface, namespace string, skipEntityList skipper.SkipEntitiesList) (bool, error) {
 	var (
 		isClustersDiffer bool
 	)
@@ -26,28 +26,36 @@ func CompareDeployments(clientSet1, clientSet2 kubernetes.Interface, namespace s
 		return false, fmt.Errorf("cannot obtain deployments list from 2nd cluster: %w", err)
 	}
 
-	apc1List, map1, apc2List, map2 := PrepareDeploymentMaps(depl1, depl2)
+	apc1List, map1, apc2List, map2 := prepareDeploymentMaps(depl1, depl2, skipEntityList.GetByKind("deployments"))
 
-	isClustersDiffer = ComparePodControllerSpecs(map1, map2, apc1List, apc2List, namespace)
+	isClustersDiffer = comparePodControllerSpecs(&clusterCompareTask{
+		Client:                   clientSet1,
+		APCList:                  apc1List,
+		IsAlreadyCheckedFlagsMap: map1,
+	}, &clusterCompareTask{
+		Client:                   clientSet2,
+		APCList:                  apc2List,
+		IsAlreadyCheckedFlagsMap: map2,
+	}, namespace)
 
 	return isClustersDiffer, nil
 }
 
-// PrepareDeploymentMaps prepare deployment maps for comparison
-func PrepareDeploymentMaps(obj1, obj2 *v1.DeploymentList) ([]AbstractPodController, map[string]IsAlreadyComparedFlag, []AbstractPodController, map[string]IsAlreadyComparedFlag) { //nolint:gocritic,unused
+// prepareDeploymentMaps prepare deployment maps for comparison
+func prepareDeploymentMaps(obj1, obj2 *v1.DeploymentList, skipEntities skipper.SkipComponentNames) ([]AbstractPodController, map[string]types.IsAlreadyComparedFlag, []AbstractPodController, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
 	var (
-		map1     = make(map[string]IsAlreadyComparedFlag)
+		map1     = make(map[string]types.IsAlreadyComparedFlag)
 		apc1List = make([]AbstractPodController, 0)
 
-		map2     = make(map[string]IsAlreadyComparedFlag)
+		map2     = make(map[string]types.IsAlreadyComparedFlag)
 		apc2List = make([]AbstractPodController, 0)
 
-		indexCheck IsAlreadyComparedFlag
+		indexCheck types.IsAlreadyComparedFlag
 	)
 
 	for index, value := range obj1.Items {
-		if _, ok := ToSkipEntities[ObjectKindWrapper(value.Kind)][value.Name]; ok {
-			logging.Log.Debugf("deployment %s is skipped from comparison due to its name", value.Name)
+		if skipEntities.IsSkippedEntity(value.Name) {
+			log.Debugf("deployment %s is skipped from comparison due to its name", value.Name)
 			continue
 		}
 
@@ -55,7 +63,7 @@ func PrepareDeploymentMaps(obj1, obj2 *v1.DeploymentList) ([]AbstractPodControll
 		map1[value.Name] = indexCheck
 
 		apc1List = append(apc1List, AbstractPodController{
-			Metadata: AbstractObjectMetadata{
+			Metadata: types.AbstractObjectMetadata{
 				Type: metav1.TypeMeta{
 					Kind:       "deployments",
 					APIVersion: "apps/v1",
@@ -72,15 +80,15 @@ func PrepareDeploymentMaps(obj1, obj2 *v1.DeploymentList) ([]AbstractPodControll
 	}
 
 	for index, value := range obj2.Items {
-		if _, ok := ToSkipEntities[ObjectKindWrapper(value.Kind)][value.Name]; ok {
-			logging.Log.Debugf("deployment %s is skipped from comparison due to its name", value.Name)
+		if skipEntities.IsSkippedEntity(value.Name) {
+			log.Debugf("deployment %s is skipped from comparison due to its name", value.Name)
 			continue
 		}
 		indexCheck.Index = index
 		map2[value.Name] = indexCheck
 
 		apc2List = append(apc2List, AbstractPodController{
-			Metadata: AbstractObjectMetadata{
+			Metadata: types.AbstractObjectMetadata{
 				Type: metav1.TypeMeta{
 					Kind:       "deployments",
 					APIVersion: "apps/v1",

@@ -7,13 +7,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	"k8s-cluster-comparator/internal/config"
-	"k8s-cluster-comparator/internal/logging"
-
 	"sync"
+
+	"k8s-cluster-comparator/internal/kubernetes/skipper"
+	"k8s-cluster-comparator/internal/kubernetes/types"
 )
 
-func CompareServices(clientSet1, clientSet2 kubernetes.Interface, namespace string, skipEntities config.SkipEntitiesList) (bool, error) {
+// CompareServices compares list of services objects in two given k8s-clusters
+func CompareServices(clientSet1, clientSet2 kubernetes.Interface, namespace string, skipEntityList skipper.SkipEntitiesList) (bool, error) {
 	var (
 		isClustersDiffer bool
 	)
@@ -26,22 +27,22 @@ func CompareServices(clientSet1, clientSet2 kubernetes.Interface, namespace stri
 	if err != nil {
 		return false, fmt.Errorf("cannot obtain services list from 2nd cluster: %w", err)
 	}
-	mapServices1, mapServices2 := AddValueServicesInMap(services1, services2)
+	mapServices1, mapServices2 := prepareServiceMaps(services1, services2, skipEntityList.GetByKind("secrets"))
 
-	isClustersDiffer = CompareServicesSpecs(mapServices1, mapServices2, services1, services2)
+	isClustersDiffer = compareServicesSpecs(mapServices1, mapServices2, services1, services2)
 
 	return isClustersDiffer, nil
 }
 
-// AddValueServicesInMap add value secrets in map
-func AddValueServicesInMap(services1, services2 *v12.ServiceList) (map[string]IsAlreadyComparedFlag, map[string]IsAlreadyComparedFlag) { //nolint:gocritic,unused
-	mapServices1 := make(map[string]IsAlreadyComparedFlag)
-	mapServices2 := make(map[string]IsAlreadyComparedFlag)
-	var indexCheck IsAlreadyComparedFlag
+// prepareServiceMaps add value secrets in map
+func prepareServiceMaps(services1, services2 *v12.ServiceList, skipEntities skipper.SkipComponentNames) (map[string]types.IsAlreadyComparedFlag, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
+	mapServices1 := make(map[string]types.IsAlreadyComparedFlag)
+	mapServices2 := make(map[string]types.IsAlreadyComparedFlag)
+	var indexCheck types.IsAlreadyComparedFlag
 
 	for index, value := range services1.Items {
-		if _, ok := ToSkipEntities["services"][value.Name]; ok {
-			logging.Log.Debugf("service %s is skipped from comparison due to its name", value.Name)
+		if skipEntities.IsSkippedEntity(value.Name) {
+			log.Debugf("service %s is skipped from comparison due to its name", value.Name)
 			continue
 		}
 		indexCheck.Index = index
@@ -49,8 +50,8 @@ func AddValueServicesInMap(services1, services2 *v12.ServiceList) (map[string]Is
 
 	}
 	for index, value := range services2.Items {
-		if _, ok := ToSkipEntities["services"][value.Name]; ok {
-			logging.Log.Debugf("service %s is skipped from comparison due to its name", value.Name)
+		if skipEntities.IsSkippedEntity(value.Name) {
+			log.Debugf("service %s is skipped from comparison due to its name", value.Name)
 			continue
 		}
 		indexCheck.Index = index
@@ -68,37 +69,37 @@ func compareServiceSpecInternals(wg *sync.WaitGroup, channel chan bool, name str
 		wg.Done()
 	}()
 
-	logging.Log.Debugf("----- Start checking service: '%s' -----", name)
+	log.Debugf("----- Start checking service: '%s' -----", name)
 
 	if len(svc1.Labels) != len(svc2.Labels) {
-		logging.Log.Infof("the number of labels is not equal in services. Name service: '%s'. In first cluster %d, in second cluster %d", svc1.Name, len(svc1.Labels), len(svc2.Labels))
+		log.Infof("the number of labels is not equal in services. Name service: '%s'. In first cluster %d, in second cluster %d", svc1.Name, len(svc1.Labels), len(svc2.Labels))
 		flag = true
 	} else {
 		for key, value := range svc1.Labels {
 			if svc2.Labels[key] != value {
-				logging.Log.Infof("labels in services don't match. Name service: '%s'. In first cluster: '%s'-'%s', in second cluster value = '%s'", svc1.Name, key, value, svc2.Labels[key])
+				log.Infof("labels in services don't match. Name service: '%s'. In first cluster: '%s'-'%s', in second cluster value = '%s'", svc1.Name, key, value, svc2.Labels[key])
 				flag = true
 			}
 		}
 	}
-	err := CompareSpecInServices(*svc1, *svc2)
+	err := compareSpecInServices(*svc1, *svc2)
 	if err != nil {
-		logging.Log.Infof("Service %s: %s", name, err.Error())
+		log.Infof("Service %s: %s", name, err.Error())
 		flag = true
 	}
 
-	logging.Log.Debugf("----- End checking service: '%s' -----", name)
+	log.Debugf("----- End checking service: '%s' -----", name)
 	channel <- flag
 }
 
-// CompareServicesSpecs set information about services
-func CompareServicesSpecs(map1, map2 map[string]IsAlreadyComparedFlag, services1, services2 *v12.ServiceList) bool {
+// compareServicesSpecs set information about services
+func compareServicesSpecs(map1, map2 map[string]types.IsAlreadyComparedFlag, services1, services2 *v12.ServiceList) bool {
 	var (
 		flag bool
 	)
 
 	if len(map1) != len(map2) {
-		logging.Log.Infof("service counts are different")
+		log.Infof("service counts are different")
 		flag = true
 	}
 
@@ -116,7 +117,7 @@ func CompareServicesSpecs(map1, map2 map[string]IsAlreadyComparedFlag, services1
 
 			go compareServiceSpecInternals(wg, channel, name, &services1.Items[index1.Index], &services2.Items[index2.Index])
 		} else {
-			logging.Log.Infof("service '%s' does not exist in 2nd cluster", name)
+			log.Infof("service '%s' does not exist in 2nd cluster", name)
 			flag = true
 			channel <- flag
 		}
@@ -134,7 +135,7 @@ func CompareServicesSpecs(map1, map2 map[string]IsAlreadyComparedFlag, services1
 	for name, index := range map2 {
 		if !index.Check {
 
-			logging.Log.Infof("service '%s' does not exist in 1st cluster", name)
+			log.Infof("service '%s' does not exist in 1st cluster", name)
 			flag = true
 
 		}
@@ -143,8 +144,8 @@ func CompareServicesSpecs(map1, map2 map[string]IsAlreadyComparedFlag, services1
 	return flag
 }
 
-// CompareSpecInServices compares spec in services
-func CompareSpecInServices(service1, service2 v12.Service) error {
+// compareSpecInServices compares spec in services
+func compareSpecInServices(service1, service2 v12.Service) error {
 	if len(service1.Spec.Ports) != len(service2.Spec.Ports) {
 		return fmt.Errorf("%w. Name service: '%s'. In first service - %d ports, in second service - '%d' ports", ErrorPortsCountDifferent, service1.Name, len(service1.Spec.Ports), len(service2.Spec.Ports))
 	}
