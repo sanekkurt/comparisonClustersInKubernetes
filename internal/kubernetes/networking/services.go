@@ -9,6 +9,8 @@ import (
 
 	"sync"
 
+	"k8s-cluster-comparator/internal/kubernetes/common"
+	"k8s-cluster-comparator/internal/kubernetes/kv_maps"
 	"k8s-cluster-comparator/internal/kubernetes/skipper"
 	"k8s-cluster-comparator/internal/kubernetes/types"
 )
@@ -71,17 +73,18 @@ func compareServiceSpecInternals(wg *sync.WaitGroup, channel chan bool, name str
 
 	log.Debugf("----- Start checking service: '%s' -----", name)
 
-	if len(svc1.Labels) != len(svc2.Labels) {
-		log.Infof("the number of labels is not equal in services. Name service: '%s'. In first cluster %d, in second cluster %d", svc1.Name, len(svc1.Labels), len(svc2.Labels))
-		flag = true
-	} else {
-		for key, value := range svc1.Labels {
-			if svc2.Labels[key] != value {
-				log.Infof("labels in services don't match. Name service: '%s'. In first cluster: '%s'-'%s', in second cluster value = '%s'", svc1.Name, key, value, svc2.Labels[key])
-				flag = true
-			}
-		}
+	if !kv_maps.AreKVMapsEqual(svc1.ObjectMeta.Labels, svc2.ObjectMeta.Labels, common.SkippedKubeLabels) {
+		log.Infof("metadata of ingress '%s' differs: different labels", svc1.Name)
+		channel <- true
+		return
 	}
+
+	if !kv_maps.AreKVMapsEqual(svc1.ObjectMeta.Labels, svc2.ObjectMeta.Labels, nil) {
+		log.Infof("metadata of ingress '%s' differs: different annotations", svc1.Name)
+		channel <- true
+		return
+	}
+
 	err := compareSpecInServices(*svc1, *svc2)
 	if err != nil {
 		log.Infof("Service %s: %s", name, err.Error())

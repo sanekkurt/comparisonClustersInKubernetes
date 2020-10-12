@@ -9,6 +9,8 @@ import (
 
 	"sync"
 
+	"k8s-cluster-comparator/internal/kubernetes/common"
+	"k8s-cluster-comparator/internal/kubernetes/kv_maps"
 	"k8s-cluster-comparator/internal/kubernetes/skipper"
 	"k8s-cluster-comparator/internal/kubernetes/types"
 )
@@ -73,16 +75,16 @@ func compareIngressSpecInternals(wg *sync.WaitGroup, channel chan bool, name str
 
 	log.Debugf("----- Start checking ingress: '%s' -----", name)
 
-	if len(ing1.Labels) != len(ing2.Labels) {
-		log.Infof("the number of labels is not equal in ingresses. Name ingress: '%s'. In first cluster %d, in second cluster %d", ing1.Name, len(ing1.Labels), len(ing2.Labels))
-		flag = true
-	} else {
-		for key, value := range ing1.Labels {
-			if ing2.Labels[key] != value {
-				log.Infof("labels in ingresses don't match. Name ingress: '%s'. In first cluster: '%s'-'%s', in second cluster value = '%s'", ing1.Name, key, value, ing2.Labels[key])
-				flag = true
-			}
-		}
+	if !kv_maps.AreKVMapsEqual(ing1.ObjectMeta.Labels, ing2.ObjectMeta.Labels, common.SkippedKubeLabels) {
+		log.Infof("metadata of ingress '%s' differs: different labels", ing1.Name)
+		channel <- true
+		return
+	}
+
+	if !kv_maps.AreKVMapsEqual(ing1.ObjectMeta.Labels, ing2.ObjectMeta.Labels, nil) {
+		log.Infof("metadata of ingress '%s' differs: different annotations", ing2.Name)
+		channel <- true
+		return
 	}
 
 	err := compareSpecInIngresses(*ing1, *ing2)

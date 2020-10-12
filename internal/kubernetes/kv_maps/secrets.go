@@ -5,6 +5,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"k8s-cluster-comparator/internal/kubernetes/common"
 	"k8s-cluster-comparator/internal/kubernetes/skipper"
 	"k8s-cluster-comparator/internal/kubernetes/types"
 
@@ -87,6 +88,18 @@ func compareSecretSpecInternals(wg *sync.WaitGroup, channel chan bool, name stri
 	}()
 
 	log.Debugf("----- Start checking secret: '%s' -----", name)
+
+	if !AreKVMapsEqual(secret1.ObjectMeta.Labels, secret1.ObjectMeta.Labels, common.SkippedKubeLabels) {
+		log.Infof("metadata of configmap '%s' differs: different labels", secret1.Name)
+		channel <- true
+		return
+	}
+
+	if !AreKVMapsEqual(secret1.ObjectMeta.Annotations, secret1.ObjectMeta.Annotations, nil) {
+		log.Infof("metadata of configmap '%s' differs: different annotations", secret1.Name)
+		channel <- true
+		return
+	}
 
 	if len(secret1.Data) != len(secret2.Data) {
 		log.Infof("secret '%s' in 1st cluster has '%d' keys but the 2nd - '%d'", name, len(secret1.Data), len(secret2.Data))

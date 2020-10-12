@@ -15,6 +15,12 @@ import (
 	"k8s-cluster-comparator/internal/kubernetes/types"
 )
 
+var (
+	SkippedKubeLabels = map[string]struct{}{
+		"app.kubernetes.io/version": {},
+	}
+)
+
 // YamlToStruct parse yaml file into structure
 func YamlToStruct(yamlFileName string) *types.KubeconfigYaml {
 	kubeconfigYaml := &types.KubeconfigYaml{}

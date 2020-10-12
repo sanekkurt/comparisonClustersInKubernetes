@@ -5,6 +5,8 @@ import (
 
 	"k8s.io/client-go/kubernetes"
 
+	"k8s-cluster-comparator/internal/kubernetes/common"
+	"k8s-cluster-comparator/internal/kubernetes/kv_maps"
 	"k8s-cluster-comparator/internal/kubernetes/types"
 )
 
@@ -80,6 +82,18 @@ func comparePodControllerSpecInternals(wg *sync.WaitGroup, channel chan bool, na
 	kind := types.ObjectKindWrapper(apc1.Metadata.Type.Kind)
 
 	log.Debugf("----- Start checking '%s:%s' pod controller spec -----", kind, apc1.Name)
+
+	if !kv_maps.AreKVMapsEqual(apc1.Labels, apc2.Labels, common.SkippedKubeLabels) {
+		log.Infof("metadata of pod controller '%s' differs: different labels", apc1.Name)
+		channel <- true
+		return
+	}
+
+	if !kv_maps.AreKVMapsEqual(apc1.Annotations, apc2.Annotations, nil) {
+		log.Infof("metadata of controller '%s' differs: different annotations", apc2.Name)
+		channel <- true
+		return
+	}
 
 	if apc1.Replicas != nil || apc2.Replicas != nil {
 		if *apc1.Replicas != *apc2.Replicas {

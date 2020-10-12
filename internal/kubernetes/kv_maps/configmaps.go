@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"sync"
 
+	"k8s-cluster-comparator/internal/kubernetes/common"
 	"k8s-cluster-comparator/internal/kubernetes/skipper"
 	"k8s-cluster-comparator/internal/kubernetes/types"
 )
@@ -68,6 +69,19 @@ func compareConfigMapSpecInternals(wg *sync.WaitGroup, channel chan bool, name s
 	}()
 
 	log.Debugf("----- Start checking configmap: '%s' -----", name)
+
+	if !AreKVMapsEqual(cm1.ObjectMeta.Labels, cm2.ObjectMeta.Labels, common.SkippedKubeLabels) {
+		log.Infof("metadata of configmap '%s' differs: different labels", cm1.Name)
+		channel <- true
+		return
+	}
+
+	if !AreKVMapsEqual(cm1.ObjectMeta.Annotations, cm2.ObjectMeta.Annotations, nil) {
+		log.Infof("metadata of configmap '%s' differs: different annotations", cm1.Name)
+		channel <- true
+		return
+	}
+
 	if len(cm1.Data) != len(cm2.Data) {
 		log.Infof("config map '%s' in 1st cluster has '%d' keys but the 2nd - '%d'", name, len(cm1.Data), len(cm2.Data))
 		flag = true

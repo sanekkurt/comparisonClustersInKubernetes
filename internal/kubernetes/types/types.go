@@ -16,6 +16,8 @@ func ObjectKindWrapper(kind string) string {
 	return strings.ToLower(kind)
 }
 
+type KVMap map[string]string
+
 // IsAlreadyComparedFlag to indicate whether the information of this entity was compared
 type IsAlreadyComparedFlag struct {
 	Index int
