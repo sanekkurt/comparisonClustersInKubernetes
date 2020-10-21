@@ -16,6 +16,46 @@ type clusterCompareTask struct {
 	IsAlreadyCheckedFlagsMap map[string]types.IsAlreadyComparedFlag
 }
 
+// status:
+//  availableReplicas: 4
+//  conditions:
+//  - lastTransitionTime: "2020-09-09T05:00:11Z"
+//    lastUpdateTime: "2020-09-09T05:00:11Z"
+//    message: Deployment has minimum availability.
+//    reason: MinimumReplicasAvailable
+//    status: "True"
+//    type: Available
+//  - lastTransitionTime: "2020-08-26T13:20:47Z"
+//    lastUpdateTime: "2020-10-17T04:37:32Z"
+//    message: ReplicaSet "assr-65b784747c" is progressing.
+//    reason: ReplicaSetUpdated
+//    status: "True"
+//    type: Progressing
+//  observedGeneration: 26
+//  readyReplicas: 4
+//  replicas: 7
+//  unavailableReplicas: 3
+//  updatedReplicas: 3
+///
+//  availableReplicas: 5
+//  conditions:
+//  - lastTransitionTime: "2020-09-09T05:00:11Z"
+//    lastUpdateTime: "2020-09-09T05:00:11Z"
+//    message: Deployment has minimum availability.
+//    reason: MinimumReplicasAvailable
+//    status: "True"
+//    type: Available
+//  - lastTransitionTime: "2020-08-26T13:20:47Z"
+//    lastUpdateTime: "2020-10-17T04:41:47Z"
+//    message: ReplicaSet "assr-65b784747c" has successfully progressed.
+//    reason: NewReplicaSetAvailable
+//    status: "True"
+//    type: Progressing
+//  observedGeneration: 26
+//  readyReplicas: 5
+//  replicas: 5
+//  updatedReplicas: 5
+
 // comparePodControllerSpecs compares abstracted pod controller specifications in two k8s clusters
 func comparePodControllerSpecs(c1, c2 *clusterCompareTask, namespace string) bool {
 	var (
