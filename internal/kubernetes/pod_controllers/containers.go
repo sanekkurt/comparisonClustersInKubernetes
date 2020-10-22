@@ -57,7 +57,11 @@ func CompareContainers(deploymentSpec1, deploymentSpec2 types.InformationAboutOb
 			return err
 		}
 
-		if err := CompareCommandsInContainer(containersDeploymentTemplate1[podTemplate1ContainerIdx].Command, containersDeploymentTemplate2[podTemplate1ContainerIdx].Command, containersDeploymentTemplate1[podTemplate1ContainerIdx].Name); err != nil {
+		if err := CompareCommandsOrArgsInContainer(containersDeploymentTemplate1[podTemplate1ContainerIdx].Command, containersDeploymentTemplate2[podTemplate1ContainerIdx].Command, containersDeploymentTemplate1[podTemplate1ContainerIdx].Name, "command"); err != nil {
+			return err
+		}
+
+		if err := CompareCommandsOrArgsInContainer(containersDeploymentTemplate1[podTemplate1ContainerIdx].Args, containersDeploymentTemplate2[podTemplate1ContainerIdx].Args, containersDeploymentTemplate1[podTemplate1ContainerIdx].Name, "argument"); err != nil {
 			return err
 		}
 
@@ -202,11 +206,11 @@ func CompareEnvInContainers(env1, env2 []v12.EnvVar, namespace string, clientSet
 	return nil
 }
 
-// CompareCommandsInContainer compares commands in containers
-func CompareCommandsInContainer(commands1, commands2 []string, nameContainer string) error{
+// CompareCommandsOrArgsInContainer compares commands or args in containers
+func CompareCommandsOrArgsInContainer(commands1, commands2 []string, nameContainer, action string) error{
 	for index, value := range commands1 {
 		if value != commands2[index] {
-			return fmt.Errorf("%w. Name container: %s. Command in container 1 - %s, in container 2 - %s", ErrorContainerCommandsDifferent, nameContainer, value, commands2[index])
+			return fmt.Errorf("%w. Name container: %s. %s in container 1 - %s, in container 2 - %s", ErrorContainerCommandsDifferent, nameContainer, action, value, commands2[index])
 		}
 	}
 	return nil

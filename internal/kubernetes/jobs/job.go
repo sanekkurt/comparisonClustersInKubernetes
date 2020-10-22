@@ -14,6 +14,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+// CompareJobs compare jobs in different clusters
 func CompareJobs(clientSet1, clientSet2 kubernetes.Interface, namespace string, skipEntityList skipper.SkipEntitiesList) (bool, error) {
 	var (
 		isClustersDiffer bool
@@ -29,14 +30,14 @@ func CompareJobs(clientSet1, clientSet2 kubernetes.Interface, namespace string, 
 		return false, fmt.Errorf("cannot obtain jobs list from 2nd cluster: %w", err)
 	}
 
-	mapJobs1, mapJobs2 := prepareJobsMaps(jobs1, jobs2, skipEntityList.GetByKind("services"))
+	mapJobs1, mapJobs2 := prepareJobsMaps(jobs1, jobs2, skipEntityList.GetByKind("jobs"))
 
 	isClustersDiffer = setInformationAboutJobs(mapJobs1, mapJobs2, jobs1, jobs2)
 
 	return isClustersDiffer, nil
 }
 
-// prepareIngressMaps add value secrets in map
+// prepareJobsMaps add value secrets in map
 func prepareJobsMaps(jobs1, jobs2 *v12.JobList, skipEntities skipper.SkipComponentNames) (map[string]types.IsAlreadyComparedFlag, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
 	mapJobs1 := make(map[string]types.IsAlreadyComparedFlag)
 	mapJobs2 := make(map[string]types.IsAlreadyComparedFlag)
@@ -132,7 +133,7 @@ func compareJobSpecInternals(wg *sync.WaitGroup, channel chan bool, name string,
 	}
 
 	if !kv_maps.AreKVMapsEqual(job1.ObjectMeta.Labels, job2.ObjectMeta.Labels, nil) {
-		log.Infof("metadata of ingress '%s' differs: different annotations", job2.Name)
+		log.Infof("metadata of job '%s' differs: different annotations", job2.Name)
 		channel <- true
 		return
 	}
