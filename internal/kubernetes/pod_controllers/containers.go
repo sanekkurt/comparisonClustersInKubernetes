@@ -66,13 +66,21 @@ func CompareContainers(deploymentSpec1, deploymentSpec2 types.InformationAboutOb
 				if containersDeploymentTemplate1[podTemplate1ContainerIdx].Name == containersStatusesInPod1[controlledPod1ContainerStatusIdx].Name && containersDeploymentTemplate1[podTemplate1ContainerIdx].Name == containersStatusesInPod2[controlledPod1ContainerStatusIdx].Name { //nolint:gocritic,unused
 					flag++
 
-					if containersStatusesInPod1[controlledPod1ContainerStatusIdx].ImageID != containersStatusesInPod2[controlledPod1ContainerStatusIdx].ImageID {
-						return ErrorContainerImageTemplatePod
-					}
+					// if containersStatusesInPod1[controlledPod1ContainerStatusIdx].ImageID != containersStatusesInPod2[controlledPod1ContainerStatusIdx].ImageID {
+					// 	return ErrorContainerImageTemplatePod
+					// }
 
 					// TODO: add switch to control whether different pod spec image label is fatal error or not
-					if containersDeploymentTemplate1[podTemplate1ContainerIdx].Image != containersDeploymentTemplate2[podTemplate1ContainerIdx].Image {
-						log.Infof("container images in pod specs are different: %s and %s (but actual images are the same)", containersDeploymentTemplate1[podTemplate1ContainerIdx].Image, containersDeploymentTemplate2[podTemplate1ContainerIdx].Image)
+					//if containersDeploymentTemplate1[podTemplate1ContainerIdx].Image != containersDeploymentTemplate2[podTemplate1ContainerIdx].Image {
+					//	log.Infof("container images in pod specs are different: %s and %s (but actual images are the same)", containersDeploymentTemplate1[podTemplate1ContainerIdx].Image, containersDeploymentTemplate2[podTemplate1ContainerIdx].Image)
+					//}
+
+					// dfkjgfndfgj
+
+					// Вот это сравнение я поправил на то, как было до этого, сверил все индексы, только тут они были сломаны. И были написаны другие условия. Я плохо помню почему так писал, но оно работает
+					if containersDeploymentTemplate1[podTemplate1ContainerIdx].Image != containersStatusesInPod1[controlledPod1ContainerStatusIdx].Image || containersDeploymentTemplate1[podTemplate1ContainerIdx].Image != containersStatusesInPod2[controlledPod1ContainerStatusIdx].Image{ //nolint:gocritic,unused
+						// log.Infof("container images in pod specs are different: %s and %s (but actual images are the same)", containersDeploymentTemplate1[podTemplate1ContainerIdx].Image, containersDeploymentTemplate2[podTemplate1ContainerIdx].Image) //nolint:gocritic,unused
+						return ErrorContainerImageTemplatePod
 					}
 
 					for _, value := range containersStatusesInPod2 {
