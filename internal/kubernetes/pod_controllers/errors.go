@@ -14,6 +14,7 @@ var (
 
 	ErrorContainersCountInPod      = errors.New("the containers count in pod are different")
 	ErrorContainerImageTemplatePod = errors.New("the container image in the template does not match the actual image in the Pod")
+	ErrorContainerImageTagTemplatePod = errors.New("the container image tag in the template does not match the actual image tag in the Pod")
 
 	ErrorDifferentImageInPods   = errors.New("the Image in Pods is different")
 	ErrorDifferentImageIDInPods = errors.New("the ImageID in Pods is different")

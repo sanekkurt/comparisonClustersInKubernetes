@@ -2,6 +2,7 @@ package pod_controllers
 
 import (
 	"fmt"
+	"strings"
 
 	v12 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -12,7 +13,7 @@ import (
 )
 
 // CompareContainers main function for compare containers
-func CompareContainers(deploymentSpec1, deploymentSpec2 types.InformationAboutObject, namespace string, clientSet1, clientSet2 kubernetes.Interface) error {
+func CompareContainers(deploymentSpec1, deploymentSpec2 types.InformationAboutObject, namespace string, switchFatalDifferentTag bool, clientSet1, clientSet2 kubernetes.Interface) error {
 	log.Debug("Start checking containers")
 
 	var (
@@ -56,6 +57,8 @@ func CompareContainers(deploymentSpec1, deploymentSpec2 types.InformationAboutOb
 
 				containersStatusesInPod1 = GetContainerStatusesInPod(pods1.Items[controlledPod1Idx].Status.ContainerStatuses)
 				containersStatusesInPod2 = GetContainerStatusesInPod(pods2.Items[controlledPod1Idx].Status.ContainerStatuses)
+
+				containersDeploymentTemplateSplitLabel = strings.Split(containersDeploymentTemplate1[podTemplate1ContainerIdx].Image, ":")
 			)
 
 			if len(containersStatusesInPod1) != len(containersStatusesInPod2) {
@@ -64,23 +67,23 @@ func CompareContainers(deploymentSpec1, deploymentSpec2 types.InformationAboutOb
 
 			for controlledPod1ContainerStatusIdx := range containersStatusesInPod1 {
 				if containersDeploymentTemplate1[podTemplate1ContainerIdx].Name == containersStatusesInPod1[controlledPod1ContainerStatusIdx].Name && containersDeploymentTemplate1[podTemplate1ContainerIdx].Name == containersStatusesInPod2[controlledPod1ContainerStatusIdx].Name { //nolint:gocritic,unused
+
 					flag++
 
-					// if containersStatusesInPod1[controlledPod1ContainerStatusIdx].ImageID != containersStatusesInPod2[controlledPod1ContainerStatusIdx].ImageID {
-					// 	return ErrorContainerImageTemplatePod
-					// }
-
-					// TODO: add switch to control whether different pod spec image label is fatal error or not
-					//if containersDeploymentTemplate1[podTemplate1ContainerIdx].Image != containersDeploymentTemplate2[podTemplate1ContainerIdx].Image {
-					//	log.Infof("container images in pod specs are different: %s and %s (but actual images are the same)", containersDeploymentTemplate1[podTemplate1ContainerIdx].Image, containersDeploymentTemplate2[podTemplate1ContainerIdx].Image)
-					//}
-
-					// dfkjgfndfgj
+					containersStatusesInPod1SplitLabel := strings.Split(containersStatusesInPod1[controlledPod1ContainerStatusIdx].Image, ":")
+					containersStatusesInPod2SplitLabel := strings.Split(containersStatusesInPod2[controlledPod1ContainerStatusIdx].Image, ":")
 
 					// Вот это сравнение я поправил на то, как было до этого, сверил все индексы, только тут они были сломаны. И были написаны другие условия. Я плохо помню почему так писал, но оно работает
-					if containersDeploymentTemplate1[podTemplate1ContainerIdx].Image != containersStatusesInPod1[controlledPod1ContainerStatusIdx].Image || containersDeploymentTemplate1[podTemplate1ContainerIdx].Image != containersStatusesInPod2[controlledPod1ContainerStatusIdx].Image{ //nolint:gocritic,unused
-						// log.Infof("container images in pod specs are different: %s and %s (but actual images are the same)", containersDeploymentTemplate1[podTemplate1ContainerIdx].Image, containersDeploymentTemplate2[podTemplate1ContainerIdx].Image) //nolint:gocritic,unused
+					if containersDeploymentTemplateSplitLabel[0] != containersStatusesInPod1SplitLabel[0] || containersDeploymentTemplateSplitLabel[0] != containersStatusesInPod2SplitLabel[0] { //nolint:gocritic,unused
 						return ErrorContainerImageTemplatePod
+					}
+
+					if containersDeploymentTemplateSplitLabel[1] != containersStatusesInPod1SplitLabel[1] || containersDeploymentTemplateSplitLabel[1] != containersStatusesInPod2SplitLabel[1] {
+						if switchFatalDifferentTag {
+							return ErrorContainerImageTagTemplatePod
+						}
+
+						log.Infof("the container image tag in the template does not match the actual image tag in the pod: template image tag - %s, pod1 image tag - %s, pod2 image tag - %s", containersDeploymentTemplateSplitLabel[1], containersStatusesInPod1SplitLabel[1], containersStatusesInPod2SplitLabel[1]) // !!!!!
 					}
 
 					for _, value := range containersStatusesInPod2 {
