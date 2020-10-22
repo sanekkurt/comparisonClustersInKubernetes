@@ -1144,7 +1144,7 @@ func TestCompareContainers(t *testing.T) {
 	objectInformation1.Template = deployments1.Items[0].Spec.Template
 	objectInformation2.Selector = deployments2.Items[0].Spec.Selector
 	objectInformation2.Template = deployments2.Items[0].Spec.Template
-	err := CompareContainers(objectInformation1, objectInformation2, "default", clusterClientSet1, clusterClientSet2)
+	err := CompareContainers(objectInformation1, objectInformation2, "default", false, true, clusterClientSet1, clusterClientSet2)
 	if !errors.Is(err, ErrorDiffersTemplatesNumber) {
 		t.Error("Error expected: 'The number templates of containers differs'. But it was returned: ", err)
 	}
@@ -1154,7 +1154,7 @@ func TestCompareContainers(t *testing.T) {
 	deployments2, _ = clusterClientSet2.AppsV1().Deployments("default").List(metav1.ListOptions{})
 	objectInformation2.Selector = deployments2.Items[0].Spec.Selector
 	objectInformation2.Template = deployments2.Items[0].Spec.Template
-	err = CompareContainers(objectInformation1, objectInformation2, "default", clusterClientSet1, clusterClientSet2)
+	err = CompareContainers(objectInformation1, objectInformation2, "default", false,true, clusterClientSet1, clusterClientSet2)
 	if !errors.Is(err, ErrorMatchlabelsNotEqual) {
 		t.Error("Error expected: 'MatchLabels are not equal'. But it was returned: ", err)
 	}
@@ -1167,7 +1167,7 @@ func TestCompareContainers(t *testing.T) {
 	objectInformation1.Template = deployments1.Items[0].Spec.Template
 	objectInformation2.Selector = deployments2.Items[0].Spec.Selector
 	objectInformation2.Template = deployments2.Items[0].Spec.Template
-	err = CompareContainers(objectInformation1, objectInformation2, "default", clusterClientSet1, clusterClientSet2)
+	err = CompareContainers(objectInformation1, objectInformation2, "default", false,true, clusterClientSet1, clusterClientSet2)
 	if !errors.Is(err, ErrorContainerNamesTemplate) {
 		t.Error("Error expected: 'Container names in template are not equal'. But it was returned: ", err)
 	}
@@ -1181,7 +1181,7 @@ func TestCompareContainers(t *testing.T) {
 	objectInformation2.Selector = deployments2.Items[0].Spec.Selector
 	objectInformation2.Template = deployments2.Items[0].Spec.Template
 
-	err = CompareContainers(objectInformation1, objectInformation2, "default", clusterClientSet1, clusterClientSet2)
+	err = CompareContainers(objectInformation1, objectInformation2, "default", false,true, clusterClientSet1, clusterClientSet2)
 	if !errors.Is(err, ErrorContainerImagesTemplate) {
 		t.Error("Error expected: 'Container name images in template are not equal'. But it was returned: ", err)
 	}
@@ -1194,7 +1194,7 @@ func TestCompareContainers(t *testing.T) {
 	objectInformation1.Template = deployments1.Items[0].Spec.Template
 	objectInformation2.Selector = deployments2.Items[0].Spec.Selector
 	objectInformation2.Template = deployments2.Items[0].Spec.Template
-	err = CompareContainers(objectInformation1, objectInformation2, "default", clusterClientSet1, clusterClientSet2)
+	err = CompareContainers(objectInformation1, objectInformation2, "default", false,true, clusterClientSet1, clusterClientSet2)
 	if !errors.Is(err, ErrorPodsCount) {
 		t.Error("Error expected: 'The pods count are different'. But it was returned: ", err)
 	}
@@ -1207,7 +1207,7 @@ func TestCompareContainers(t *testing.T) {
 	objectInformation1.Template = deployments1.Items[0].Spec.Template
 	objectInformation2.Selector = deployments2.Items[0].Spec.Selector
 	objectInformation2.Template = deployments2.Items[0].Spec.Template
-	err = CompareContainers(objectInformation1, objectInformation2, "default", clusterClientSet1, clusterClientSet2)
+	err = CompareContainers(objectInformation1, objectInformation2, "default", false,true, clusterClientSet1, clusterClientSet2)
 	if !errors.Is(err, ErrorContainersCountInPod) {
 		t.Error("Error expected: 'The containers count in pod are different'. But it was returned: ", err)
 	}
@@ -1220,7 +1220,7 @@ func TestCompareContainers(t *testing.T) {
 	objectInformation1.Template = deployments1.Items[0].Spec.Template
 	objectInformation2.Selector = deployments2.Items[0].Spec.Selector
 	objectInformation2.Template = deployments2.Items[0].Spec.Template
-	err = CompareContainers(objectInformation1, objectInformation2, "default", clusterClientSet1, clusterClientSet2)
+	err = CompareContainers(objectInformation1, objectInformation2, "default", false,true, clusterClientSet1, clusterClientSet2)
 	if !errors.Is(err, ErrorContainerImageTemplatePod) {
 		t.Error("Error expected: 'The container image in the template does not match the actual image in the Pod'. But it was returned: ", err)
 	}
@@ -1233,7 +1233,7 @@ func TestCompareContainers(t *testing.T) {
 	objectInformation1.Template = deployments1.Items[0].Spec.Template
 	objectInformation2.Selector = deployments2.Items[0].Spec.Selector
 	objectInformation2.Template = deployments2.Items[0].Spec.Template
-	err = CompareContainers(objectInformation1, objectInformation2, "default", clusterClientSet1, clusterClientSet2)
+	err = CompareContainers(objectInformation1, objectInformation2, "default", false,true, clusterClientSet1, clusterClientSet2)
 	if !errors.Is(errors.Unwrap(err), ErrorDifferentImageIDInPods) {
 		t.Error("Error expected: 'The ImageID in Pods is different'. But it was returned: ", err)
 	}

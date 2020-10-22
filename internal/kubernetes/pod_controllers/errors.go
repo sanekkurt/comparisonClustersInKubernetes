@@ -9,12 +9,14 @@ var (
 
 	ErrorContainerNamesTemplate  = errors.New("container names in template are not equal")
 	ErrorContainerImagesTemplate = errors.New("container name images in template are not equal")
+	ErrorContainerCommandsDifferent = errors.New("сommands in containers are different")
 
 	ErrorPodsCount = errors.New("the pods count are different")
 
 	ErrorContainersCountInPod      = errors.New("the containers count in pod are different")
 	ErrorContainerImageTemplatePod = errors.New("the container image in the template does not match the actual image in the Pod")
 	ErrorContainerImageTagTemplatePod = errors.New("the container image tag in the template does not match the actual image tag in the Pod")
+
 
 	ErrorDifferentImageInPods   = errors.New("the Image in Pods is different")
 	ErrorDifferentImageIDInPods = errors.New("the ImageID in Pods is different")

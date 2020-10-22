@@ -31,7 +31,7 @@ func CompareIngresses(clientSet1, clientSet2 kubernetes.Interface, namespace str
 		return false, fmt.Errorf("cannot obtain ingresses list from 2nd cluster: %w", err)
 	}
 
-	mapIngresses1, mapIngresses2 := prepareIngressMaps(ingresses1, ingresses2, skipEntityList.GetByKind("services"))
+	mapIngresses1, mapIngresses2 := prepareIngressMaps(ingresses1, ingresses2, skipEntityList.GetByKind("ingresses"))
 
 	isClustersDiffer = setInformationAboutIngresses(mapIngresses1, mapIngresses2, ingresses1, ingresses2)
 
@@ -97,7 +97,7 @@ func compareIngressSpecInternals(wg *sync.WaitGroup, channel chan bool, name str
 	channel <- flag
 }
 
-// setInformationAboutIngresses set information about services
+// setInformationAboutIngresses set information about ingresses
 func setInformationAboutIngresses(map1, map2 map[string]types.IsAlreadyComparedFlag, ingresses1, ingresses2 *v1beta12.IngressList) bool {
 	var (
 		flag bool

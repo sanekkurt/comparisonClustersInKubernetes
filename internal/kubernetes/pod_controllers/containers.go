@@ -13,31 +13,42 @@ import (
 )
 
 // CompareContainers main function for compare containers
-func CompareContainers(deploymentSpec1, deploymentSpec2 types.InformationAboutObject, namespace string, switchFatalDifferentTag bool, clientSet1, clientSet2 kubernetes.Interface) error {
+func CompareContainers(deploymentSpec1, deploymentSpec2 types.InformationAboutObject, namespace string, simplifiedVerification, switchFatalDifferentTag bool, clientSet1, clientSet2 kubernetes.Interface) error {
 	log.Debug("Start checking containers")
 
 	var (
 		containersDeploymentTemplate1 = deploymentSpec1.Template.Spec.Containers
 		containersDeploymentTemplate2 = deploymentSpec2.Template.Spec.Containers
 
-		matchLabelsString1 = common.ConvertMatchLabelsToString(deploymentSpec1.Selector.MatchLabels)
-		matchLabelsString2 = common.ConvertMatchLabelsToString(deploymentSpec2.Selector.MatchLabels)
+		pods1 *v12.PodList
+		pods2 *v12.PodList
+
+		matchLabelsString1 string
+		matchLabelsString2 string
 	)
 
 	if len(containersDeploymentTemplate1) != len(containersDeploymentTemplate2) {
 		return ErrorDiffersTemplatesNumber
 	}
 
-	if matchLabelsString1 != matchLabelsString2 {
-		return ErrorMatchlabelsNotEqual
+	if !simplifiedVerification {
+		matchLabelsString1 = common.ConvertMatchLabelsToString(deploymentSpec1.Selector.MatchLabels)
+		matchLabelsString2 = common.ConvertMatchLabelsToString(deploymentSpec2.Selector.MatchLabels)
+
+		if matchLabelsString1 != matchLabelsString2 {
+			return ErrorMatchlabelsNotEqual
+		}
+
+		pods1, pods2 = common.GetPodsListOnMatchLabels(deploymentSpec1.Selector.MatchLabels, namespace, clientSet1, clientSet2)
 	}
 
-	pods1, pods2 := common.GetPodsListOnMatchLabels(deploymentSpec1.Selector.MatchLabels, namespace, clientSet1, clientSet2)
 
 	for podTemplate1ContainerIdx := 0; podTemplate1ContainerIdx < len(containersDeploymentTemplate1); podTemplate1ContainerIdx++ {
+
 		if containersDeploymentTemplate1[podTemplate1ContainerIdx].Name != containersDeploymentTemplate2[podTemplate1ContainerIdx].Name {
 			return ErrorContainerNamesTemplate
 		}
+
 		if containersDeploymentTemplate1[podTemplate1ContainerIdx].Image != containersDeploymentTemplate2[podTemplate1ContainerIdx].Image {
 			return ErrorContainerImagesTemplate
 		}
@@ -46,64 +57,74 @@ func CompareContainers(deploymentSpec1, deploymentSpec2 types.InformationAboutOb
 			return err
 		}
 
-		if len(pods1.Items) != len(pods2.Items) {
-			return ErrorPodsCount
+		if err := CompareCommandsInContainer(containersDeploymentTemplate1[podTemplate1ContainerIdx].Command, containersDeploymentTemplate2[podTemplate1ContainerIdx].Command, containersDeploymentTemplate1[podTemplate1ContainerIdx].Name); err != nil {
+			return err
 		}
 
-		for controlledPod1Idx := range pods1.Items {
-			var (
-				flag                       int
-				containerWithSameNameFound bool
+		if !simplifiedVerification {
 
-				containersStatusesInPod1 = GetContainerStatusesInPod(pods1.Items[controlledPod1Idx].Status.ContainerStatuses)
-				containersStatusesInPod2 = GetContainerStatusesInPod(pods2.Items[controlledPod1Idx].Status.ContainerStatuses)
-
-				containersDeploymentTemplateSplitLabel = strings.Split(containersDeploymentTemplate1[podTemplate1ContainerIdx].Image, ":")
-			)
-
-			if len(containersStatusesInPod1) != len(containersStatusesInPod2) {
-				return ErrorContainersCountInPod
+			if len(pods1.Items) != len(pods2.Items) {
+				return ErrorPodsCount
 			}
 
-			for controlledPod1ContainerStatusIdx := range containersStatusesInPod1 {
-				if containersDeploymentTemplate1[podTemplate1ContainerIdx].Name == containersStatusesInPod1[controlledPod1ContainerStatusIdx].Name && containersDeploymentTemplate1[podTemplate1ContainerIdx].Name == containersStatusesInPod2[controlledPod1ContainerStatusIdx].Name { //nolint:gocritic,unused
+			for controlledPod1Idx := range pods1.Items {
+				var (
+					flag                       int
+					containerWithSameNameFound bool
 
-					flag++
+					containersStatusesInPod1 = GetContainerStatusesInPod(pods1.Items[controlledPod1Idx].Status.ContainerStatuses)
+					containersStatusesInPod2 = GetContainerStatusesInPod(pods2.Items[controlledPod1Idx].Status.ContainerStatuses)
 
-					containersStatusesInPod1SplitLabel := strings.Split(containersStatusesInPod1[controlledPod1ContainerStatusIdx].Image, ":")
-					containersStatusesInPod2SplitLabel := strings.Split(containersStatusesInPod2[controlledPod1ContainerStatusIdx].Image, ":")
+					containersDeploymentTemplateSplitLabel = strings.Split(containersDeploymentTemplate1[podTemplate1ContainerIdx].Image, ":")
+				)
 
-					// Вот это сравнение я поправил на то, как было до этого, сверил все индексы, только тут они были сломаны. И были написаны другие условия. Я плохо помню почему так писал, но оно работает
-					if containersDeploymentTemplateSplitLabel[0] != containersStatusesInPod1SplitLabel[0] || containersDeploymentTemplateSplitLabel[0] != containersStatusesInPod2SplitLabel[0] { //nolint:gocritic,unused
-						return ErrorContainerImageTemplatePod
-					}
+				if len(containersStatusesInPod1) != len(containersStatusesInPod2) {
+					return ErrorContainersCountInPod
+				}
 
-					if containersDeploymentTemplateSplitLabel[1] != containersStatusesInPod1SplitLabel[1] || containersDeploymentTemplateSplitLabel[1] != containersStatusesInPod2SplitLabel[1] {
-						if switchFatalDifferentTag {
-							return ErrorContainerImageTagTemplatePod
+				for controlledPod1ContainerStatusIdx := range containersStatusesInPod1 {
+					if containersDeploymentTemplate1[podTemplate1ContainerIdx].Name == containersStatusesInPod1[controlledPod1ContainerStatusIdx].Name && containersDeploymentTemplate1[podTemplate1ContainerIdx].Name == containersStatusesInPod2[controlledPod1ContainerStatusIdx].Name { //nolint:gocritic,unused
+
+						flag++
+
+						containersStatusesInPod1SplitLabel := strings.Split(containersStatusesInPod1[controlledPod1ContainerStatusIdx].Image, ":")
+						containersStatusesInPod2SplitLabel := strings.Split(containersStatusesInPod2[controlledPod1ContainerStatusIdx].Image, ":")
+
+						// Вот это сравнение я поправил на то, как было до этого, сверил все индексы, только тут они были сломаны. И были написаны другие условия. Я плохо помню почему так писал, но оно работает
+						if containersDeploymentTemplateSplitLabel[0] != containersStatusesInPod1SplitLabel[0] || containersDeploymentTemplateSplitLabel[0] != containersStatusesInPod2SplitLabel[0] { //nolint:gocritic,unused
+							return ErrorContainerImageTemplatePod
 						}
 
-						log.Infof("the container image tag in the template does not match the actual image tag in the pod: template image tag - %s, pod1 image tag - %s, pod2 image tag - %s", containersDeploymentTemplateSplitLabel[1], containersStatusesInPod1SplitLabel[1], containersStatusesInPod2SplitLabel[1]) // !!!!!
-					}
-
-					for _, value := range containersStatusesInPod2 {
-						if containersStatusesInPod1[controlledPod1ContainerStatusIdx].Name == value.Name {
-							containerWithSameNameFound = true
-							if containersStatusesInPod1[controlledPod1ContainerStatusIdx].Image != value.Image {
-								return fmt.Errorf("%w. \nPods name: '%s'. Image name on pod1: '%s'. Image name on pod2: '%s'", ErrorDifferentImageInPods, value.Name, containersStatusesInPod1[controlledPod1Idx].Image, value.Image)
+						if containersDeploymentTemplateSplitLabel[1] != containersStatusesInPod1SplitLabel[1] || containersDeploymentTemplateSplitLabel[1] != containersStatusesInPod2SplitLabel[1] {
+							if switchFatalDifferentTag {
+								return ErrorContainerImageTagTemplatePod
 							}
-							if containersStatusesInPod1[controlledPod1ContainerStatusIdx].ImageID != value.ImageID {
-								return fmt.Errorf("%w. Pods name: '%s'. ImageID on pod1: '%s'. ImageID on pod2: '%s'", ErrorDifferentImageIDInPods, value.Name, containersStatusesInPod1[controlledPod1Idx].ImageID, value.ImageID)
+
+							log.Infof("the container image tag in the template does not match the actual image tag in the pod: template image tag - %s, pod1 image tag - %s, pod2 image tag - %s", containersDeploymentTemplateSplitLabel[1], containersStatusesInPod1SplitLabel[1], containersStatusesInPod2SplitLabel[1]) // !!!!!
+						}
+
+						for _, value := range containersStatusesInPod2 {
+							if containersStatusesInPod1[controlledPod1ContainerStatusIdx].Name == value.Name {
+								containerWithSameNameFound = true
+								if containersStatusesInPod1[controlledPod1ContainerStatusIdx].Image != value.Image {
+									return fmt.Errorf("%w. \nPods name: '%s'. Image name on pod1: '%s'. Image name on pod2: '%s'", ErrorDifferentImageInPods, value.Name, containersStatusesInPod1[controlledPod1Idx].Image, value.Image)
+								}
+								if containersStatusesInPod1[controlledPod1ContainerStatusIdx].ImageID != value.ImageID {
+									return fmt.Errorf("%w. Pods name: '%s'. ImageID on pod1: '%s'. ImageID on pod2: '%s'", ErrorDifferentImageIDInPods, value.Name, containersStatusesInPod1[controlledPod1Idx].ImageID, value.ImageID)
+								}
 							}
 						}
-					}
-					if !containerWithSameNameFound {
-						return fmt.Errorf("%w. Name container: %s", ErrorContainerNotFound, containersStatusesInPod1[controlledPod1Idx].Name)
+						if !containerWithSameNameFound {
+							return fmt.Errorf("%w. Name container: %s", ErrorContainerNotFound, containersStatusesInPod1[controlledPod1Idx].Name)
+						}
 					}
 				}
 			}
 		}
+
 	}
+
+	log.Debug("Stop checking containers")
 
 	return nil
 }
@@ -176,6 +197,16 @@ func CompareEnvInContainers(env1, env2 []v12.EnvVar, namespace string, clientSet
 
 		if env1[pod1EnvIdx].Name != env2[pod1EnvIdx].Name || env1[pod1EnvIdx].Value != env2[pod1EnvIdx].Value {
 			return fmt.Errorf("%w. Environment in container 1: name - '%s', value - '%s'. Environment in container 2: name - '%s', value - '%s'", ErrorEnvironmentNotEqual, env1[pod1EnvIdx].Name, env1[pod1EnvIdx].Value, env2[pod1EnvIdx].Name, env2[pod1EnvIdx].Value)
+		}
+	}
+	return nil
+}
+
+// CompareCommandsInContainer compares commands in containers
+func CompareCommandsInContainer(commands1, commands2 []string, nameContainer string) error{
+	for index, value := range commands1 {
+		if value != commands2[index] {
+			return fmt.Errorf("%w. Name container: %s. Command in container 1 - %s, in container 2 - %s", ErrorContainerCommandsDifferent, nameContainer, value, commands2[index])
 		}
 	}
 	return nil

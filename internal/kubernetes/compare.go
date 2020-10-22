@@ -3,6 +3,7 @@ package kubernetes
 import (
 	"context"
 	"fmt"
+	"k8s-cluster-comparator/internal/kubernetes/jobs"
 	"sync"
 
 	"k8s-cluster-comparator/internal/config"
@@ -36,6 +37,9 @@ func CompareClusters(ctx context.Context, cfg *config.AppConfig) (bool, error) {
 	}
 	if err := networking.Init(ctx); err != nil {
 		return false, fmt.Errorf("cannot init networking package: %w", err)
+	}
+	if err := jobs.Init(ctx); err != nil {
+		return false, fmt.Errorf("cannot init jobs package: %w", err)
 	}
 
 	for _, namespace := range cfg.Namespaces {
@@ -111,6 +115,16 @@ func CompareClusters(ctx context.Context, cfg *config.AppConfig) (bool, error) {
 			isClustersDifferFlag.SetFlag(isClustersDiffer)
 
 			isClustersDiffer, err = networking.CompareIngresses(clientSet1, clientSet2, namespace, cfg.SkipEntitiesList)
+			if err != nil {
+				resCh <- ResStr{
+					IsClustersDiffer: isClustersDiffer,
+					Err:              err,
+				}
+				return
+			}
+			isClustersDifferFlag.SetFlag(isClustersDiffer)
+
+			isClustersDiffer, err = jobs.CompareJobs(clientSet1, clientSet2, namespace, cfg.SkipEntitiesList)
 			if err != nil {
 				resCh <- ResStr{
 					IsClustersDiffer: isClustersDiffer,

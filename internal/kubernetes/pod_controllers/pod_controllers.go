@@ -160,7 +160,7 @@ func comparePodControllerSpecInternals(wg *sync.WaitGroup, channel chan bool, na
 		Selector: apc2.PodLabelSelector,
 	}
 
-	err := CompareContainers(object1, object2, namespace, switchFatalDifferentTag, c1, c2)
+	err := CompareContainers(object1, object2, namespace, false, switchFatalDifferentTag, c1, c2)
 	if err != nil {
 		log.Infof("%s %s: %s", kind, name, err.Error())
 		flag = true
