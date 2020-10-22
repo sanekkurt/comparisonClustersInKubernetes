@@ -161,16 +161,16 @@ func compareSpecInJobs(job1, job2 v12.Job) error {
 		return fmt.Errorf("%w. Job 1 - %s, Job 2 - %s", ErrorRestartPolicyDifferent, job1.Spec.Template.Spec.RestartPolicy, job2.Spec.Template.Spec.RestartPolicy)
 	}
 
-	s1 := types.InformationAboutObject{
+	castJob1ForCompareContainers := types.InformationAboutObject{
 		Template: job1.Spec.Template,
 		Selector: nil,
 	}
-	s2 := types.InformationAboutObject{
+	castJob2ForCompareContainers := types.InformationAboutObject{
 		Template: job2.Spec.Template,
 		Selector: nil,
 	}
 
-	err := pod_controllers.CompareContainers(s1, s2, "default",  true, true, nil, nil)
+	err := pod_controllers.CompareContainers(castJob1ForCompareContainers, castJob2ForCompareContainers, "default",  true, true, nil, nil)
 	if err != nil {
 		return err
 	}
