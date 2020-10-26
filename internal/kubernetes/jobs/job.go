@@ -43,43 +43,38 @@ func prepareJobsMaps(jobs1, jobs2 *v12.JobList, skipEntities skipper.SkipCompone
 	mapJobs2 := make(map[string]types.IsAlreadyComparedFlag)
 	var indexCheck types.IsAlreadyComparedFlag
 
+	OUTER1:
 	for index, value := range jobs1.Items {
 		if skipEntities.IsSkippedEntity(value.Name) {
 			log.Debugf("job %s is skipped from comparison due to its name", value.Name)
 			continue
 		}
 		if value.OwnerReferences != nil {
-			ownerIsCronJob := false
 			for _, owner := range value.OwnerReferences {
 				if owner.Kind == "CronJob" {
-					ownerIsCronJob = true
+					log.Debugf("job %s is skipped from comparison due to its owner cronJob", value.Name)
+					continue OUTER1
 				}
-			}
-			if ownerIsCronJob {
-				log.Debugf("job %s is skipped from comparison due to its owner cronJob", value.Name)
-				continue
 			}
 		}
 		indexCheck.Index = index
 		mapJobs1[value.Name] = indexCheck
 
 	}
+	OUTER2:
 	for index, value := range jobs2.Items {
 		if skipEntities.IsSkippedEntity(value.Name) {
 			log.Debugf("job %s is skipped from comparison due to its name", value.Name)
 			continue
 		}
 		if value.OwnerReferences != nil {
-			ownerIsCronJob := false
 			for _, owner := range value.OwnerReferences {
 				if owner.Kind == "CronJob" {
-					ownerIsCronJob = true
+					log.Debugf("job %s is skipped from comparison due to its owner cronJob", value.Name)
+					continue OUTER2
 				}
 			}
-			if ownerIsCronJob {
-				log.Debugf("job %s is skipped from comparison due to its owner cronJob", value.Name)
-				continue
-			}
+
 		}
 		indexCheck.Index = index
 		mapJobs2[value.Name] = indexCheck
