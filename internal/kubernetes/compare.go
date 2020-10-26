@@ -124,16 +124,6 @@ func CompareClusters(ctx context.Context, cfg *config.AppConfig) (bool, error) {
 			}
 			isClustersDifferFlag.SetFlag(isClustersDiffer)
 
-			isClustersDiffer, err = jobs.CompareCronJobs(clientSet1, clientSet2, namespace, cfg.SkipEntitiesList)
-			if err != nil {
-				resCh <- ResStr{
-					IsClustersDiffer: isClustersDiffer,
-					Err:              err,
-				}
-				return
-			}
-			isClustersDifferFlag.SetFlag(isClustersDiffer)
-
 			isClustersDiffer, err = jobs.CompareJobs(clientSet1, clientSet2, namespace, cfg.SkipEntitiesList)
 			if err != nil {
 				resCh <- ResStr{
@@ -144,7 +134,15 @@ func CompareClusters(ctx context.Context, cfg *config.AppConfig) (bool, error) {
 			}
 			isClustersDifferFlag.SetFlag(isClustersDiffer)
 
-
+			isClustersDiffer, err = jobs.CompareCronJobs(clientSet1, clientSet2, namespace, cfg.SkipEntitiesList)
+			if err != nil {
+				resCh <- ResStr{
+					IsClustersDiffer: isClustersDiffer,
+					Err:              err,
+				}
+				return
+			}
+			isClustersDifferFlag.SetFlag(isClustersDiffer)
 
 			resCh <- ResStr{
 				Err:              nil,

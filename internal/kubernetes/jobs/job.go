@@ -48,6 +48,18 @@ func prepareJobsMaps(jobs1, jobs2 *v12.JobList, skipEntities skipper.SkipCompone
 			log.Debugf("job %s is skipped from comparison due to its name", value.Name)
 			continue
 		}
+		if value.OwnerReferences != nil {
+			ownerIsCronJob := false
+			for _, owner := range value.OwnerReferences {
+				if owner.Kind == "CronJob" {
+					ownerIsCronJob = true
+				}
+			}
+			if ownerIsCronJob {
+				log.Debugf("job %s is skipped from comparison due to its owner cronJob", value.Name)
+				continue
+			}
+		}
 		indexCheck.Index = index
 		mapJobs1[value.Name] = indexCheck
 
@@ -56,6 +68,18 @@ func prepareJobsMaps(jobs1, jobs2 *v12.JobList, skipEntities skipper.SkipCompone
 		if skipEntities.IsSkippedEntity(value.Name) {
 			log.Debugf("job %s is skipped from comparison due to its name", value.Name)
 			continue
+		}
+		if value.OwnerReferences != nil {
+			ownerIsCronJob := false
+			for _, owner := range value.OwnerReferences {
+				if owner.Kind == "CronJob" {
+					ownerIsCronJob = true
+				}
+			}
+			if ownerIsCronJob {
+				log.Debugf("job %s is skipped from comparison due to its owner cronJob", value.Name)
+				continue
+			}
 		}
 		indexCheck.Index = index
 		mapJobs2[value.Name] = indexCheck
