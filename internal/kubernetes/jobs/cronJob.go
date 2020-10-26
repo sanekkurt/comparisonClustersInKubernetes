@@ -29,7 +29,7 @@ func CompareCronJobs(clientSet1, clientSet2 kubernetes.Interface, namespace stri
 
 	mapJobs1, mapJobs2 := prepareCronJobsMaps(cronJobs1, cronJobs2, skipEntityList.GetByKind("cronJobs"))
 
-	isClustersDiffer = setInformationAboutCronJobs(mapJobs1, mapJobs2, cronJobs1, cronJobs2)
+	isClustersDiffer = setInformationAboutCronJobs(mapJobs1, mapJobs2, cronJobs1, cronJobs2, namespace)
 
 	return isClustersDiffer, nil
 }
@@ -61,7 +61,7 @@ func prepareCronJobsMaps(cronJobs1, cronJobs2 *v1beta1.CronJobList, skipEntities
 }
 
 // setInformationAboutCronJobs set information about jobs
-func setInformationAboutCronJobs(map1, map2 map[string]types.IsAlreadyComparedFlag, cronJobs1, cronJobs2 *v1beta1.CronJobList) bool {
+func setInformationAboutCronJobs(map1, map2 map[string]types.IsAlreadyComparedFlag, cronJobs1, cronJobs2 *v1beta1.CronJobList, namespace string) bool {
 	var (
 		flag bool
 	)
@@ -83,7 +83,7 @@ func setInformationAboutCronJobs(map1, map2 map[string]types.IsAlreadyComparedFl
 			index2.Check = true
 			map2[name] = index2
 
-			compareCronJobSpecInternals(wg, channel, name, &cronJobs1.Items[index1.Index], &cronJobs2.Items[index2.Index])
+			compareCronJobSpecInternals(wg, channel, name, namespace, &cronJobs1.Items[index1.Index], &cronJobs2.Items[index2.Index])
 		} else {
 			log.Infof("cronJob '%s' does not exist in 2nd cluster", name)
 			flag = true
@@ -112,7 +112,7 @@ func setInformationAboutCronJobs(map1, map2 map[string]types.IsAlreadyComparedFl
 	return flag
 }
 
-func compareCronJobSpecInternals(wg *sync.WaitGroup, channel chan bool, name string, cronJob1, cronJob2 *v1beta1.CronJob) {
+func compareCronJobSpecInternals(wg *sync.WaitGroup, channel chan bool, name, namespace string, cronJob1, cronJob2 *v1beta1.CronJob) {
 	var (
 		flag bool
 	)
@@ -134,7 +134,7 @@ func compareCronJobSpecInternals(wg *sync.WaitGroup, channel chan bool, name str
 		return
 	}
 
-	err := compareSpecInCronJobs(*cronJob1, *cronJob2)
+	err := compareSpecInCronJobs(*cronJob1, *cronJob2, namespace)
 	if err != nil {
 		log.Infof("CronJob %s: %s", name, err.Error())
 		flag = true
@@ -144,13 +144,13 @@ func compareCronJobSpecInternals(wg *sync.WaitGroup, channel chan bool, name str
 	channel <- flag
 }
 
-func compareSpecInCronJobs(cronJob1, cronJob2 v1beta1.CronJob) error {
+func compareSpecInCronJobs(cronJob1, cronJob2 v1beta1.CronJob, namespace string) error {
 
 	if cronJob1.Spec.Schedule != cronJob2.Spec.Schedule {
 		return fmt.Errorf("%w. CronJob name: %s. CronJob 1 - %s, cronJob2 - %s ", ErrorScheduleDifferent, cronJob1.Name, cronJob1.Spec.Schedule, cronJob2.Spec.Schedule)
 	}
 
-	err := compareSpecInJobs(cronJob1.Spec.JobTemplate.Spec, cronJob1.Spec.JobTemplate.Spec)
+	err := compareSpecInJobs(cronJob1.Spec.JobTemplate.Spec, cronJob1.Spec.JobTemplate.Spec, namespace)
 	if err != nil {
 		return err
 	}

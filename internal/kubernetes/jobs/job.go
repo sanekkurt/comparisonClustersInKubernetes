@@ -32,7 +32,7 @@ func CompareJobs(clientSet1, clientSet2 kubernetes.Interface, namespace string, 
 
 	mapJobs1, mapJobs2 := prepareJobsMaps(jobs1, jobs2, skipEntityList.GetByKind("jobs"))
 
-	isClustersDiffer = setInformationAboutJobs(mapJobs1, mapJobs2, jobs1, jobs2)
+	isClustersDiffer = setInformationAboutJobs(mapJobs1, mapJobs2, jobs1, jobs2, namespace)
 
 	return isClustersDiffer, nil
 }
@@ -65,7 +65,7 @@ func prepareJobsMaps(jobs1, jobs2 *v12.JobList, skipEntities skipper.SkipCompone
 }
 
 // setInformationAboutJobs set information about jobs
-func setInformationAboutJobs(map1, map2 map[string]types.IsAlreadyComparedFlag, jobs1, jobs2 *v12.JobList) bool {
+func setInformationAboutJobs(map1, map2 map[string]types.IsAlreadyComparedFlag, jobs1, jobs2 *v12.JobList, namespace string) bool {
 	var (
 		flag bool
 	)
@@ -87,7 +87,7 @@ func setInformationAboutJobs(map1, map2 map[string]types.IsAlreadyComparedFlag, 
 			index2.Check = true
 			map2[name] = index2
 
-			compareJobSpecInternals(wg, channel, name, &jobs1.Items[index1.Index], &jobs2.Items[index2.Index])
+			compareJobSpecInternals(wg, channel, name, namespace, &jobs1.Items[index1.Index], &jobs2.Items[index2.Index])
 		} else {
 			log.Infof("job '%s' does not exist in 2nd cluster", name)
 			flag = true
@@ -116,7 +116,7 @@ func setInformationAboutJobs(map1, map2 map[string]types.IsAlreadyComparedFlag, 
 	return flag
 }
 
-func compareJobSpecInternals(wg *sync.WaitGroup, channel chan bool, name string, job1, job2 *v12.Job) {
+func compareJobSpecInternals(wg *sync.WaitGroup, channel chan bool, name, namespace string, job1, job2 *v12.Job) {
 	var (
 		flag bool
 	)
@@ -138,7 +138,7 @@ func compareJobSpecInternals(wg *sync.WaitGroup, channel chan bool, name string,
 		return
 	}
 
-	err := compareSpecInJobs(job1.Spec, job2.Spec)
+	err := compareSpecInJobs(job1.Spec, job2.Spec, namespace)
 	if err != nil {
 		log.Infof("Job %s: %s", name, err.Error())
 		flag = true
@@ -148,7 +148,7 @@ func compareJobSpecInternals(wg *sync.WaitGroup, channel chan bool, name string,
 	channel <- flag
 }
 
-func compareSpecInJobs(job1, job2 v12.JobSpec) error {
+func compareSpecInJobs(job1, job2 v12.JobSpec, namespace string) error {
 
 	if job1.BackoffLimit != nil && job2.BackoffLimit != nil {
 		if *job1.BackoffLimit != *job2.BackoffLimit {
@@ -171,7 +171,7 @@ func compareSpecInJobs(job1, job2 v12.JobSpec) error {
 		Selector: nil,
 	}
 
-	err := pod_controllers.CompareContainers(castJob1ForCompareContainers, castJob2ForCompareContainers, "default",  true, true, nil, nil)
+	err := pod_controllers.CompareContainers(castJob1ForCompareContainers, castJob2ForCompareContainers, namespace,  true, true, nil, nil)
 	if err != nil {
 		return err
 	}
