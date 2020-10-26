@@ -138,7 +138,7 @@ func compareJobSpecInternals(wg *sync.WaitGroup, channel chan bool, name string,
 		return
 	}
 
-	err := compareSpecInJobs(*job1, *job2)
+	err := compareSpecInJobs(job1.Spec, job2.Spec)
 	if err != nil {
 		log.Infof("Job %s: %s", name, err.Error())
 		flag = true
@@ -148,26 +148,26 @@ func compareJobSpecInternals(wg *sync.WaitGroup, channel chan bool, name string,
 	channel <- flag
 }
 
-func compareSpecInJobs(job1, job2 v12.Job) error {
+func compareSpecInJobs(job1, job2 v12.JobSpec) error {
 
-	if job1.Spec.BackoffLimit != nil && job2.Spec.BackoffLimit != nil {
-		if *job1.Spec.BackoffLimit != *job2.Spec.BackoffLimit {
-			return fmt.Errorf("%w. Job 1 - %d, Job 2 - %d", ErrorBackoffLimitDifferent, &job1.Spec.BackoffLimit, &job2.Spec.BackoffLimit )
+	if job1.BackoffLimit != nil && job2.BackoffLimit != nil {
+		if *job1.BackoffLimit != *job2.BackoffLimit {
+			return fmt.Errorf("%w. Job 1 - %d, Job 2 - %d", ErrorBackoffLimitDifferent, &job1.BackoffLimit, &job2.BackoffLimit )
 		}
-	} else if job1.Spec.BackoffLimit != nil || job2.Spec.BackoffLimit != nil {
+	} else if job1.BackoffLimit != nil || job2.BackoffLimit != nil {
 		return ErrorBackoffLimitDifferent
 	}
 
-	if job1.Spec.Template.Spec.RestartPolicy != job2.Spec.Template.Spec.RestartPolicy {
-		return fmt.Errorf("%w. Job 1 - %s, Job 2 - %s", ErrorRestartPolicyDifferent, job1.Spec.Template.Spec.RestartPolicy, job2.Spec.Template.Spec.RestartPolicy)
+	if job1.Template.Spec.RestartPolicy != job2.Template.Spec.RestartPolicy {
+		return fmt.Errorf("%w. Job 1 - %s, Job 2 - %s", ErrorRestartPolicyDifferent, job1.Template.Spec.RestartPolicy, job2.Template.Spec.RestartPolicy)
 	}
 
 	castJob1ForCompareContainers := types.InformationAboutObject{
-		Template: job1.Spec.Template,
+		Template: job1.Template,
 		Selector: nil,
 	}
 	castJob2ForCompareContainers := types.InformationAboutObject{
-		Template: job2.Spec.Template,
+		Template: job2.Template,
 		Selector: nil,
 	}
 

@@ -146,8 +146,14 @@ func compareCronJobSpecInternals(wg *sync.WaitGroup, channel chan bool, name str
 
 func compareSpecInCronJobs(cronJob1, cronJob2 v1beta1.CronJob) error {
 
-	fmt.Println(cronJob1, cronJob2)
+	if cronJob1.Spec.Schedule != cronJob2.Spec.Schedule {
+		return fmt.Errorf("%w. CronJob name: %s. CronJob 1 - %s, cronJob2 - %s ", ErrorScheduleDifferent, cronJob1.Name, cronJob1.Spec.Schedule, cronJob2.Spec.Schedule)
+	}
 
+	err := compareSpecInJobs(cronJob1.Spec.JobTemplate.Spec, cronJob1.Spec.JobTemplate.Spec)
+	if err != nil {
+		return err
+	}
 	//castJob1ForCompareContainers := types.InformationAboutObject{
 	//	Template: job1.Spec.Template,
 	//	Selector: nil,

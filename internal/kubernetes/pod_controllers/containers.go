@@ -153,6 +153,7 @@ func GetContainerStatusesInPod(containerStatuses []v12.ContainerStatus) map[int]
 
 // CompareEnvInContainers compare environment in containers
 func CompareEnvInContainers(env1, env2 []v12.EnvVar, namespace string, clientSet1, clientSet2 kubernetes.Interface) error {
+	log.Debug("Start compare environments in containers")
 	if len(env1) != len(env2) {
 		return ErrorNumberVariables
 	}
@@ -208,6 +209,7 @@ func CompareEnvInContainers(env1, env2 []v12.EnvVar, namespace string, clientSet
 
 // CompareCommandsOrArgsInContainer compares commands or args in containers
 func CompareCommandsOrArgsInContainer(commands1, commands2 []string, nameContainer, action string) error{
+	log.Debug("Start compare commands or arguments in containers")
 	for index, value := range commands1 {
 		if value != commands2[index] {
 			return fmt.Errorf("%w. Name container: %s. %s in container 1 - %s, in container 2 - %s", ErrorContainerCommandsDifferent, nameContainer, action, value, commands2[index])
