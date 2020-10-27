@@ -42,7 +42,6 @@ func CompareContainers(deploymentSpec1, deploymentSpec2 types.InformationAboutOb
 		pods1, pods2 = common.GetPodsListOnMatchLabels(deploymentSpec1.Selector.MatchLabels, namespace, clientSet1, clientSet2)
 	}
 
-
 	for podTemplate1ContainerIdx := 0; podTemplate1ContainerIdx < len(containersDeploymentTemplate1); podTemplate1ContainerIdx++ {
 
 		if containersDeploymentTemplate1[podTemplate1ContainerIdx].Name != containersDeploymentTemplate2[podTemplate1ContainerIdx].Name {
@@ -212,7 +211,7 @@ func CompareEnvInContainers(env1, env2 []v12.EnvVar, namespace string, simplifie
 }
 
 // CompareCommandsOrArgsInContainer compares commands or args in containers
-func CompareCommandsOrArgsInContainer(commands1, commands2 []string, nameContainer, action string) error{
+func CompareCommandsOrArgsInContainer(commands1, commands2 []string, nameContainer, action string) error {
 	log.Debug("Start compare commands or arguments in containers")
 	for index, value := range commands1 {
 		if value != commands2[index] {

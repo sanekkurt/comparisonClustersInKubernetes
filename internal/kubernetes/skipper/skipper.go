@@ -1,10 +1,13 @@
 package skipper
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"k8s-cluster-comparator/internal/kubernetes/types"
+	"k8s-cluster-comparator/internal/logging"
 )
 
 // SkipComponentNames is a map of blank structs of k8s objects that must be skipped from the comparison
@@ -28,9 +31,11 @@ func (sel SkipEntitiesList) GetByKind(kind string) SkipComponentNames {
 }
 
 // ParseSkipConfig parses information about entities to skip from a environment
-func ParseSkipConfig(skipSpec string) (SkipEntitiesList, error) {
+func ParseSkipConfig(ctx context.Context, skipSpec string) (SkipEntitiesList, error) {
+	log := logging.FromContext(ctx)
+
 	if !strings.Contains(skipSpec, ";") {
-		return nil, errors.New("does not contain valid data in the 'skip' variable. Between entities put ';' please")
+		return nil, fmt.Errorf("does not contain valid data in the 'skip' variable. Between entities put ';' please")
 	}
 
 	var (
@@ -40,29 +45,38 @@ func ParseSkipConfig(skipSpec string) (SkipEntitiesList, error) {
 		skipEntities = make(map[types.ObjectKind]SkipComponentNames)
 
 		tempMap = SkipComponentNames{}
+
+		kind    string
+		entries string
 	)
 
-	for _, value := range temp {
-		if !strings.Contains(value, ":") {
+	for _, entries = range temp {
+		if !strings.Contains(entries, ":") {
 			return nil, errors.New("does not contain valid data in the 'skip' variable. The enumeration of the names of entities start after ':' please or don't finish the line ';'")
 		}
 
-		tempSlice = strings.Split(value, ":")
+		tempSlice = strings.Split(entries, ":")
+
+		kind = tempSlice[0]
 
 		if strings.Contains(tempSlice[1], ",") {
-			for _, val := range strings.Split(tempSlice[1], ",") {
-				tempMap[types.ObjectName(val)] = struct{}{}
+			for _, entryName := range strings.Split(tempSlice[1], ",") {
+				tempMap[types.ObjectName(entryName)] = struct{}{}
 			}
 
 			skipEntities[types.ObjectKind(tempSlice[0])] = make(map[types.ObjectName]struct{})
 
-			for key, value := range tempMap {
-				skipEntities[types.ObjectKind(tempSlice[0])][key] = value
-				delete(tempMap, key)
+			for entryName := range tempMap {
+				log.Infof("%s '%s' added to skip list", kind, entryName)
+
+				skipEntities[types.ObjectKind(tempSlice[0])][entryName] = struct{}{}
+				delete(tempMap, entryName)
 			}
 		} else {
+			log.Infof("%s '%s' added to skip list", kind, tempSlice[1])
+
 			skipEntities[types.ObjectKind(tempSlice[0])] = make(map[types.ObjectName]struct{})
-			skipEntities[types.ObjectKind(tempSlice[0])][types.ObjectName(tempSlice[0])] = struct{}{}
+			skipEntities[types.ObjectKind(tempSlice[0])][types.ObjectName(tempSlice[1])] = struct{}{}
 		}
 	}
 
