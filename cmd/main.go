@@ -11,18 +11,28 @@ import (
 )
 
 func main() {
-	var debug bool
+	var (
+		debug bool
+		ret   int
+	)
+
 	if os.Getenv("DEBUG") == "true" {
 		debug = true
 	}
 
 	ctx, doneFn := interrupt.Context()
-	defer doneFn()
+
+	defer func() {
+		doneFn()
+		os.Exit(ret)
+	}()
 
 	err := logging.Configure(debug)
 	if err != nil {
 		fmt.Println("[ERROR] ", err.Error())
-		os.Exit(1)
+
+		ret = 1
+		return
 	}
 
 	log := logging.FromContext(ctx)
@@ -30,19 +40,21 @@ func main() {
 	cfg, err := config.Parse(ctx)
 	if err != nil {
 		if err == config.ErrHelpShown {
-			os.Exit(0)
+			return
 		}
-		os.Exit(1)
+
+		ret = 1
+		return
 	}
 
 	log.Infow("Starting k8s-cluster-comparator")
 
-	ret := 0
-
 	isClustersDiffer, err := kube.CompareClusters(ctx, cfg)
 	if err != nil {
 		log.Errorf("cannot compare clusters: %s", err.Error())
-		os.Exit(2)
+
+		ret = 2
+		return
 	}
 
 	if isClustersDiffer {
@@ -50,6 +62,4 @@ func main() {
 	}
 
 	log.Infow("k8s-cluster-comparator completed")
-
-	os.Exit(ret)
 }
