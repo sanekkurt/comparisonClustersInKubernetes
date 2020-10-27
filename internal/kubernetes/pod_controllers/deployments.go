@@ -26,7 +26,19 @@ func CompareDeployments(clientSet1, clientSet2 kubernetes.Interface, namespace s
 		return false, fmt.Errorf("cannot obtain deployments list from 2nd cluster: %w", err)
 	}
 
-	apc1List, map1, apc2List, map2 := prepareDeploymentMaps(depl1, depl2, skipEntityList.GetByKind("deployments"))
+	apc1List, deploymentStatuses1, map1, apc2List, deploymentStatuses2, map2 := prepareDeploymentMaps(depl1, depl2, skipEntityList.GetByKind("deployments"))
+
+	for _, value := range deploymentStatuses1 {
+		if value.Replicas != value.ReadyReplicas {
+			log.Info("Not all pods replicas are ready. The comparison may be incorrect")
+		}
+	}
+
+	for _, value := range deploymentStatuses2 {
+		if value.Replicas != value.ReadyReplicas {
+			log.Info("Not all pods replicas are ready. The comparison may be incorrect")
+		}
+	}
 
 	isClustersDiffer = comparePodControllerSpecs(&clusterCompareTask{
 		Client:                   clientSet1,
@@ -42,10 +54,12 @@ func CompareDeployments(clientSet1, clientSet2 kubernetes.Interface, namespace s
 }
 
 // prepareDeploymentMaps prepare deployment maps for comparison
-func prepareDeploymentMaps(obj1, obj2 *v1.DeploymentList, skipEntities skipper.SkipComponentNames) ([]AbstractPodController, map[string]types.IsAlreadyComparedFlag, []AbstractPodController, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
+func prepareDeploymentMaps(obj1, obj2 *v1.DeploymentList, skipEntities skipper.SkipComponentNames) ([]AbstractPodController, []v1.DeploymentStatus, map[string]types.IsAlreadyComparedFlag, []AbstractPodController, []v1.DeploymentStatus, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
 	var (
-		map1     = make(map[string]types.IsAlreadyComparedFlag)
-		apc1List = make([]AbstractPodController, 0)
+		map1                = make(map[string]types.IsAlreadyComparedFlag)
+		apc1List            = make([]AbstractPodController, 0)
+		deploymentStatuses1 = make([]v1.DeploymentStatus, 0)
+		deploymentStatuses2 = make([]v1.DeploymentStatus, 0)
 
 		map2     = make(map[string]types.IsAlreadyComparedFlag)
 		apc2List = make([]AbstractPodController, 0)
@@ -77,6 +91,8 @@ func prepareDeploymentMaps(obj1, obj2 *v1.DeploymentList, skipEntities skipper.S
 			PodLabelSelector: value.Spec.Selector,
 			PodTemplateSpec:  value.Spec.Template,
 		})
+
+		deploymentStatuses1 = append(deploymentStatuses1, value.Status)
 	}
 
 	for index, value := range obj2.Items {
@@ -102,7 +118,8 @@ func prepareDeploymentMaps(obj1, obj2 *v1.DeploymentList, skipEntities skipper.S
 			PodLabelSelector: value.Spec.Selector,
 			PodTemplateSpec:  value.Spec.Template,
 		})
+		deploymentStatuses2 = append(deploymentStatuses2, value.Status)
 	}
 
-	return apc1List, map1, apc2List, map2
+	return apc1List, deploymentStatuses1, map1, apc2List, deploymentStatuses2, map2
 }

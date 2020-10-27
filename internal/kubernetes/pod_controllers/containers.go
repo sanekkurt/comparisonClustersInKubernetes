@@ -1,6 +1,7 @@
 package pod_controllers
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -56,12 +57,28 @@ func CompareContainers(deploymentSpec1, deploymentSpec2 types.InformationAboutOb
 			return err
 		}
 
-		if err := CompareCommandsOrArgsInContainer(containersDeploymentTemplate1[podTemplate1ContainerIdx].Command, containersDeploymentTemplate2[podTemplate1ContainerIdx].Command, containersDeploymentTemplate1[podTemplate1ContainerIdx].Name, "command"); err != nil {
-			return err
+		if err := CompareMassStringsInContainers(containersDeploymentTemplate1[podTemplate1ContainerIdx].Command, containersDeploymentTemplate2[podTemplate1ContainerIdx].Command); err != nil {
+			return fmt.Errorf("%w. Name container: %s. %s", ErrorContainerCommandsDifferent, containersDeploymentTemplate1[podTemplate1ContainerIdx].Name, err)
 		}
 
-		if err := CompareCommandsOrArgsInContainer(containersDeploymentTemplate1[podTemplate1ContainerIdx].Args, containersDeploymentTemplate2[podTemplate1ContainerIdx].Args, containersDeploymentTemplate1[podTemplate1ContainerIdx].Name, "argument"); err != nil {
-			return err
+		if err := CompareMassStringsInContainers(containersDeploymentTemplate1[podTemplate1ContainerIdx].Args, containersDeploymentTemplate2[podTemplate1ContainerIdx].Args); err != nil {
+			return fmt.Errorf("%w. Name container: %s. %s", ErrorContainerArgumentsDifferent, containersDeploymentTemplate1[podTemplate1ContainerIdx].Name, err)
+		}
+
+		if containersDeploymentTemplate1[podTemplate1ContainerIdx].LivenessProbe != nil && containersDeploymentTemplate2[podTemplate1ContainerIdx].LivenessProbe != nil {
+			if err := CompareProbeInContainers(*containersDeploymentTemplate1[podTemplate1ContainerIdx].LivenessProbe, *containersDeploymentTemplate1[podTemplate1ContainerIdx].LivenessProbe, containersDeploymentTemplate1[podTemplate1ContainerIdx].Name, ErrorContainerLivenessProbeDifferent); err != nil {
+				return err
+			}
+		} else if containersDeploymentTemplate1[podTemplate1ContainerIdx].LivenessProbe != nil || containersDeploymentTemplate2[podTemplate1ContainerIdx].LivenessProbe != nil {
+			return fmt.Errorf("%w. Name container: %s. One of the containers is missing Liveness probe", ErrorContainerLivenessProbeDifferent, containersDeploymentTemplate1[podTemplate1ContainerIdx].Name)
+		}
+
+		if containersDeploymentTemplate1[podTemplate1ContainerIdx].ReadinessProbe != nil && containersDeploymentTemplate2[podTemplate1ContainerIdx].ReadinessProbe != nil {
+			if err := CompareProbeInContainers(*containersDeploymentTemplate1[podTemplate1ContainerIdx].ReadinessProbe, *containersDeploymentTemplate1[podTemplate1ContainerIdx].ReadinessProbe, containersDeploymentTemplate1[podTemplate1ContainerIdx].Name, ErrorContainerReadinessProbeDifferent); err != nil {
+				return err
+			}
+		} else if containersDeploymentTemplate1[podTemplate1ContainerIdx].ReadinessProbe != nil || containersDeploymentTemplate2[podTemplate1ContainerIdx].ReadinessProbe != nil {
+			return fmt.Errorf("%w. Name container: %s. One of the containers is missing Readiness probe", ErrorContainerReadinessProbeDifferent, containersDeploymentTemplate1[podTemplate1ContainerIdx].Name)
 		}
 
 		if !simplifiedVerification {
@@ -113,10 +130,6 @@ func CompareContainers(deploymentSpec1, deploymentSpec2 types.InformationAboutOb
 							}
 						}
 
-
-
-
-						// Вот это сравнение я поправил на то, как было до этого, сверил все индексы, только тут они были сломаны. И были написаны другие условия. Я плохо помню почему так писал, но оно работает
 						if containersDeploymentTemplateSplitLabel[0] != containersStatusesInPod1SplitLabel[0] || containersDeploymentTemplateSplitLabel[0] != containersStatusesInPod2SplitLabel[0] { //nolint:gocritic,unused
 							return ErrorContainerImageTemplatePod
 						}
@@ -234,12 +247,80 @@ func CompareEnvInContainers(env1, env2 []v12.EnvVar, namespace string, simplifie
 }
 
 // CompareCommandsOrArgsInContainer compares commands or args in containers
-func CompareCommandsOrArgsInContainer(commands1, commands2 []string, nameContainer, action string) error {
-	log.Debug("Start compare commands or arguments in containers")
-	for index, value := range commands1 {
-		if value != commands2[index] {
-			return fmt.Errorf("%w. Name container: %s. %s in container 1 - %s, in container 2 - %s", ErrorContainerCommandsDifferent, nameContainer, action, value, commands2[index])
+func CompareMassStringsInContainers(mass1, mass2 []string) error {
+	for index, value := range mass1 {
+		if value != mass2[index] {
+			return errors.New(fmt.Sprintf("value in container 1  - %s, value in container 2 - %s", value, mass2[index]))
 		}
 	}
+	return nil
+}
+
+func CompareProbeInContainers(probe1, probe2 v12.Probe, nameContainer string, er error) error {
+
+	err := CompareMassStringsInContainers(probe1.Exec.Command, probe2.Exec.Command)
+	if err != nil {
+		return fmt.Errorf("%w. Containers name: %s. Different exec command: %s", er, nameContainer, err)
+	}
+
+	if probe1.TCPSocket.Host != probe2.TCPSocket.Host {
+		return fmt.Errorf("%w. Containers name: %s. Different TCPSocket.Host: container 1 host - %s, container 2 host - %s", er, nameContainer, probe1.TCPSocket.Host, probe2.TCPSocket.Host)
+	}
+
+	if probe1.TCPSocket.Port.IntVal != probe2.TCPSocket.Port.IntVal || probe1.TCPSocket.Port.StrVal != probe2.TCPSocket.Port.StrVal || probe1.TCPSocket.Port.Type != probe2.TCPSocket.Port.Type {
+		return fmt.Errorf("%w. Containers name: %s. Different TCPSocket.Port: container 1 port - %s, container 2 port - %s", er, nameContainer, fmt.Sprintln(probe1.TCPSocket.Port), fmt.Sprintln(probe2.TCPSocket.Port))
+	}
+
+	if probe1.HTTPGet.Host != probe2.HTTPGet.Host {
+		return fmt.Errorf("%w. Containers name: %s. Different HTTPGet.Host: container 1 host - %s, container 2 host - %s", er, nameContainer, probe1.HTTPGet.Host, probe2.HTTPGet.Host)
+	}
+
+	if probe1.HTTPGet.HTTPHeaders != nil && probe2.HTTPGet.HTTPHeaders != nil {
+		if len(probe1.HTTPGet.HTTPHeaders) != len(probe2.HTTPGet.HTTPHeaders) {
+			return fmt.Errorf("%w. Containers name: %s. Different count HTTPGet.HTTPHeaders: container 1 count - %d, container 2 count - %d", er, nameContainer, len(probe1.HTTPGet.HTTPHeaders), len(probe2.HTTPGet.HTTPHeaders))
+		}
+
+		for index, value := range probe1.HTTPGet.HTTPHeaders {
+			if value.Name != probe2.HTTPGet.HTTPHeaders[index].Name {
+				return fmt.Errorf("%w. Containers name: %s. Different name header: container 1 header name - %s, container 2 header name - %s", er, nameContainer, value.Name, probe2.HTTPGet.HTTPHeaders[index].Name)
+			}
+
+			if value.Value != probe2.HTTPGet.HTTPHeaders[index].Value {
+				return fmt.Errorf("%w. Containers name: %s. Different value header. Name header - %s. Container 1 header value - %s, container 2 header value - %s", er, nameContainer, value.Name, value.Value ,probe2.HTTPGet.HTTPHeaders[index].Value)
+			}
+		}
+
+	} else if probe1.HTTPGet.HTTPHeaders != nil || probe2.HTTPGet.HTTPHeaders != nil {
+		return fmt.Errorf("%w. Containers name: %s. One of the containers is missing headers", er, nameContainer)
+	}
+
+	if probe1.HTTPGet.Path != probe2.HTTPGet.Path {
+		return fmt.Errorf("%w. Containers name: %s. Different HTTPGet.Path: container 1 path - %s, container 2 path - %s", er, nameContainer, probe1.HTTPGet.Path, probe2.HTTPGet.Path)
+	}
+
+	if probe1.HTTPGet.Port.IntVal != probe2.HTTPGet.Port.IntVal || probe1.HTTPGet.Port.StrVal != probe2.HTTPGet.Port.StrVal || probe1.HTTPGet.Port.Type != probe2.HTTPGet.Port.Type {
+		return fmt.Errorf("%w. Containers name: %s. Different HTTPGet.Port: container 1 port - %s, container 2 port - %s", er, nameContainer, fmt.Sprintln(probe1.HTTPGet.Port), fmt.Sprintln(probe2.HTTPGet.Port))
+	}
+
+	if probe1.FailureThreshold != probe2.FailureThreshold {
+		return fmt.Errorf("%w. Containers name: %s. Different FailureThreshold: container 1 - %d, container 2 - %d", er, nameContainer, probe1.FailureThreshold, probe2.FailureThreshold)
+	}
+
+	if probe1.InitialDelaySeconds != probe2.InitialDelaySeconds {
+		return fmt.Errorf("%w. Containers name: %s. Different InitialDelaySeconds: container 1 - %d, container 2 - %d", er, nameContainer, probe1.InitialDelaySeconds, probe2.InitialDelaySeconds)
+	}
+
+	if probe1.PeriodSeconds != probe2.PeriodSeconds {
+		return fmt.Errorf("%w. Containers name: %s. Different PeriodSeconds: container 1 - %d, container 2 - %d", er, nameContainer, probe1.PeriodSeconds, probe2.PeriodSeconds)
+	}
+
+	if probe1.SuccessThreshold != probe2.SuccessThreshold {
+		return fmt.Errorf("%w. Containers name: %s. Different SuccessThreshold: container 1 - %d, container 2 - %d", er, nameContainer, probe1.SuccessThreshold, probe2.SuccessThreshold)
+	}
+
+	if probe1.TimeoutSeconds != probe2.TimeoutSeconds {
+		return fmt.Errorf("%w. Containers name: %s. Different TimeoutSeconds: container 1 - %d, container 2 - %d", er, nameContainer, probe1.TimeoutSeconds, probe2.TimeoutSeconds)
+	}
+
 	return nil
 }

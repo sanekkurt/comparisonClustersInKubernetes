@@ -10,6 +10,11 @@ var (
 	ErrorContainerNamesTemplate  = errors.New("container names in template are not equal")
 	ErrorContainerImagesTemplate = errors.New("container name images in template are not equal")
 	ErrorContainerCommandsDifferent = errors.New("сommands in containers are different")
+	ErrorContainerArgumentsDifferent = errors.New("arguments in containers are different")
+
+	ErrorContainerLivenessProbeDifferent = errors.New("livenessProbe in containers are different")
+	ErrorContainerReadinessProbeDifferent = errors.New("readinessProbe in containers are different")
+
 
 	ErrorPodsCount = errors.New("the pods count are different")
 
