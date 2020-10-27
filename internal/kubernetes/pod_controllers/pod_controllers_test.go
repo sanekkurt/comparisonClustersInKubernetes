@@ -1148,7 +1148,7 @@ func TestCompareContainers(t *testing.T) {
 	}
 
 	ctx, doneFn := interrupt.Context()
-
+	defer doneFn()
 
 	err := logging.Configure(debug)
 	if err != nil {
@@ -1258,7 +1258,6 @@ func TestCompareContainers(t *testing.T) {
 	if !errors.Is(errors.Unwrap(err), ErrorDifferentImageIDInPods) {
 		t.Error("Error expected: 'The ImageID in Pods is different'. But it was returned: ", err)
 	}
-	doneFn()
 }
 
 func initEnvironmentForFirstTest2() {
@@ -1404,31 +1403,31 @@ func initEnvironmentForFifthTest2() {
 // TestCompareEnvInContainers check CompareEnvInContainers function
 func TestCompareEnvInContainers(t *testing.T) {
 	initEnvironmentForFirstTest2()
-	err := CompareEnvInContainers(env1, env2, "default", clusterClientSet1, clusterClientSet2)
+	err := CompareEnvInContainers(env1, env2, "default", false, clusterClientSet1, clusterClientSet2)
 	if !errors.Is(err, ErrorNumberVariables) {
 		t.Error("Error expected: 'The number of variables in containers differs'. But it was returned: ", err)
 	}
 
 	initEnvironmentForSecondTest2()
-	err = CompareEnvInContainers(env1, env2, "default", clusterClientSet1, clusterClientSet2)
+	err = CompareEnvInContainers(env1, env2, "default", false, clusterClientSet1, clusterClientSet2)
 	if !errors.Is(errors.Unwrap(err), ErrorEnvironmentNotEqual) {
 		t.Error("Error expected: 'The environment in containers not equal'. But it was returned: ", err)
 	}
 
 	initEnvironmentForThirdTest2()
-	err = CompareEnvInContainers(env1, env2, "default", clusterClientSet1, clusterClientSet2)
+	err = CompareEnvInContainers(env1, env2, "default",false, clusterClientSet1, clusterClientSet2)
 	if !errors.Is(errors.Unwrap(err), ErrorEnvironmentNotEqual) {
 		t.Error("Error expected: 'The environment in containers not equal'. But it was returned: ", err)
 	}
 
 	initEnvironmentForFourthTest2()
-	err = CompareEnvInContainers(env1, env2, "default", clusterClientSet1, clusterClientSet2)
+	err = CompareEnvInContainers(env1, env2, "default", false, clusterClientSet1, clusterClientSet2)
 	if !errors.Is(errors.Unwrap(err), ErrorDifferentValueSecretKey) {
 		t.Error("Error expected: 'The value for the SecretKey is different'. But it was returned: ", err)
 	}
 
 	initEnvironmentForFifthTest2()
-	err = CompareEnvInContainers(env1, env2, "default", clusterClientSet1, clusterClientSet2)
+	err = CompareEnvInContainers(env1, env2, "default", false, clusterClientSet1, clusterClientSet2)
 	if !errors.Is(errors.Unwrap(err), ErrorDifferentValueConfigMapKey) {
 		t.Error("Error expected: 'The value for the ConfigMapKey is different'. But it was returned: ", err)
 	}
