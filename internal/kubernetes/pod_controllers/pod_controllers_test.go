@@ -2,6 +2,10 @@ package pod_controllers
 
 import (
 	"errors"
+	"fmt"
+	"k8s-cluster-comparator/internal/interrupt"
+	"k8s-cluster-comparator/internal/logging"
+	"os"
 	"testing"
 
 	v12 "k8s.io/api/apps/v1"
@@ -1138,13 +1142,30 @@ func initEnvironmentForEighthTest() {
 func TestCompareContainers(t *testing.T) {
 	// Checking for different number of containers in templates
 	initEnvironmentForFirstTest()
+	var debug bool
+	if os.Getenv("DEBUG") == "true" {
+		debug = true
+	}
+
+	ctx, doneFn := interrupt.Context()
+	defer doneFn()
+
+	err := logging.Configure(debug)
+	if err != nil {
+		fmt.Println("[ERROR] ", err.Error())
+		os.Exit(1)
+	}
+
+	if err := Init(ctx); err != nil {
+		t.Errorf("cannot init pod_controllers package: %w", err)
+	}
 	deployments1, _ := clusterClientSet1.AppsV1().Deployments("default").List(metav1.ListOptions{})
 	deployments2, _ := clusterClientSet2.AppsV1().Deployments("default").List(metav1.ListOptions{})
 	objectInformation1.Selector = deployments1.Items[0].Spec.Selector
 	objectInformation1.Template = deployments1.Items[0].Spec.Template
 	objectInformation2.Selector = deployments2.Items[0].Spec.Selector
 	objectInformation2.Template = deployments2.Items[0].Spec.Template
-	err := CompareContainers(objectInformation1, objectInformation2, "default", false, true, clusterClientSet1, clusterClientSet2)
+	err = CompareContainers(objectInformation1, objectInformation2, "default", false, true, clusterClientSet1, clusterClientSet2)
 	if !errors.Is(err, ErrorDiffersTemplatesNumber) {
 		t.Error("Error expected: 'The number templates of containers differs'. But it was returned: ", err)
 	}
