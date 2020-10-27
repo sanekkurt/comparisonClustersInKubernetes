@@ -105,8 +105,6 @@ func CompareContainers(deploymentSpec1, deploymentSpec2 types.InformationAboutOb
 								if switchFatalDifferentTag {
 									return ErrorContainerImageTagTemplatePod
 								}
-
-								log.Infof("the container image tag in the template does not match the actual image tag in the pod: template image tag - %s, pod1 image tag - %s, pod2 image tag - %s", containersDeploymentTemplateSplitLabel[1], containersStatusesInPod1SplitLabel[1], containersStatusesInPod2SplitLabel[1]) // !!!!!
 							}
 						}
 
