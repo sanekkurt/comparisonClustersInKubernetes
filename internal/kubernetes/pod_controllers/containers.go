@@ -42,7 +42,6 @@ func CompareContainers(deploymentSpec1, deploymentSpec2 types.InformationAboutOb
 		pods1, pods2 = common.GetPodsListOnMatchLabels(deploymentSpec1.Selector.MatchLabels, namespace, clientSet1, clientSet2)
 	}
 
-
 	for podTemplate1ContainerIdx := 0; podTemplate1ContainerIdx < len(containersDeploymentTemplate1); podTemplate1ContainerIdx++ {
 
 		if containersDeploymentTemplate1[podTemplate1ContainerIdx].Name != containersDeploymentTemplate2[podTemplate1ContainerIdx].Name {
@@ -100,11 +99,11 @@ func CompareContainers(deploymentSpec1, deploymentSpec2 types.InformationAboutOb
 						}
 
 						if containersDeploymentTemplateSplitLabel[1] != containersStatusesInPod1SplitLabel[1] || containersDeploymentTemplateSplitLabel[1] != containersStatusesInPod2SplitLabel[1] {
+							log.Infof("the container image tag in the template does not match the actual image tag in the pod: template image tag - %s, pod1 image tag - %s, pod2 image tag - %s", containersDeploymentTemplateSplitLabel[1], containersStatusesInPod1SplitLabel[1], containersStatusesInPod2SplitLabel[1]) // !!!!!
+
 							if switchFatalDifferentTag {
 								return ErrorContainerImageTagTemplatePod
 							}
-
-							log.Infof("the container image tag in the template does not match the actual image tag in the pod: template image tag - %s, pod1 image tag - %s, pod2 image tag - %s", containersDeploymentTemplateSplitLabel[1], containersStatusesInPod1SplitLabel[1], containersStatusesInPod2SplitLabel[1]) // !!!!!
 						}
 
 						for _, value := range containersStatusesInPod2 {
@@ -208,7 +207,7 @@ func CompareEnvInContainers(env1, env2 []v12.EnvVar, namespace string, clientSet
 }
 
 // CompareCommandsOrArgsInContainer compares commands or args in containers
-func CompareCommandsOrArgsInContainer(commands1, commands2 []string, nameContainer, action string) error{
+func CompareCommandsOrArgsInContainer(commands1, commands2 []string, nameContainer, action string) error {
 	log.Debug("Start compare commands or arguments in containers")
 	for index, value := range commands1 {
 		if value != commands2[index] {

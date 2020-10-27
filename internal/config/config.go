@@ -80,7 +80,9 @@ func Parse(ctx context.Context) (*AppConfig, error) {
 	}
 
 	if opts.Skip != "" {
-		skipEntities, err := skipper.ParseSkipConfig(opts.Skip)
+		log.Debug("Filling the skip list...")
+
+		skipEntities, err := skipper.ParseSkipConfig(ctx, opts.Skip)
 		if err != nil {
 			log.Errorf("cannot parse skip entities list: %s", err.Error())
 		}
