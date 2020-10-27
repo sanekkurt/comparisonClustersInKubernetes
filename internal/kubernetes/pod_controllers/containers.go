@@ -74,12 +74,17 @@ func CompareContainers(deploymentSpec1, deploymentSpec2 types.InformationAboutOb
 				var (
 					flag                       int
 					containerWithSameNameFound bool
+					templateHasAbsolutePath    bool
 
 					containersStatusesInPod1 = GetContainerStatusesInPod(pods1.Items[controlledPod1Idx].Status.ContainerStatuses)
 					containersStatusesInPod2 = GetContainerStatusesInPod(pods2.Items[controlledPod1Idx].Status.ContainerStatuses)
 
 					containersDeploymentTemplateSplitLabel = strings.Split(containersDeploymentTemplate1[podTemplate1ContainerIdx].Image, ":")
 				)
+
+				if strings.Contains(containersDeploymentTemplate1[podTemplate1ContainerIdx].Image, "/") {
+					templateHasAbsolutePath = true
+				}
 
 				if len(containersStatusesInPod1) != len(containersStatusesInPod2) {
 					return ErrorContainersCountInPod
@@ -90,8 +95,26 @@ func CompareContainers(deploymentSpec1, deploymentSpec2 types.InformationAboutOb
 
 						flag++
 
-						containersStatusesInPod1SplitLabel := strings.Split(containersStatusesInPod1[controlledPod1ContainerStatusIdx].Image, ":")
-						containersStatusesInPod2SplitLabel := strings.Split(containersStatusesInPod2[controlledPod1ContainerStatusIdx].Image, ":")
+						var containersStatusesInPod1SplitLabel []string
+						var containersStatusesInPod2SplitLabel []string
+
+						if templateHasAbsolutePath {
+							containersStatusesInPod1SplitLabel = strings.Split(containersStatusesInPod1[controlledPod1ContainerStatusIdx].Image, ":")
+							containersStatusesInPod2SplitLabel = strings.Split(containersStatusesInPod2[controlledPod1ContainerStatusIdx].Image, ":")
+						} else {
+							if strings.Contains(containersStatusesInPod1[controlledPod1ContainerStatusIdx].Image, "/") || strings.Contains(containersStatusesInPod2[controlledPod1ContainerStatusIdx].Image, "/"){
+								pathImage1 := strings.Split(containersStatusesInPod1[controlledPod1ContainerStatusIdx].Image, "/")
+								pathImage2 := strings.Split(containersStatusesInPod2[controlledPod1ContainerStatusIdx].Image, "/")
+								containersStatusesInPod1SplitLabel = strings.Split(pathImage1[len(pathImage1)-1], ":")
+								containersStatusesInPod2SplitLabel = strings.Split(pathImage2[len(pathImage2)-1], ":")
+							} else {
+								containersStatusesInPod1SplitLabel = strings.Split(containersStatusesInPod1[controlledPod1ContainerStatusIdx].Image, ":")
+								containersStatusesInPod2SplitLabel = strings.Split(containersStatusesInPod2[controlledPod1ContainerStatusIdx].Image, ":")
+							}
+						}
+
+
+
 
 						// Вот это сравнение я поправил на то, как было до этого, сверил все индексы, только тут они были сломаны. И были написаны другие условия. Я плохо помню почему так писал, но оно работает
 						if containersDeploymentTemplateSplitLabel[0] != containersStatusesInPod1SplitLabel[0] || containersDeploymentTemplateSplitLabel[0] != containersStatusesInPod2SplitLabel[0] { //nolint:gocritic,unused
