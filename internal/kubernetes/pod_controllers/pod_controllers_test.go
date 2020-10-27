@@ -1148,7 +1148,7 @@ func TestCompareContainers(t *testing.T) {
 	}
 
 	ctx, doneFn := interrupt.Context()
-	defer doneFn()
+
 
 	err := logging.Configure(debug)
 	if err != nil {
@@ -1258,6 +1258,7 @@ func TestCompareContainers(t *testing.T) {
 	if !errors.Is(errors.Unwrap(err), ErrorDifferentImageIDInPods) {
 		t.Error("Error expected: 'The ImageID in Pods is different'. But it was returned: ", err)
 	}
+	doneFn()
 }
 
 func initEnvironmentForFirstTest2() {
