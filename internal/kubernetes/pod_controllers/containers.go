@@ -342,6 +342,11 @@ func CompareProbeInContainers(probe1, probe2 v12.Probe, nameContainer string, er
 		if probe1.HTTPGet.Port.IntVal != probe2.HTTPGet.Port.IntVal || probe1.HTTPGet.Port.StrVal != probe2.HTTPGet.Port.StrVal || probe1.HTTPGet.Port.Type != probe2.HTTPGet.Port.Type {
 			return fmt.Errorf("%s. Containers name: %s. %w: container 1 port - %s, container 2 port - %s", er, nameContainer, ErrorDifferentHTTPGetPort, fmt.Sprintln(probe1.HTTPGet.Port), fmt.Sprintln(probe2.HTTPGet.Port))
 		}
+
+		if probe1.HTTPGet.Scheme != probe2.HTTPGet.Scheme {
+			return fmt.Errorf("%s. Containers name: %s. %w: container 1 port - %s, container 2 port - %s", er, nameContainer, ErrorDifferentHTTPGetScheme, fmt.Sprintln(probe1.HTTPGet.Port), fmt.Sprintln(probe2.HTTPGet.Port))
+		}
+
 	} else if probe1.HTTPGet != nil || probe2.HTTPGet != nil {
 		return fmt.Errorf("%s. Containers name: %s. %w", er, nameContainer, ErrorDifferentHTTPGet)
 	}

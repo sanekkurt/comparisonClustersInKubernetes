@@ -1951,6 +1951,132 @@ func initEnvironmentForFifteenthTest3() {
 	}
 }
 
+func initEnvironmentForSixteenthTest3() {
+	probe1 = v1.Probe{
+		Handler: v1.Handler{
+			TCPSocket: &v1.TCPSocketAction{
+				Host: "host",
+			},
+			HTTPGet: &v1.HTTPGetAction{
+				Host: "host",
+				Path: "path",
+			},
+		},
+	}
+
+	probe2 = v1.Probe{
+		Handler: v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{"command1", "command2", "command3"},
+			},
+			TCPSocket: &v1.TCPSocketAction{
+				Host: "host",
+			},
+			HTTPGet: &v1.HTTPGetAction{
+				Host: "host",
+				Path: "path",
+			},
+		},
+	}
+}
+
+func initEnvironmentForSeventeenthTest3() {
+	probe1 = v1.Probe{
+		Handler: v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{"command1", "command2", "command3"},
+			},
+			TCPSocket: &v1.TCPSocketAction{
+				Host: "host",
+			},
+			HTTPGet: &v1.HTTPGetAction{
+				Host: "host",
+				Path: "path",
+			},
+		},
+		TimeoutSeconds: 40,
+	}
+
+	probe2 = v1.Probe{
+		Handler: v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{"command1", "command2", "command3"},
+			},
+			HTTPGet: &v1.HTTPGetAction{
+				Host: "host",
+				Path: "path",
+			},
+		},
+		TimeoutSeconds: 20,
+	}
+}
+
+func initEnvironmentForEighteenthTest3() {
+	probe1 = v1.Probe{
+		Handler: v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{"command1", "command2", "command3"},
+			},
+			TCPSocket: &v1.TCPSocketAction{
+				Host: "host",
+			},
+			HTTPGet: &v1.HTTPGetAction{
+				Host: "host",
+				Path: "path",
+			},
+		},
+		TimeoutSeconds: 40,
+	}
+
+	probe2 = v1.Probe{
+		Handler: v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{"command1", "command2", "command3"},
+			},
+			TCPSocket: &v1.TCPSocketAction{
+				Host: "host",
+			},
+		},
+		TimeoutSeconds: 20,
+	}
+}
+
+func initEnvironmentForNineteenthTest3() {
+	probe1 = v1.Probe{
+		Handler: v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{"command1", "command2", "command3"},
+			},
+			TCPSocket: &v1.TCPSocketAction{
+				Host: "host",
+			},
+			HTTPGet: &v1.HTTPGetAction{
+				Host: "host",
+				Path: "path",
+				Scheme: "TCP",
+			},
+		},
+		TimeoutSeconds: 40,
+	}
+
+	probe2 = v1.Probe{
+		Handler: v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{"command1", "command2", "command3"},
+			},
+			TCPSocket: &v1.TCPSocketAction{
+				Host: "host",
+			},
+			HTTPGet: &v1.HTTPGetAction{
+				Host: "host",
+				Path: "path",
+				Scheme: "HTTP",
+			},
+		},
+		TimeoutSeconds: 20,
+	}
+}
+
 func TestCompareProbeInContainers(t *testing.T) {
 	initEnvironmentForFirstTest3()
 	err := CompareProbeInContainers(probe1, probe2, "testContainer", errors.New("ERROR"))
@@ -2040,5 +2166,29 @@ func TestCompareProbeInContainers(t *testing.T) {
 	err = CompareProbeInContainers(probe1, probe2, "testContainer", errors.New("ERROR"))
 	if !errors.Is(errors.Unwrap(err), ErrorDifferentTimeoutSeconds) {
 		t.Error("Error expected: 'The TimeoutSeconds in probe not equal'. But it was returned: ", err)
+	}
+
+	initEnvironmentForSixteenthTest3()
+	err = CompareProbeInContainers(probe1, probe2, "testContainer", errors.New("ERROR"))
+	if !errors.Is(errors.Unwrap(err), ErrorDifferentExec) {
+		t.Error("Error expected: 'The exec command missing in one probe'. But it was returned: ", err)
+	}
+
+	initEnvironmentForSeventeenthTest3()
+	err = CompareProbeInContainers(probe1, probe2, "testContainer", errors.New("ERROR"))
+	if !errors.Is(errors.Unwrap(err), ErrorDifferentTCPSocket) {
+		t.Error("Error expected: 'The TCPSocket missing in one probe'. But it was returned: ", err)
+	}
+
+	initEnvironmentForEighteenthTest3()
+	err = CompareProbeInContainers(probe1, probe2, "testContainer", errors.New("ERROR"))
+	if !errors.Is(errors.Unwrap(err), ErrorDifferentHTTPGet) {
+		t.Error("Error expected: 'The HTTPGet missing in one probe'. But it was returned: ", err)
+	}
+
+	initEnvironmentForNineteenthTest3()
+	err = CompareProbeInContainers(probe1, probe2, "testContainer", errors.New("ERROR"))
+	if !errors.Is(errors.Unwrap(err), ErrorDifferentHTTPGetScheme) {
+		t.Error("Error expected: 'The HTTPGet.Scheme in probe not equal'. But it was returned: ", err)
 	}
 }

@@ -46,6 +46,7 @@ var (
 	ErrorMissingHeader = errors.New("one of the containers is missing headers")
 	ErrorDifferentHTTPGetPath = errors.New("the HTTPGet.Path in probe not equal")
 	ErrorDifferentHTTPGetPort = errors.New("the HTTPGet.Port in probe not equal")
+	ErrorDifferentHTTPGetScheme = errors.New("the HTTPGet.Scheme in probe not equal")
 	ErrorDifferentFailureThreshold = errors.New("the FailureThreshold in probe not equal")
 	ErrorDifferentInitialDelaySeconds = errors.New("the InitialDelaySeconds in probe not equal")
 	ErrorDifferentPeriodSeconds = errors.New("the PeriodSeconds in probe not equal")
