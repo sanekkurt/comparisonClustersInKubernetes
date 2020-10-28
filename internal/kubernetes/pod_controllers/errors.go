@@ -33,9 +33,12 @@ var (
 
 	ErrorEnvironmentNotEqual = errors.New("the environment in containers not equal")
 
+	ErrorDifferentExec = errors.New("the exec command missing in one probe")
 	ErrorDifferentExecCommand = errors.New("the exec command in probe not equal")
+	ErrorDifferentTCPSocket = errors.New("the TCPSocket missing in one probe")
 	ErrorDifferentTCPSocketHost = errors.New("the TCPSocket.Host in probe not equal")
 	ErrorDifferentTCPSocketPort = errors.New("the TCPSocket.Port in probe not equal")
+	ErrorDifferentHTTPGet = errors.New("the HTTPGet missing in one probe")
 	ErrorDifferentHTTPGetHost = errors.New("the HTTPGet.Host in probe not equal")
 	ErrorDifferentHTTPGetHTTPHeaders = errors.New("the HTTPGet.HTTPHeaders in probe not equal")
 	ErrorDifferentNameHeader = errors.New("the name header in probe not equal")

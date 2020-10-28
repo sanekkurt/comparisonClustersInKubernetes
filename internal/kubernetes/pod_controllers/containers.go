@@ -134,7 +134,7 @@ func CompareContainers(deploymentSpec1, deploymentSpec2 types.InformationAboutOb
 							containersStatusesInPod1SplitLabel = strings.Split(containersStatusesInPod1[controlledPod1ContainerStatusIdx].Image, ":")
 							containersStatusesInPod2SplitLabel = strings.Split(containersStatusesInPod2[controlledPod1ContainerStatusIdx].Image, ":")
 						} else {
-							if strings.Contains(containersStatusesInPod1[controlledPod1ContainerStatusIdx].Image, "/") || strings.Contains(containersStatusesInPod2[controlledPod1ContainerStatusIdx].Image, "/"){
+							if strings.Contains(containersStatusesInPod1[controlledPod1ContainerStatusIdx].Image, "/") || strings.Contains(containersStatusesInPod2[controlledPod1ContainerStatusIdx].Image, "/") {
 								pathImage1 := strings.Split(containersStatusesInPod1[controlledPod1ContainerStatusIdx].Image, "/")
 								pathImage2 := strings.Split(containersStatusesInPod2[controlledPod1ContainerStatusIdx].Image, "/")
 								containersStatusesInPod1SplitLabel = strings.Split(pathImage1[len(pathImage1)-1], ":")
@@ -288,49 +288,64 @@ func CompareMassStringsInContainers(mass1, mass2 []string) error {
 
 func CompareProbeInContainers(probe1, probe2 v12.Probe, nameContainer string, er error) error {
 
-	err := CompareMassStringsInContainers(probe1.Exec.Command, probe2.Exec.Command)
-	if err != nil {
-		return fmt.Errorf("%s. Containers name: %s. %w: %s", er, nameContainer, ErrorDifferentExecCommand, err)
+	if probe1.Exec != nil && probe2.Exec != nil {
+		err := CompareMassStringsInContainers(probe1.Exec.Command, probe2.Exec.Command)
+		if err != nil {
+			return fmt.Errorf("%s. Containers name: %s. %w: %s", er, nameContainer, ErrorDifferentExecCommand, err)
+		}
+	} else if probe1.Exec != nil || probe2.Exec != nil {
+		return fmt.Errorf("%s. Containers name: %s. %w", er, nameContainer, ErrorDifferentExec)
 	}
 
-	if probe1.TCPSocket.Host != probe2.TCPSocket.Host {
-		return fmt.Errorf("%s. Containers name: %s. %w: container 1 host - %s, container 2 host - %s", er, nameContainer, ErrorDifferentTCPSocketHost, probe1.TCPSocket.Host, probe2.TCPSocket.Host)
-	}
 
-	if probe1.TCPSocket.Port.IntVal != probe2.TCPSocket.Port.IntVal || probe1.TCPSocket.Port.StrVal != probe2.TCPSocket.Port.StrVal || probe1.TCPSocket.Port.Type != probe2.TCPSocket.Port.Type {
-		return fmt.Errorf("%s. Containers name: %s. %w: container 1 port - %s, container 2 port - %s", er, nameContainer, ErrorDifferentTCPSocketPort, fmt.Sprintln(probe1.TCPSocket.Port), fmt.Sprintln(probe2.TCPSocket.Port))
-	}
-
-	if probe1.HTTPGet.Host != probe2.HTTPGet.Host {
-		return fmt.Errorf("%s. Containers name: %s. %w: container 1 host - %s, container 2 host - %s", er, nameContainer, ErrorDifferentHTTPGetHost, probe1.HTTPGet.Host, probe2.HTTPGet.Host)
-	}
-
-	if probe1.HTTPGet.HTTPHeaders != nil && probe2.HTTPGet.HTTPHeaders != nil {
-		if len(probe1.HTTPGet.HTTPHeaders) != len(probe2.HTTPGet.HTTPHeaders) {
-			return fmt.Errorf("%s. Containers name: %s. %w: container 1 count - %d, container 2 count - %d", er, nameContainer, ErrorDifferentHTTPGetHTTPHeaders, len(probe1.HTTPGet.HTTPHeaders), len(probe2.HTTPGet.HTTPHeaders))
+	if probe1.TCPSocket != nil && probe2.TCPSocket != nil {
+		if probe1.TCPSocket.Host != probe2.TCPSocket.Host {
+			return fmt.Errorf("%s. Containers name: %s. %w: container 1 host - %s, container 2 host - %s", er, nameContainer, ErrorDifferentTCPSocketHost, probe1.TCPSocket.Host, probe2.TCPSocket.Host)
 		}
 
-		for index, value := range probe1.HTTPGet.HTTPHeaders {
-			if value.Name != probe2.HTTPGet.HTTPHeaders[index].Name {
-				return fmt.Errorf("%s. Containers name: %s. %w: container 1 header name - %s, container 2 header name - %s", er, nameContainer, ErrorDifferentNameHeader, value.Name, probe2.HTTPGet.HTTPHeaders[index].Name)
-			}
+		if probe1.TCPSocket.Port.IntVal != probe2.TCPSocket.Port.IntVal || probe1.TCPSocket.Port.StrVal != probe2.TCPSocket.Port.StrVal || probe1.TCPSocket.Port.Type != probe2.TCPSocket.Port.Type {
+			return fmt.Errorf("%s. Containers name: %s. %w: container 1 port - %s, container 2 port - %s", er, nameContainer, ErrorDifferentTCPSocketPort, fmt.Sprintln(probe1.TCPSocket.Port), fmt.Sprintln(probe2.TCPSocket.Port))
+		}
+	} else if probe1.TCPSocket != nil || probe2.TCPSocket != nil {
+		return fmt.Errorf("%s. Containers name: %s. %w", er, nameContainer, ErrorDifferentTCPSocket)
+	}
 
-			if value.Value != probe2.HTTPGet.HTTPHeaders[index].Value {
-				return fmt.Errorf("%s. Containers name: %s. %w. Name header - %s. Container 1 header value - %s, container 2 header value - %s", er, nameContainer, ErrorDifferentValueHeader, value.Name, value.Value ,probe2.HTTPGet.HTTPHeaders[index].Value)
-			}
+	if probe1.HTTPGet != nil && probe2.HTTPGet != nil {
+
+		if probe1.HTTPGet.Host != probe2.HTTPGet.Host {
+			return fmt.Errorf("%s. Containers name: %s. %w: container 1 host - %s, container 2 host - %s", er, nameContainer, ErrorDifferentHTTPGetHost, probe1.HTTPGet.Host, probe2.HTTPGet.Host)
 		}
 
-	} else if probe1.HTTPGet.HTTPHeaders != nil || probe2.HTTPGet.HTTPHeaders != nil {
-		return fmt.Errorf("%s. Containers name: %s. %w", er, nameContainer, ErrorMissingHeader)
+		if probe1.HTTPGet.HTTPHeaders != nil && probe2.HTTPGet.HTTPHeaders != nil {
+			if len(probe1.HTTPGet.HTTPHeaders) != len(probe2.HTTPGet.HTTPHeaders) {
+				return fmt.Errorf("%s. Containers name: %s. %w: container 1 count - %d, container 2 count - %d", er, nameContainer, ErrorDifferentHTTPGetHTTPHeaders, len(probe1.HTTPGet.HTTPHeaders), len(probe2.HTTPGet.HTTPHeaders))
+			}
+
+			for index, value := range probe1.HTTPGet.HTTPHeaders {
+				if value.Name != probe2.HTTPGet.HTTPHeaders[index].Name {
+					return fmt.Errorf("%s. Containers name: %s. %w: container 1 header name - %s, container 2 header name - %s", er, nameContainer, ErrorDifferentNameHeader, value.Name, probe2.HTTPGet.HTTPHeaders[index].Name)
+				}
+
+				if value.Value != probe2.HTTPGet.HTTPHeaders[index].Value {
+					return fmt.Errorf("%s. Containers name: %s. %w. Name header - %s. Container 1 header value - %s, container 2 header value - %s", er, nameContainer, ErrorDifferentValueHeader, value.Name, value.Value, probe2.HTTPGet.HTTPHeaders[index].Value)
+				}
+			}
+
+		} else if probe1.HTTPGet.HTTPHeaders != nil || probe2.HTTPGet.HTTPHeaders != nil {
+			return fmt.Errorf("%s. Containers name: %s. %w", er, nameContainer, ErrorMissingHeader)
+		}
+
+		if probe1.HTTPGet.Path != probe2.HTTPGet.Path {
+			return fmt.Errorf("%s. Containers name: %s. %w: container 1 path - %s, container 2 path - %s", er, nameContainer, ErrorDifferentHTTPGetPath, probe1.HTTPGet.Path, probe2.HTTPGet.Path)
+		}
+
+		if probe1.HTTPGet.Port.IntVal != probe2.HTTPGet.Port.IntVal || probe1.HTTPGet.Port.StrVal != probe2.HTTPGet.Port.StrVal || probe1.HTTPGet.Port.Type != probe2.HTTPGet.Port.Type {
+			return fmt.Errorf("%s. Containers name: %s. %w: container 1 port - %s, container 2 port - %s", er, nameContainer, ErrorDifferentHTTPGetPort, fmt.Sprintln(probe1.HTTPGet.Port), fmt.Sprintln(probe2.HTTPGet.Port))
+		}
+	} else if probe1.HTTPGet != nil || probe2.HTTPGet != nil {
+		return fmt.Errorf("%s. Containers name: %s. %w", er, nameContainer, ErrorDifferentHTTPGet)
 	}
 
-	if probe1.HTTPGet.Path != probe2.HTTPGet.Path {
-		return fmt.Errorf("%s. Containers name: %s. %w: container 1 path - %s, container 2 path - %s", er, nameContainer, ErrorDifferentHTTPGetPath, probe1.HTTPGet.Path, probe2.HTTPGet.Path)
-	}
-
-	if probe1.HTTPGet.Port.IntVal != probe2.HTTPGet.Port.IntVal || probe1.HTTPGet.Port.StrVal != probe2.HTTPGet.Port.StrVal || probe1.HTTPGet.Port.Type != probe2.HTTPGet.Port.Type {
-		return fmt.Errorf("%s. Containers name: %s. %w: container 1 port - %s, container 2 port - %s", er, nameContainer, ErrorDifferentHTTPGetPort, fmt.Sprintln(probe1.HTTPGet.Port), fmt.Sprintln(probe2.HTTPGet.Port))
-	}
 
 	if probe1.FailureThreshold != probe2.FailureThreshold {
 		return fmt.Errorf("%s. Containers name: %s. %w: container 1 - %d, container 2 - %d", er, nameContainer, ErrorDifferentFailureThreshold, probe1.FailureThreshold, probe2.FailureThreshold)
