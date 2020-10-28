@@ -22,7 +22,6 @@ var (
 	ErrorContainerImageTemplatePod = errors.New("the container image in the template does not match the actual image in the Pod")
 	ErrorContainerImageTagTemplatePod = errors.New("the container image tag in the template does not match the actual image tag in the Pod")
 
-
 	ErrorDifferentImageInPods   = errors.New("the Image in Pods is different")
 	ErrorDifferentImageIDInPods = errors.New("the ImageID in Pods is different")
 
@@ -33,4 +32,20 @@ var (
 	ErrorDifferentValueSecretKey    = errors.New("the value for the SecretKey is different")
 
 	ErrorEnvironmentNotEqual = errors.New("the environment in containers not equal")
+
+	ErrorDifferentExecCommand = errors.New("the exec command in probe not equal")
+	ErrorDifferentTCPSocketHost = errors.New("the TCPSocket.Host in probe not equal")
+	ErrorDifferentTCPSocketPort = errors.New("the TCPSocket.Port in probe not equal")
+	ErrorDifferentHTTPGetHost = errors.New("the HTTPGet.Host in probe not equal")
+	ErrorDifferentHTTPGetHTTPHeaders = errors.New("the HTTPGet.HTTPHeaders in probe not equal")
+	ErrorDifferentNameHeader = errors.New("the name header in probe not equal")
+	ErrorDifferentValueHeader = errors.New("the value header in probe not equal")
+	ErrorMissingHeader = errors.New("one of the containers is missing headers")
+	ErrorDifferentHTTPGetPath = errors.New("the HTTPGet.Path in probe not equal")
+	ErrorDifferentHTTPGetPort = errors.New("the HTTPGet.Port in probe not equal")
+	ErrorDifferentFailureThreshold = errors.New("the FailureThreshold in probe not equal")
+	ErrorDifferentInitialDelaySeconds = errors.New("the InitialDelaySeconds in probe not equal")
+	ErrorDifferentPeriodSeconds = errors.New("the PeriodSeconds in probe not equal")
+	ErrorDifferentSuccessThreshold = errors.New("the SuccessThreshold in probe not equal")
+	ErrorDifferentTimeoutSeconds = errors.New("the TimeoutSeconds in probe not equal")
 )

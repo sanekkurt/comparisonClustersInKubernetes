@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"k8s-cluster-comparator/internal/interrupt"
 	"k8s-cluster-comparator/internal/logging"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"os"
 	"testing"
 
@@ -54,9 +55,8 @@ var (
 	secretKeyRef2        v1.SecretKeySelector
 	pointerSecretKeyRef2 *v1.SecretKeySelector
 
-	// variables for testing the spec comparison function in services
-	selector1 map[string]string
-	selector2 map[string]string
+	probe1 v1.Probe
+	probe2 v1.Probe
 )
 
 func initEnvironmentForFirstTest() {
@@ -1175,7 +1175,7 @@ func TestCompareContainers(t *testing.T) {
 	deployments2, _ = clusterClientSet2.AppsV1().Deployments("default").List(metav1.ListOptions{})
 	objectInformation2.Selector = deployments2.Items[0].Spec.Selector
 	objectInformation2.Template = deployments2.Items[0].Spec.Template
-	err = CompareContainers(objectInformation1, objectInformation2, "default", false,true, clusterClientSet1, clusterClientSet2)
+	err = CompareContainers(objectInformation1, objectInformation2, "default", false, true, clusterClientSet1, clusterClientSet2)
 	if !errors.Is(err, ErrorMatchlabelsNotEqual) {
 		t.Error("Error expected: 'MatchLabels are not equal'. But it was returned: ", err)
 	}
@@ -1188,7 +1188,7 @@ func TestCompareContainers(t *testing.T) {
 	objectInformation1.Template = deployments1.Items[0].Spec.Template
 	objectInformation2.Selector = deployments2.Items[0].Spec.Selector
 	objectInformation2.Template = deployments2.Items[0].Spec.Template
-	err = CompareContainers(objectInformation1, objectInformation2, "default", false,true, clusterClientSet1, clusterClientSet2)
+	err = CompareContainers(objectInformation1, objectInformation2, "default", false, true, clusterClientSet1, clusterClientSet2)
 	if !errors.Is(err, ErrorContainerNamesTemplate) {
 		t.Error("Error expected: 'Container names in template are not equal'. But it was returned: ", err)
 	}
@@ -1202,7 +1202,7 @@ func TestCompareContainers(t *testing.T) {
 	objectInformation2.Selector = deployments2.Items[0].Spec.Selector
 	objectInformation2.Template = deployments2.Items[0].Spec.Template
 
-	err = CompareContainers(objectInformation1, objectInformation2, "default", false,true, clusterClientSet1, clusterClientSet2)
+	err = CompareContainers(objectInformation1, objectInformation2, "default", false, true, clusterClientSet1, clusterClientSet2)
 	if !errors.Is(err, ErrorContainerImagesTemplate) {
 		t.Error("Error expected: 'Container name images in template are not equal'. But it was returned: ", err)
 	}
@@ -1215,7 +1215,7 @@ func TestCompareContainers(t *testing.T) {
 	objectInformation1.Template = deployments1.Items[0].Spec.Template
 	objectInformation2.Selector = deployments2.Items[0].Spec.Selector
 	objectInformation2.Template = deployments2.Items[0].Spec.Template
-	err = CompareContainers(objectInformation1, objectInformation2, "default", false,true, clusterClientSet1, clusterClientSet2)
+	err = CompareContainers(objectInformation1, objectInformation2, "default", false, true, clusterClientSet1, clusterClientSet2)
 	if !errors.Is(err, ErrorPodsCount) {
 		t.Error("Error expected: 'The pods count are different'. But it was returned: ", err)
 	}
@@ -1228,7 +1228,7 @@ func TestCompareContainers(t *testing.T) {
 	objectInformation1.Template = deployments1.Items[0].Spec.Template
 	objectInformation2.Selector = deployments2.Items[0].Spec.Selector
 	objectInformation2.Template = deployments2.Items[0].Spec.Template
-	err = CompareContainers(objectInformation1, objectInformation2, "default", false,true, clusterClientSet1, clusterClientSet2)
+	err = CompareContainers(objectInformation1, objectInformation2, "default", false, true, clusterClientSet1, clusterClientSet2)
 	if !errors.Is(err, ErrorContainersCountInPod) {
 		t.Error("Error expected: 'The containers count in pod are different'. But it was returned: ", err)
 	}
@@ -1241,7 +1241,7 @@ func TestCompareContainers(t *testing.T) {
 	objectInformation1.Template = deployments1.Items[0].Spec.Template
 	objectInformation2.Selector = deployments2.Items[0].Spec.Selector
 	objectInformation2.Template = deployments2.Items[0].Spec.Template
-	err = CompareContainers(objectInformation1, objectInformation2, "default", false,true, clusterClientSet1, clusterClientSet2)
+	err = CompareContainers(objectInformation1, objectInformation2, "default", false, true, clusterClientSet1, clusterClientSet2)
 	if !errors.Is(err, ErrorContainerImageTemplatePod) {
 		t.Error("Error expected: 'The container image in the template does not match the actual image in the Pod'. But it was returned: ", err)
 	}
@@ -1254,7 +1254,7 @@ func TestCompareContainers(t *testing.T) {
 	objectInformation1.Template = deployments1.Items[0].Spec.Template
 	objectInformation2.Selector = deployments2.Items[0].Spec.Selector
 	objectInformation2.Template = deployments2.Items[0].Spec.Template
-	err = CompareContainers(objectInformation1, objectInformation2, "default", false,true, clusterClientSet1, clusterClientSet2)
+	err = CompareContainers(objectInformation1, objectInformation2, "default", false, true, clusterClientSet1, clusterClientSet2)
 	if !errors.Is(errors.Unwrap(err), ErrorDifferentImageIDInPods) {
 		t.Error("Error expected: 'The ImageID in Pods is different'. But it was returned: ", err)
 	}
@@ -1415,7 +1415,7 @@ func TestCompareEnvInContainers(t *testing.T) {
 	}
 
 	initEnvironmentForThirdTest2()
-	err = CompareEnvInContainers(env1, env2, "default",false, clusterClientSet1, clusterClientSet2)
+	err = CompareEnvInContainers(env1, env2, "default", false, clusterClientSet1, clusterClientSet2)
 	if !errors.Is(errors.Unwrap(err), ErrorEnvironmentNotEqual) {
 		t.Error("Error expected: 'The environment in containers not equal'. But it was returned: ", err)
 	}
@@ -1430,5 +1430,615 @@ func TestCompareEnvInContainers(t *testing.T) {
 	err = CompareEnvInContainers(env1, env2, "default", false, clusterClientSet1, clusterClientSet2)
 	if !errors.Is(errors.Unwrap(err), ErrorDifferentValueConfigMapKey) {
 		t.Error("Error expected: 'The value for the ConfigMapKey is different'. But it was returned: ", err)
+	}
+}
+
+func initEnvironmentForFirstTest3() {
+
+	probe1 = v1.Probe{
+		Handler: v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{"command1", "command2", "command3"},
+			},
+		},
+	}
+
+	probe2 = v1.Probe{
+		Handler: v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{"command1", "command3", "command3"},
+			},
+		},
+	}
+}
+
+func initEnvironmentForSecondTest3() {
+
+	probe1 = v1.Probe{
+		Handler: v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{"command1", "command2", "command3"},
+			},
+			TCPSocket: &v1.TCPSocketAction{
+				Host: "host1",
+			},
+		},
+	}
+
+	probe2 = v1.Probe{
+		Handler: v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{"command1", "command2", "command3"},
+			},
+			TCPSocket: &v1.TCPSocketAction{
+				Host: "host2",
+			},
+		},
+	}
+}
+
+func initEnvironmentForThirdTest3() {
+	probe1 = v1.Probe{
+		Handler: v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{"command1", "command2", "command3"},
+			},
+			TCPSocket: &v1.TCPSocketAction{
+				Host: "host2",
+				Port: intstr.IntOrString{
+					IntVal: 8,
+					StrVal: "",
+					Type: 22,
+				},
+			},
+		},
+	}
+
+	probe2 = v1.Probe{
+		Handler: v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{"command1", "command2", "command3"},
+			},
+			TCPSocket: &v1.TCPSocketAction{
+				Host: "host2",
+				Port: intstr.IntOrString{
+					IntVal: 56,
+					StrVal: "",
+					Type: 1,
+				},
+			},
+		},
+	}
+}
+
+func initEnvironmentForFourthTest3() {
+	probe1 = v1.Probe{
+		Handler: v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{"command1", "command2", "command3"},
+			},
+			TCPSocket: &v1.TCPSocketAction{
+				Host: "host",
+			},
+			HTTPGet: &v1.HTTPGetAction{
+				Host: "host1",
+			},
+		},
+	}
+
+	probe2 = v1.Probe{
+		Handler: v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{"command1", "command2", "command3"},
+			},
+			TCPSocket: &v1.TCPSocketAction{
+				Host: "host",
+			},
+			HTTPGet: &v1.HTTPGetAction{
+				Host: "host2",
+			},
+		},
+	}
+}
+
+func initEnvironmentForFifthTest3() {
+	probe1 = v1.Probe{
+		Handler: v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{"command1", "command2", "command3"},
+			},
+			TCPSocket: &v1.TCPSocketAction{
+				Host: "host",
+			},
+			HTTPGet: &v1.HTTPGetAction{
+				Host: "host",
+				HTTPHeaders: []v1.HTTPHeader{
+					{
+						Name: "header1",
+						Value: "value",
+					},
+				},
+			},
+		},
+	}
+
+	probe2 = v1.Probe{
+		Handler: v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{"command1", "command2", "command3"},
+			},
+			TCPSocket: &v1.TCPSocketAction{
+				Host: "host",
+			},
+			HTTPGet: &v1.HTTPGetAction{
+				Host: "host",
+				HTTPHeaders: []v1.HTTPHeader{
+					{
+						Name: "header1",
+						Value: "value1",
+					},
+					{
+						Name: "header2",
+						Value: "value2",
+					},
+				},
+			},
+		},
+	}
+}
+
+func initEnvironmentForSixthTest3() {
+	probe1 = v1.Probe{
+		Handler: v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{"command1", "command2", "command3"},
+			},
+			TCPSocket: &v1.TCPSocketAction{
+				Host: "host",
+			},
+			HTTPGet: &v1.HTTPGetAction{
+				Host: "host",
+				HTTPHeaders: []v1.HTTPHeader{
+					{
+						Name: "fakeHeader",
+						Value: "value",
+					},
+				},
+			},
+		},
+	}
+
+	probe2 = v1.Probe{
+		Handler: v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{"command1", "command2", "command3"},
+			},
+			TCPSocket: &v1.TCPSocketAction{
+				Host: "host",
+			},
+			HTTPGet: &v1.HTTPGetAction{
+				Host: "host",
+				HTTPHeaders: []v1.HTTPHeader{
+					{
+						Name: "header",
+						Value: "value",
+					},
+				},
+			},
+		},
+	}
+}
+
+func initEnvironmentForSeventhTest3() {
+	probe1 = v1.Probe{
+		Handler: v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{"command1", "command2", "command3"},
+			},
+			TCPSocket: &v1.TCPSocketAction{
+				Host: "host",
+			},
+			HTTPGet: &v1.HTTPGetAction{
+				Host: "host",
+				HTTPHeaders: []v1.HTTPHeader{
+					{
+						Name: "header1",
+						Value: "fakeValue",
+					},
+				},
+			},
+		},
+	}
+
+	probe2 = v1.Probe{
+		Handler: v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{"command1", "command2", "command3"},
+			},
+			TCPSocket: &v1.TCPSocketAction{
+				Host: "host",
+			},
+			HTTPGet: &v1.HTTPGetAction{
+				Host: "host",
+				HTTPHeaders: []v1.HTTPHeader{
+					{
+						Name: "header1",
+						Value: "value1",
+					},
+				},
+			},
+		},
+	}
+}
+
+func initEnvironmentForEighthTest3() {
+	probe1 = v1.Probe{
+		Handler: v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{"command1", "command2", "command3"},
+			},
+			TCPSocket: &v1.TCPSocketAction{
+				Host: "host",
+			},
+			HTTPGet: &v1.HTTPGetAction{
+				Host: "host",
+			},
+		},
+	}
+
+	probe2 = v1.Probe{
+		Handler: v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{"command1", "command2", "command3"},
+			},
+			TCPSocket: &v1.TCPSocketAction{
+				Host: "host",
+			},
+			HTTPGet: &v1.HTTPGetAction{
+				Host: "host",
+				HTTPHeaders: []v1.HTTPHeader{
+					{
+						Name: "header1",
+						Value: "value1",
+					},
+				},
+			},
+		},
+	}
+}
+
+func initEnvironmentForNinthTest3() {
+	probe1 = v1.Probe{
+		Handler: v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{"command1", "command2", "command3"},
+			},
+			TCPSocket: &v1.TCPSocketAction{
+				Host: "host",
+			},
+			HTTPGet: &v1.HTTPGetAction{
+				Host: "host",
+				Path: "path",
+			},
+		},
+	}
+
+	probe2 = v1.Probe{
+		Handler: v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{"command1", "command2", "command3"},
+			},
+			TCPSocket: &v1.TCPSocketAction{
+				Host: "host",
+			},
+			HTTPGet: &v1.HTTPGetAction{
+				Host: "host",
+				Path: "fakePath",
+			},
+		},
+	}
+}
+
+func initEnvironmentForTenthTest3() {
+	probe1 = v1.Probe{
+		Handler: v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{"command1", "command2", "command3"},
+			},
+			TCPSocket: &v1.TCPSocketAction{
+				Host: "host",
+			},
+			HTTPGet: &v1.HTTPGetAction{
+				Host: "host",
+				Path: "path",
+				Port: intstr.IntOrString{
+					IntVal: 8,
+					StrVal: "",
+					Type: 22,
+				},
+			},
+		},
+	}
+
+	probe2 = v1.Probe{
+		Handler: v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{"command1", "command2", "command3"},
+			},
+			TCPSocket: &v1.TCPSocketAction{
+				Host: "host",
+			},
+			HTTPGet: &v1.HTTPGetAction{
+				Host: "host",
+				Path: "path",
+				Port: intstr.IntOrString{
+					IntVal: 8,
+					StrVal: "",
+					Type: 28,
+				},
+			},
+		},
+	}
+}
+
+func initEnvironmentForEleventhTest3() {
+	probe1 = v1.Probe{
+		Handler: v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{"command1", "command2", "command3"},
+			},
+			TCPSocket: &v1.TCPSocketAction{
+				Host: "host",
+			},
+			HTTPGet: &v1.HTTPGetAction{
+				Host: "host",
+				Path: "path",
+			},
+		},
+		FailureThreshold: 1,
+	}
+
+	probe2 = v1.Probe{
+		Handler: v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{"command1", "command2", "command3"},
+			},
+			TCPSocket: &v1.TCPSocketAction{
+				Host: "host",
+			},
+			HTTPGet: &v1.HTTPGetAction{
+				Host: "host",
+				Path: "path",
+			},
+		},
+		FailureThreshold: 5,
+	}
+}
+
+func initEnvironmentForTwelveTest3() {
+	probe1 = v1.Probe{
+		Handler: v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{"command1", "command2", "command3"},
+			},
+			TCPSocket: &v1.TCPSocketAction{
+				Host: "host",
+			},
+			HTTPGet: &v1.HTTPGetAction{
+				Host: "host",
+				Path: "path",
+			},
+		},
+		InitialDelaySeconds: 8,
+	}
+
+	probe2 = v1.Probe{
+		Handler: v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{"command1", "command2", "command3"},
+			},
+			TCPSocket: &v1.TCPSocketAction{
+				Host: "host",
+			},
+			HTTPGet: &v1.HTTPGetAction{
+				Host: "host",
+				Path: "path",
+			},
+		},
+		InitialDelaySeconds: 5,
+	}
+}
+
+func initEnvironmentForThirteenthTest3() {
+	probe1 = v1.Probe{
+		Handler: v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{"command1", "command2", "command3"},
+			},
+			TCPSocket: &v1.TCPSocketAction{
+				Host: "host",
+			},
+			HTTPGet: &v1.HTTPGetAction{
+				Host: "host",
+				Path: "path",
+			},
+		},
+		PeriodSeconds: 1,
+	}
+
+	probe2 = v1.Probe{
+		Handler: v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{"command1", "command2", "command3"},
+			},
+			TCPSocket: &v1.TCPSocketAction{
+				Host: "host",
+			},
+			HTTPGet: &v1.HTTPGetAction{
+				Host: "host",
+				Path: "path",
+			},
+		},
+		PeriodSeconds: 0,
+	}
+}
+
+func initEnvironmentForFourteenthTest3() {
+	probe1 = v1.Probe{
+		Handler: v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{"command1", "command2", "command3"},
+			},
+			TCPSocket: &v1.TCPSocketAction{
+				Host: "host",
+			},
+			HTTPGet: &v1.HTTPGetAction{
+				Host: "host",
+				Path: "path",
+			},
+		},
+		SuccessThreshold: 50,
+	}
+
+	probe2 = v1.Probe{
+		Handler: v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{"command1", "command2", "command3"},
+			},
+			TCPSocket: &v1.TCPSocketAction{
+				Host: "host",
+			},
+			HTTPGet: &v1.HTTPGetAction{
+				Host: "host",
+				Path: "path",
+			},
+		},
+		SuccessThreshold: 6,
+	}
+}
+
+func initEnvironmentForFifteenthTest3() {
+	probe1 = v1.Probe{
+		Handler: v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{"command1", "command2", "command3"},
+			},
+			TCPSocket: &v1.TCPSocketAction{
+				Host: "host",
+			},
+			HTTPGet: &v1.HTTPGetAction{
+				Host: "host",
+				Path: "path",
+			},
+		},
+		TimeoutSeconds: 40,
+	}
+
+	probe2 = v1.Probe{
+		Handler: v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{"command1", "command2", "command3"},
+			},
+			TCPSocket: &v1.TCPSocketAction{
+				Host: "host",
+			},
+			HTTPGet: &v1.HTTPGetAction{
+				Host: "host",
+				Path: "path",
+			},
+		},
+		TimeoutSeconds: 20,
+	}
+}
+
+func TestCompareProbeInContainers(t *testing.T) {
+	initEnvironmentForFirstTest3()
+	err := CompareProbeInContainers(probe1, probe2, "testContainer", errors.New("ERROR"))
+	if !errors.Is(errors.Unwrap(err), ErrorDifferentExecCommand) {
+		t.Error("Error expected: 'The exec command in probe not equal'. But it was returned: ", err)
+	}
+
+	initEnvironmentForSecondTest3()
+	err = CompareProbeInContainers(probe1, probe2, "testContainer", errors.New("ERROR"))
+	if !errors.Is(errors.Unwrap(err), ErrorDifferentTCPSocketHost) {
+		t.Error("Error expected: 'The TCPSocket.Host in probe not equal'. But it was returned: ", err)
+	}
+
+	initEnvironmentForThirdTest3()
+	err = CompareProbeInContainers(probe1, probe2, "testContainer", errors.New("ERROR"))
+	if !errors.Is(errors.Unwrap(err), ErrorDifferentTCPSocketPort) {
+		t.Error("Error expected: 'The TCPSocket.Port in probe not equal'. But it was returned: ", err)
+	}
+
+	initEnvironmentForFourthTest3()
+	err = CompareProbeInContainers(probe1, probe2, "testContainer", errors.New("ERROR"))
+	if !errors.Is(errors.Unwrap(err), ErrorDifferentHTTPGetHost) {
+		t.Error("Error expected: 'The HTTPGet.Host in probe not equal'. But it was returned: ", err)
+	}
+
+	initEnvironmentForFifthTest3()
+	err = CompareProbeInContainers(probe1, probe2, "testContainer", errors.New("ERROR"))
+	if !errors.Is(errors.Unwrap(err), ErrorDifferentHTTPGetHTTPHeaders) {
+		t.Error("Error expected: 'The HTTPGet.HTTPHeaders in probe not equal'. But it was returned: ", err)
+	}
+
+	initEnvironmentForSixthTest3()
+	err = CompareProbeInContainers(probe1, probe2, "testContainer", errors.New("ERROR"))
+	if !errors.Is(errors.Unwrap(err), ErrorDifferentNameHeader) {
+		t.Error("Error expected: 'The name header in probe not equal'. But it was returned: ", err)
+	}
+
+	initEnvironmentForSeventhTest3()
+	err = CompareProbeInContainers(probe1, probe2, "testContainer", errors.New("ERROR"))
+	if !errors.Is(errors.Unwrap(err), ErrorDifferentValueHeader) {
+		t.Error("Error expected: 'The value header in probe not equal'. But it was returned: ", err)
+	}
+
+	initEnvironmentForEighthTest3()
+	err = CompareProbeInContainers(probe1, probe2, "testContainer", errors.New("ERROR"))
+	if !errors.Is(errors.Unwrap(err), ErrorMissingHeader) {
+		t.Error("Error expected: 'One of the containers is missing headers'. But it was returned: ", err)
+	}
+
+	initEnvironmentForNinthTest3()
+	err = CompareProbeInContainers(probe1, probe2, "testContainer", errors.New("ERROR"))
+	if !errors.Is(errors.Unwrap(err), ErrorDifferentHTTPGetPath) {
+		t.Error("Error expected: 'The HTTPGet.Path in probe not equal'. But it was returned: ", err)
+	}
+
+	initEnvironmentForTenthTest3()
+	err = CompareProbeInContainers(probe1, probe2, "testContainer", errors.New("ERROR"))
+	if !errors.Is(errors.Unwrap(err), ErrorDifferentHTTPGetPort) {
+		t.Error("Error expected: 'The HTTPGet.Port in probe not equal'. But it was returned: ", err)
+	}
+
+	initEnvironmentForEleventhTest3()
+	err = CompareProbeInContainers(probe1, probe2, "testContainer", errors.New("ERROR"))
+	if !errors.Is(errors.Unwrap(err), ErrorDifferentFailureThreshold) {
+		t.Error("Error expected: 'The FailureThreshold in probe not equal'. But it was returned: ", err)
+	}
+
+	initEnvironmentForTwelveTest3()
+	err = CompareProbeInContainers(probe1, probe2, "testContainer", errors.New("ERROR"))
+	if !errors.Is(errors.Unwrap(err), ErrorDifferentInitialDelaySeconds) {
+		t.Error("Error expected: 'The InitialDelaySeconds in probe not equal'. But it was returned: ", err)
+	}
+
+	initEnvironmentForThirteenthTest3()
+	err = CompareProbeInContainers(probe1, probe2, "testContainer", errors.New("ERROR"))
+	if !errors.Is(errors.Unwrap(err), ErrorDifferentPeriodSeconds) {
+		t.Error("Error expected: 'The PeriodSeconds in probe not equal'. But it was returned: ", err)
+	}
+
+	initEnvironmentForFourteenthTest3()
+	err = CompareProbeInContainers(probe1, probe2, "testContainer", errors.New("ERROR"))
+	if !errors.Is(errors.Unwrap(err), ErrorDifferentSuccessThreshold) {
+		t.Error("Error expected: 'The SuccessThreshold in probe not equal'. But it was returned: ", err)
+	}
+
+	initEnvironmentForFifteenthTest3()
+	err = CompareProbeInContainers(probe1, probe2, "testContainer", errors.New("ERROR"))
+	if !errors.Is(errors.Unwrap(err), ErrorDifferentTimeoutSeconds) {
+		t.Error("Error expected: 'The TimeoutSeconds in probe not equal'. But it was returned: ", err)
 	}
 }
