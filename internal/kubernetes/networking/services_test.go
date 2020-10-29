@@ -10,7 +10,6 @@ import (
 )
 
 var (
-	// variables for testing the spec comparison function in services
 	selector1 map[string]string
 	selector2 map[string]string
 )

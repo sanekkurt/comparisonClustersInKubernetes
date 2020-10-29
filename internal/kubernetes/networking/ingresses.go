@@ -45,6 +45,7 @@ func prepareIngressMaps(ingresses1, ingresses2 *v1beta12.IngressList, skipEntiti
 	var indexCheck types.IsAlreadyComparedFlag
 
 	for index, value := range ingresses1.Items {
+
 		if skipEntities.IsSkippedEntity(value.Name) {
 			log.Debugf("ingress %s is skipped from comparison due to its name", value.Name)
 			continue
@@ -54,6 +55,7 @@ func prepareIngressMaps(ingresses1, ingresses2 *v1beta12.IngressList, skipEntiti
 
 	}
 	for index, value := range ingresses2.Items {
+
 		if skipEntities.IsSkippedEntity(value.Name) {
 			log.Debugf("ingress %s is skipped from comparison due to its name", value.Name)
 			continue
@@ -121,6 +123,7 @@ func setInformationAboutIngresses(map1, map2 map[string]types.IsAlreadyComparedF
 			map2[name] = index2
 
 			compareIngressSpecInternals(wg, channel, name, &ingresses1.Items[index1.Index], &ingresses2.Items[index2.Index])
+
 		} else {
 			log.Infof("ingress '%s' does not exist in 2nd cluster", name)
 			flag = true
@@ -152,22 +155,28 @@ func setInformationAboutIngresses(map1, map2 map[string]types.IsAlreadyComparedF
 // compareSpecInIngresses compare spec in the ingresses
 func compareSpecInIngresses(ingress1, ingress2 v1beta12.Ingress) error { //nolint
 	if ingress1.Spec.TLS != nil && ingress2.Spec.TLS != nil {
+
 		if len(ingress1.Spec.TLS) != len(ingress2.Spec.TLS) {
 			return fmt.Errorf("%w. Name ingress: '%s'. In first ingress - %d TLS. In second ingress - %d TLS", ErrorTLSCountDifferent, ingress1.Name, len(ingress1.Spec.TLS), len(ingress2.Spec.TLS))
 		}
+
 		for index, value := range ingress1.Spec.TLS {
+
 			if value.SecretName != ingress2.Spec.TLS[index].SecretName {
 				return fmt.Errorf("%w. Name ingress: '%s'. First ingress: '%s'. Second ingress: '%s'", ErrorSecretNameInTLSDifferent, ingress1.Name, value.SecretName, ingress2.Spec.TLS[index].SecretName)
 			}
+
 			if value.Hosts != nil && ingress2.Spec.TLS[index].Hosts != nil {
 				if len(value.Hosts) != len(ingress2.Spec.TLS[index].Hosts) {
 					return fmt.Errorf("%w. Name ingress: '%s'. In first ingress - %d hosts. In second ingress - %d hosts", ErrorHostsCountDifferent, ingress1.Name, len(value.Hosts), len(ingress2.Spec.TLS[index].Hosts))
 				}
+
 				for i := 0; i < len(value.Hosts); i++ {
 					if value.Hosts[i] != ingress2.Spec.TLS[index].Hosts[i] {
 						return fmt.Errorf("%w. Name ingress: '%s'. Name host in first ingress - '%s'. Name host in second ingress - '%s'", ErrorNameHostDifferent, ingress1.Name, value.Hosts[i], ingress2.Spec.TLS[index].Hosts[i])
 					}
 				}
+
 			} else if value.Hosts != nil || ingress2.Spec.TLS[index].Hosts != nil {
 				return fmt.Errorf("%w", ErrorHostsInIngressesDifferent)
 			}
@@ -175,6 +184,7 @@ func compareSpecInIngresses(ingress1, ingress2 v1beta12.Ingress) error { //nolin
 	} else if ingress1.Spec.TLS != nil || ingress2.Spec.TLS != nil {
 		return fmt.Errorf("%w", ErrorTLSInIngressesDifferent)
 	}
+
 	if ingress1.Spec.Backend != nil && ingress2.Spec.Backend != nil {
 		err := compareIngressesBackend(*ingress1.Spec.Backend, *ingress2.Spec.Backend, ingress1.Name)
 		if err != nil {
@@ -183,14 +193,17 @@ func compareSpecInIngresses(ingress1, ingress2 v1beta12.Ingress) error { //nolin
 	} else if ingress1.Spec.Backend != nil || ingress2.Spec.Backend != nil {
 		return fmt.Errorf("%w", ErrorBackendInIngressesDifferent)
 	}
+
 	if ingress1.Spec.Rules != nil && ingress2.Spec.Rules != nil {
 		if len(ingress1.Spec.Rules) != len(ingress2.Spec.Rules) {
 			return fmt.Errorf("%w. Name ingress: '%s'. In first ingress - '%d' rules. In second ingress - '%d' rules", ErrorRulesCountDifferent, ingress1.Name, len(ingress1.Spec.Rules), len(ingress2.Spec.Rules))
 		}
+
 		for index, value := range ingress1.Spec.Rules {
 			if value.Host != ingress2.Spec.Rules[index].Host {
 				return fmt.Errorf("%w. Name ingress: '%s'. Name host in first ingress - '%s'. Name host in second ingress - '%s'", ErrorHostNameInRuleDifferent, ingress1.Name, value.Host, ingress2.Spec.Rules[index].Host)
 			}
+
 			if value.HTTP != nil && ingress2.Spec.Rules[index].HTTP != nil {
 				err := compareIngressesHTTP(*value.HTTP, *ingress2.Spec.Rules[index].HTTP, ingress1.Name)
 				if err != nil {
@@ -199,6 +212,7 @@ func compareSpecInIngresses(ingress1, ingress2 v1beta12.Ingress) error { //nolin
 			} else if value.HTTP != nil || ingress2.Spec.Rules[index].HTTP != nil {
 				return fmt.Errorf("%w", ErrorHTTPInIngressesDifferent)
 			}
+
 			if value.IngressRuleValue.HTTP != nil && ingress2.Spec.Rules[index].IngressRuleValue.HTTP != nil {
 				err := compareIngressesHTTP(*value.IngressRuleValue.HTTP, *ingress2.Spec.Rules[index].IngressRuleValue.HTTP, ingress1.Name)
 				if err != nil {
@@ -212,6 +226,7 @@ func compareSpecInIngresses(ingress1, ingress2 v1beta12.Ingress) error { //nolin
 	} else if ingress1.Spec.Rules != nil || ingress2.Spec.Rules != nil {
 		return fmt.Errorf("%w", ErrorRulesInIngressesDifferent)
 	}
+
 	return nil
 }
 
@@ -220,6 +235,7 @@ func compareIngressesBackend(backend1, backend2 v1beta12.IngressBackend, name st
 	if backend1.ServiceName != backend2.ServiceName {
 		return fmt.Errorf("%w. Name ingress: '%s'. Service name in first ingress: '%s'. Service name in second ingress: '%s'", ErrorServiceNameInBackendDifferent, name, backend1.ServiceName, backend2.ServiceName)
 	}
+
 	if backend1.ServicePort.Type != backend2.ServicePort.Type || backend1.ServicePort.IntVal != backend2.ServicePort.IntVal || backend1.ServicePort.StrVal != backend2.ServicePort.StrVal {
 		return fmt.Errorf("%w. Name ingress: '%s'", ErrorBackendServicePortDifferent, name)
 	}
@@ -231,10 +247,12 @@ func compareIngressesHTTP(http1, http2 v1beta12.HTTPIngressRuleValue, name strin
 	if len(http1.Paths) != len(http2.Paths) {
 		return fmt.Errorf("%w. Name ingress: '%s'. In first ingress - '%d' paths. In second ingress - '%d' paths", ErrorPathsCountDifferent, name, len(http1.Paths), len(http2.Paths))
 	}
+
 	for i := 0; i < len(http1.Paths); i++ {
 		if http1.Paths[i].Path != http2.Paths[i].Path {
 			return fmt.Errorf("%w. Name ingress: '%s'. Name path in first ingress - '%s'. Name path in second ingress - '%s'", ErrorPathValueDifferent, name, http1.Paths[i].Path, http2.Paths[i].Path)
 		}
+
 		err := compareIngressesBackend(http1.Paths[i].Backend, http2.Paths[i].Backend, name)
 		if err != nil {
 			return err

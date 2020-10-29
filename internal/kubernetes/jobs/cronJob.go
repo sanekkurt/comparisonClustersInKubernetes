@@ -35,6 +35,7 @@ func CompareCronJobs(clientSet1, clientSet2 kubernetes.Interface, namespace stri
 }
 
 func prepareCronJobsMaps(cronJobs1, cronJobs2 *v1beta1.CronJobList, skipEntities skipper.SkipComponentNames) (map[string]types.IsAlreadyComparedFlag, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
+
 	mapCronJobs1 := make(map[string]types.IsAlreadyComparedFlag)
 	mapCronJobs2 := make(map[string]types.IsAlreadyComparedFlag)
 	var indexCheck types.IsAlreadyComparedFlag
@@ -48,6 +49,7 @@ func prepareCronJobsMaps(cronJobs1, cronJobs2 *v1beta1.CronJobList, skipEntities
 		mapCronJobs1[value.Name] = indexCheck
 
 	}
+
 	for index, value := range cronJobs2.Items {
 		if skipEntities.IsSkippedEntity(value.Name) {
 			log.Debugf("cronJob %s is skipped from comparison due to its name", value.Name)
@@ -84,6 +86,7 @@ func setInformationAboutCronJobs(map1, map2 map[string]types.IsAlreadyComparedFl
 			map2[name] = index2
 
 			compareCronJobSpecInternals(wg, channel, name, namespace, &cronJobs1.Items[index1.Index], &cronJobs2.Items[index2.Index])
+
 		} else {
 			log.Infof("cronJob '%s' does not exist in 2nd cluster", name)
 			flag = true
@@ -100,6 +103,7 @@ func setInformationAboutCronJobs(map1, map2 map[string]types.IsAlreadyComparedFl
 			flag = true
 		}
 	}
+
 	for name, index := range map2 {
 		if !index.Check {
 
@@ -154,19 +158,6 @@ func compareSpecInCronJobs(cronJob1, cronJob2 v1beta1.CronJob, namespace string)
 	if err != nil {
 		return err
 	}
-	//castJob1ForCompareContainers := types.InformationAboutObject{
-	//	Template: job1.Spec.Template,
-	//	Selector: nil,
-	//}
-	//castJob2ForCompareContainers := types.InformationAboutObject{
-	//	Template: job2.Spec.Template,
-	//	Selector: nil,
-	//}
-	//
-	//err := pod_controllers.CompareContainers(castJob1ForCompareContainers, castJob2ForCompareContainers, "default",  true, true, nil, nil)
-	//if err != nil {
-	//	return err
-	//}
 
 	return nil
 }

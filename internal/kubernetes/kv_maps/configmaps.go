@@ -49,6 +49,7 @@ func prepareConfigMapMaps(configMaps1, configMaps2 *v12.ConfigMapList, skipEntit
 		indexCheck.Index = index
 		mapConfigMap1[value.Name] = indexCheck
 	}
+
 	for index, value := range configMaps2.Items {
 		if skipEntities.IsSkippedEntity(value.Name) {
 			log.Debugf("configmap %s is skipped from comparison due to its name", value.Name)
@@ -57,6 +58,7 @@ func prepareConfigMapMaps(configMaps1, configMaps2 *v12.ConfigMapList, skipEntit
 		indexCheck.Index = index
 		mapConfigMap2[value.Name] = indexCheck
 	}
+
 	return mapConfigMap1, mapConfigMap2
 }
 
@@ -137,11 +139,13 @@ func compareConfigMapsSpecs(map1, map2 map[string]types.IsAlreadyComparedFlag, c
 			flag = true
 		}
 	}
+
 	for name, index := range map2 {
 		if !index.Check {
 			log.Infof("ConfigMap '%s' - 2 cluster. Does not exist on another cluster", name)
 			flag = true
 		}
 	}
+
 	return flag
 }

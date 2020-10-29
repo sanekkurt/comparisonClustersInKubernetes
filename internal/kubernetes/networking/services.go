@@ -25,10 +25,12 @@ func CompareServices(clientSet1, clientSet2 kubernetes.Interface, namespace stri
 	if err != nil {
 		return false, fmt.Errorf("cannot obtain services list from 1st cluster: %w", err)
 	}
+
 	services2, err := clientSet2.CoreV1().Services(namespace).List(metav1.ListOptions{})
 	if err != nil {
 		return false, fmt.Errorf("cannot obtain services list from 2nd cluster: %w", err)
 	}
+
 	mapServices1, mapServices2 := prepareServiceMaps(services1, services2, skipEntityList.GetByKind("secrets"))
 
 	isClustersDiffer = compareServicesSpecs(mapServices1, mapServices2, services1, services2)
@@ -47,19 +49,22 @@ func prepareServiceMaps(services1, services2 *v12.ServiceList, skipEntities skip
 			log.Debugf("service %s is skipped from comparison due to its name", value.Name)
 			continue
 		}
+
 		indexCheck.Index = index
 		mapServices1[value.Name] = indexCheck
-
 	}
+
 	for index, value := range services2.Items {
 		if skipEntities.IsSkippedEntity(value.Name) {
 			log.Debugf("service %s is skipped from comparison due to its name", value.Name)
 			continue
 		}
+
 		indexCheck.Index = index
 		mapServices2[value.Name] = indexCheck
 
 	}
+
 	return mapServices1, mapServices2
 }
 
@@ -119,6 +124,7 @@ func compareServicesSpecs(map1, map2 map[string]types.IsAlreadyComparedFlag, ser
 			map2[name] = index2
 
 			go compareServiceSpecInternals(wg, channel, name, &services1.Items[index1.Index], &services2.Items[index2.Index])
+
 		} else {
 			log.Infof("service '%s' does not exist in 2nd cluster", name)
 			flag = true
@@ -135,6 +141,7 @@ func compareServicesSpecs(map1, map2 map[string]types.IsAlreadyComparedFlag, ser
 			flag = true
 		}
 	}
+
 	for name, index := range map2 {
 		if !index.Check {
 
@@ -152,21 +159,26 @@ func compareSpecInServices(service1, service2 v12.Service) error {
 	if len(service1.Spec.Ports) != len(service2.Spec.Ports) {
 		return fmt.Errorf("%w. Name service: '%s'. In first service - %d ports, in second service - '%d' ports", ErrorPortsCountDifferent, service1.Name, len(service1.Spec.Ports), len(service2.Spec.Ports))
 	}
+
 	for index, value := range service1.Spec.Ports {
 		if value != service2.Spec.Ports[index] {
 			return fmt.Errorf("%w. Name service: '%s'. First service: %s-%d-%s. Second service: %s-%d-%s", ErrorPortInServicesDifferent, service1.Name, value.Name, value.Port, value.Protocol, service2.Spec.Ports[index].Name, service2.Spec.Ports[index].Port, service2.Spec.Ports[index].Protocol)
 		}
 	}
+
 	if len(service1.Spec.Selector) != len(service2.Spec.Selector) {
 		return fmt.Errorf("%w. Name service: '%s'. In first service - %d selectors, in second service - '%d' selectors", ErrorSelectorsCountDifferent, service1.Name, len(service1.Spec.Selector), len(service2.Spec.Selector))
 	}
+
 	for key, value := range service1.Spec.Selector {
 		if service2.Spec.Selector[key] != value {
 			return fmt.Errorf("%w. Name service: '%s'. First service: %s-%s. Second service: %s-%s", ErrorSelectorInServicesDifferent, service1.Name, key, value, key, service2.Spec.Selector[key])
 		}
 	}
+
 	if service1.Spec.Type != service2.Spec.Type {
 		return fmt.Errorf("%w. Name service: '%s'. First service type: %s. Second service type: %s", ErrorTypeInServicesDifferent, service1.Name, service1.Spec.Type, service2.Spec.Type)
 	}
+
 	return nil
 }

@@ -72,6 +72,7 @@ func ParseSkipConfig(ctx context.Context, skipSpec string) (SkipEntitiesList, er
 				skipEntities[types.ObjectKind(tempSlice[0])][entryName] = struct{}{}
 				delete(tempMap, entryName)
 			}
+
 		} else {
 			log.Infof("%s '%s' added to skip list", kind, tempSlice[1])
 

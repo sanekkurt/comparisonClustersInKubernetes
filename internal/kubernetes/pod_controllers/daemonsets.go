@@ -55,6 +55,7 @@ func prepareDaemonSetMaps(obj1, obj2 *v1.DaemonSetList, skipEntities skipper.Ski
 	)
 
 	for index, value := range obj1.Items {
+
 		if skipEntities.IsSkippedEntity(value.Name) {
 			log.Debugf("daemonset %s is skipped from comparison due to its name", value.Name)
 			continue

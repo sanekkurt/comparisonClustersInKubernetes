@@ -54,10 +54,12 @@ func prepareSecretMaps(secrets1, secrets2 *v12.SecretList, skipEntities skipper.
 			log.Debugf("secret %s is skipped from comparison due to its '%s' type", value.Name, value.Type)
 			continue
 		}
+
 		if skipEntities.IsSkippedEntity(value.Name) {
 			log.Debugf("secret %s is skipped from comparison due to its name", value.Name)
 			continue
 		}
+
 		indexCheck.Index = index
 		mapSecrets1[value.Name] = indexCheck
 
@@ -67,14 +69,17 @@ func prepareSecretMaps(secrets1, secrets2 *v12.SecretList, skipEntities skipper.
 			log.Debugf("secret %s is skipped from comparison due to its '%s' type", value.Name, value.Type)
 			continue
 		}
+
 		if skipEntities.IsSkippedEntity(value.Name) {
 			log.Debugf("secret %s is skipped from comparison due to its name", value.Name)
 			continue
 		}
+
 		indexCheck.Index = index
 		mapSecrets2[value.Name] = indexCheck
 
 	}
+
 	return mapSecrets1, mapSecrets2
 }
 
@@ -160,6 +165,7 @@ func compareSecretsSpecs(map1, map2 map[string]types.IsAlreadyComparedFlag, secr
 			flag = true
 		}
 	}
+
 	for name, index := range map2 {
 		if !index.Check {
 
@@ -168,6 +174,7 @@ func compareSecretsSpecs(map1, map2 map[string]types.IsAlreadyComparedFlag, secr
 
 		}
 	}
+
 	return flag
 }
 
