@@ -21,20 +21,58 @@ var (
 	}
 )
 
+func addItemsToSecretList(clientSet kubernetes.Interface, namespace string, limit int64) (*v12.SecretList, error)  {
+	log.Debugf("addItemsToSecretList started")
+	secrets, err := clientSet.CoreV1().Secrets(namespace).List(metav1.ListOptions{Limit: limit})
+	if err != nil {
+		return nil, err
+	}
+	continueToken := secrets.Continue
+
+	log.Debugf("addItemsToSecretList: a cycle of getting objects %d at a time has been started", limit)
+	for continueToken != "" {
+		secretsTest, err := clientSet.CoreV1().Secrets(namespace).List(metav1.ListOptions{Limit: limit, Continue: continueToken})
+		if err != nil {
+			return nil, err
+		}
+
+		continueToken = secretsTest.Continue
+
+		for _, value := range secretsTest.Items {
+			secrets.Items = append(secrets.Items, value)
+		}
+	}
+
+	secrets.Continue = ""
+	log.Debugf("addItemsToSecretList stopped")
+	return secrets, err
+}
+
 // CompareSecrets compares list of secret objects in two given k8s-clusters
 func CompareSecrets(clientSet1, clientSet2 kubernetes.Interface, namespace string, skipEntityList skipper.SkipEntitiesList) (bool, error) {
 	var (
 		isClustersDiffer bool
 	)
-	secrets1, err := clientSet1.CoreV1().Secrets(namespace).List(metav1.ListOptions{})
+
+	secrets1, err := addItemsToSecretList(clientSet1, namespace, 2)
 	if err != nil {
 		return false, fmt.Errorf("cannot obtain secrets list from 1st cluster: %w", err)
 	}
 
-	secrets2, err := clientSet2.CoreV1().Secrets(namespace).List(metav1.ListOptions{})
+	secrets2, err := addItemsToSecretList(clientSet2, namespace, 2)
 	if err != nil {
-		return false, fmt.Errorf("cannot obtain secrets list from 2nd cluster: %w", err)
+		return false, fmt.Errorf("cannot obtain secrets list from 2st cluster: %w", err)
 	}
+
+	//secrets1, err := clientSet1.CoreV1().Secrets(namespace).List(metav1.ListOptions{})
+	//if err != nil {
+	//	return false, fmt.Errorf("cannot obtain secrets list from 1st cluster: %w", err)
+	//}
+	//
+	//secrets2, err := clientSet2.CoreV1().Secrets(namespace).List(metav1.ListOptions{})
+	//if err != nil {
+	//	return false, fmt.Errorf("cannot obtain secrets list from 2nd cluster: %w", err)
+	//}
 
 	mapSecrets1, mapSecrets2 := prepareSecretMaps(secrets1, secrets2, skipEntityList.GetByKind("secrets"))
 
