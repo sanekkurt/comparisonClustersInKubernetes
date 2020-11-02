@@ -21,30 +21,50 @@ var (
 	}
 )
 
-func addItemsToSecretList(clientSet kubernetes.Interface, namespace string, limit int64) (*v12.SecretList, error)  {
-	log.Debugf("addItemsToSecretList started")
-	secrets, err := clientSet.CoreV1().Secrets(namespace).List(metav1.ListOptions{Limit: limit})
-	if err != nil {
-		return nil, err
-	}
-	continueToken := secrets.Continue
+const (
+	objectBatchLimit = 25
+)
 
-	log.Debugf("addItemsToSecretList: a cycle of getting objects %d at a time has been started", limit)
-	for continueToken != "" {
-		secretsTest, err := clientSet.CoreV1().Secrets(namespace).List(metav1.ListOptions{Limit: limit, Continue: continueToken})
+func addItemsToSecretList(clientSet kubernetes.Interface, namespace string, limit int64) (*v12.SecretList, error) {
+	log.Debugf("addItemsToSecretList started")
+
+	var (
+		batch   *v12.SecretList
+		secrets = &v12.SecretList{
+			Items: make([]v12.Secret, 0),
+		}
+
+		continueToken string
+
+		err error
+	)
+
+	for {
+		batch, err = clientSet.CoreV1().Secrets(namespace).List(metav1.ListOptions{
+			Limit: limit, Continue: continueToken,
+		})
 		if err != nil {
 			return nil, err
 		}
 
-		continueToken = secretsTest.Continue
+		log.Debugf("addItemsToSecretList: %d objects received", len(batch.Items))
 
-		for _, value := range secretsTest.Items {
-			secrets.Items = append(secrets.Items, value)
+		secrets.Items = append(secrets.Items, batch.Items...)
+
+		secrets.TypeMeta = batch.TypeMeta
+		secrets.ListMeta = batch.ListMeta
+
+		if batch.Continue == "" {
+			break
 		}
+
+		continueToken = batch.Continue
 	}
 
 	secrets.Continue = ""
-	log.Debugf("addItemsToSecretList stopped")
+
+	log.Debugf("addItemsToSecretList completed")
+
 	return secrets, err
 }
 
@@ -54,12 +74,12 @@ func CompareSecrets(clientSet1, clientSet2 kubernetes.Interface, namespace strin
 		isClustersDiffer bool
 	)
 
-	secrets1, err := addItemsToSecretList(clientSet1, namespace, 2)
+	secrets1, err := addItemsToSecretList(clientSet1, namespace, objectBatchLimit)
 	if err != nil {
 		return false, fmt.Errorf("cannot obtain secrets list from 1st cluster: %w", err)
 	}
 
-	secrets2, err := addItemsToSecretList(clientSet2, namespace, 2)
+	secrets2, err := addItemsToSecretList(clientSet2, namespace, objectBatchLimit)
 	if err != nil {
 		return false, fmt.Errorf("cannot obtain secrets list from 2st cluster: %w", err)
 	}
