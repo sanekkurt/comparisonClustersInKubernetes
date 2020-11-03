@@ -25,34 +25,31 @@ const (
 	objectBatchLimit = 25
 )
 
-func addItemsToSecretList(clientSet kubernetes.Interface, namespace string, limit int64) (*v12.SecretList, error) {
-	log.Debugf("addItemsToSecretList started")
+type metaObjectBatch struct {
+	metav1.TypeMeta
+	metav1.ListMeta
 
+	Items []interface{}
+}
+
+type MetaBatchObjectLoaderFn func(continueToken string) (metaObjectBatch, error)
+
+func metaBatchObjectLoader(f MetaBatchObjectLoaderFn, dst *metaObjectBatch) error {
 	var (
-		batch   *v12.SecretList
-		secrets = &v12.SecretList{
-			Items: make([]v12.Secret, 0),
-		}
-
 		continueToken string
-
-		err error
 	)
 
+	dst.Items = make([]interface{}, 0)
+
 	for {
-		batch, err = clientSet.CoreV1().Secrets(namespace).List(metav1.ListOptions{
-			Limit: limit, Continue: continueToken,
-		})
+		batch, err := f(continueToken)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		log.Debugf("addItemsToSecretList: %d objects received", len(batch.Items))
+		log.Infof("%d items of %T loaded", len(batch.Items), batch.Items[0])
 
-		secrets.Items = append(secrets.Items, batch.Items...)
-
-		secrets.TypeMeta = batch.TypeMeta
-		secrets.ListMeta = batch.ListMeta
+		dst.Items = append(dst.Items, batch.Items...)
 
 		if batch.Continue == "" {
 			break
@@ -61,11 +58,91 @@ func addItemsToSecretList(clientSet kubernetes.Interface, namespace string, limi
 		continueToken = batch.Continue
 	}
 
-	secrets.Continue = ""
+	return nil
+}
 
-	log.Debugf("addItemsToSecretList completed")
+func addItemsToSecretList(clientSet kubernetes.Interface, namespace string, limit int64) (*v12.SecretList, error) {
+	log.Infof("addItemsToSecretList started")
+	defer func() {
+		log.Infof("addItemsToSecretList completed")
+	}()
 
-	return secrets, err
+	data := &metaObjectBatch{}
+
+	err := metaBatchObjectLoader(func() MetaBatchObjectLoaderFn {
+		return func(continueToken string) (metaObjectBatch, error) {
+			var (
+				err      error
+				srcBatch *v12.SecretList
+			)
+
+			srcBatch, err = clientSet.CoreV1().Secrets(namespace).List(metav1.ListOptions{
+				Limit:    limit,
+				Continue: continueToken,
+			})
+			if err != nil {
+				return metaObjectBatch{}, err
+			}
+
+			dstBatch := metaObjectBatch{
+				TypeMeta: srcBatch.TypeMeta,
+				ListMeta: srcBatch.ListMeta,
+
+				Items: make([]interface{}, 0, len(srcBatch.Items)),
+			}
+
+			for _, v := range srcBatch.Items {
+				dstBatch.Items = append(dstBatch.Items, v)
+			}
+
+			return dstBatch, nil
+		}
+	}(), data)
+	if err != nil {
+		return nil, err
+	}
+
+	secrets := &v12.SecretList{
+		TypeMeta: data.TypeMeta,
+		ListMeta: data.ListMeta,
+
+		Items: make([]v12.Secret, 0, len(data.Items)),
+	}
+
+	for _, v := range data.Items {
+		secrets.Items = append(secrets.Items, v.(v12.Secret))
+	}
+
+	return secrets, nil
+	//
+	//for {
+	//	batch, err = clientSet.CoreV1().Secrets(namespace).List(metav1.ListOptions{
+	//		Limit:    limit,
+	//		Continue: continueToken,
+	//	})
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//
+	//	log.Debugf("addItemsToSecretList: %d objects received", len(batch.Items))
+	//
+	//	secrets.Items = append(secrets.Items, batch.Items...)
+	//
+	//	secrets.TypeMeta = batch.TypeMeta
+	//	secrets.ListMeta = batch.ListMeta
+	//
+	//	if batch.Continue == "" {
+	//		break
+	//	}
+	//
+	//	continueToken = batch.Continue
+	//}
+	//
+	//secrets.Continue = ""
+	//
+	//log.Debugf("addItemsToSecretList completed")
+	//
+	//return secrets, err
 }
 
 // CompareSecrets compares list of secret objects in two given k8s-clusters
