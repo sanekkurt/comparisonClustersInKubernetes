@@ -2,7 +2,6 @@ package networking
 
 import (
 	"fmt"
-
 	v1beta12 "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -15,20 +14,63 @@ import (
 	"k8s-cluster-comparator/internal/kubernetes/types"
 )
 
+func addItemsToIngressList(clientSet kubernetes.Interface, namespace string, limit int64) (*v1beta12.IngressList, error) {
+	log.Debugf("addItemsToIngressList started")
+	defer log.Debugf("addItemsToIngressList completed")
+
+	var (
+		batch     *v1beta12.IngressList
+		ingresses = &v1beta12.IngressList{
+			Items: make([]v1beta12.Ingress, 0),
+		}
+
+		continueToken string
+
+		err error
+	)
+
+	for {
+		batch, err = clientSet.NetworkingV1beta1().Ingresses(namespace).List(metav1.ListOptions{
+			Limit:    limit,
+			Continue: continueToken,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		log.Debugf("addItemsToIngressList: %d objects received", len(batch.Items))
+
+		ingresses.Items = append(ingresses.Items, batch.Items...)
+
+		ingresses.TypeMeta = batch.TypeMeta
+		ingresses.ListMeta = batch.ListMeta
+
+		if batch.Continue == "" {
+			break
+		}
+
+		continueToken = batch.Continue
+	}
+
+	ingresses.Continue = ""
+
+	return ingresses, err
+}
+
 // CompareIngresses compares list of ingresses objects in two given k8s-clusters
 func CompareIngresses(clientSet1, clientSet2 kubernetes.Interface, namespace string, skipEntityList skipper.SkipEntitiesList) (bool, error) {
 	var (
 		isClustersDiffer bool
 	)
 
-	ingresses1, err := clientSet1.NetworkingV1beta1().Ingresses(namespace).List(metav1.ListOptions{})
+	ingresses1, err := addItemsToIngressList(clientSet1, namespace, objectBatchLimit)
 	if err != nil {
 		return false, fmt.Errorf("cannot obtain ingresses list from 1st cluster: %w", err)
 	}
 
-	ingresses2, err := clientSet2.NetworkingV1beta1().Ingresses(namespace).List(metav1.ListOptions{})
+	ingresses2, err := addItemsToIngressList(clientSet2, namespace, objectBatchLimit)
 	if err != nil {
-		return false, fmt.Errorf("cannot obtain ingresses list from 2nd cluster: %w", err)
+		return false, fmt.Errorf("cannot obtain ingresses list from 2st cluster: %w", err)
 	}
 
 	mapIngresses1, mapIngresses2 := prepareIngressMaps(ingresses1, ingresses2, skipEntityList.GetByKind("ingresses"))

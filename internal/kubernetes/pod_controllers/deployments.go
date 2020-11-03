@@ -2,7 +2,6 @@ package pod_controllers
 
 import (
 	"fmt"
-
 	v1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -11,22 +10,65 @@ import (
 	"k8s-cluster-comparator/internal/kubernetes/types"
 )
 
+func addItemsToDeploymentList(clientSet kubernetes.Interface, namespace string, limit int64) (*v1.DeploymentList, error) {
+	log.Debugf("addItemsToDeploymentList started")
+	defer log.Debugf("addItemsToDeploymentList completed")
+
+	var (
+		batch       *v1.DeploymentList
+		deployments = &v1.DeploymentList{
+			Items: make([]v1.Deployment, 0),
+		}
+
+		continueToken string
+
+		err error
+	)
+
+	for {
+		batch, err = clientSet.AppsV1().Deployments(namespace).List(metav1.ListOptions{
+			Limit:    limit,
+			Continue: continueToken,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		log.Debugf("addItemsToDeploymentList: %d objects received", len(batch.Items))
+
+		deployments.Items = append(deployments.Items, batch.Items...)
+
+		deployments.TypeMeta = batch.TypeMeta
+		deployments.ListMeta = batch.ListMeta
+
+		if batch.Continue == "" {
+			break
+		}
+
+		continueToken = batch.Continue
+	}
+
+	deployments.Continue = ""
+
+	return deployments, err
+}
+
 func CompareDeployments(clientSet1, clientSet2 kubernetes.Interface, namespace string, skipEntityList skipper.SkipEntitiesList) (bool, error) {
 	var (
 		isClustersDiffer bool
 	)
 
-	depl1, err := clientSet1.AppsV1().Deployments(namespace).List(metav1.ListOptions{})
+	deployments1, err := addItemsToDeploymentList(clientSet1, namespace, objectBatchLimit)
 	if err != nil {
 		return false, fmt.Errorf("cannot obtain deployments list from 1st cluster: %w", err)
 	}
 
-	depl2, err := clientSet2.AppsV1().Deployments(namespace).List(metav1.ListOptions{})
+	deployments2, err := addItemsToDeploymentList(clientSet2, namespace, objectBatchLimit)
 	if err != nil {
-		return false, fmt.Errorf("cannot obtain deployments list from 2nd cluster: %w", err)
+		return false, fmt.Errorf("cannot obtain deployments list from 2st cluster: %w", err)
 	}
 
-	apc1List, deploymentStatuses1, map1, apc2List, deploymentStatuses2, map2 := prepareDeploymentMaps(depl1, depl2, skipEntityList.GetByKind("deployments"))
+	apc1List, deploymentStatuses1, map1, apc2List, deploymentStatuses2, map2 := prepareDeploymentMaps(deployments1, deployments2, skipEntityList.GetByKind("deployments"))
 
 	for _, value := range deploymentStatuses1 {
 		if value.Replicas != value.ReadyReplicas {

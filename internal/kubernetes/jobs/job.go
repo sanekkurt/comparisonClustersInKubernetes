@@ -14,20 +14,67 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+const (
+	objectBatchLimit = 25
+)
+
+func addItemsToJobList(clientSet kubernetes.Interface, namespace string, limit int64) (*v12.JobList, error) {
+	log.Debugf("addItemsToJobList started")
+	defer log.Debugf("addItemsToJobList completed")
+
+	var (
+		batch *v12.JobList
+		jobs  = &v12.JobList{
+			Items: make([]v12.Job, 0),
+		}
+
+		continueToken string
+
+		err error
+	)
+
+	for {
+		batch, err = clientSet.BatchV1().Jobs(namespace).List(metav1.ListOptions{
+			Limit:    limit,
+			Continue: continueToken,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		log.Debugf("addItemsToJobList: %d objects received", len(batch.Items))
+
+		jobs.Items = append(jobs.Items, batch.Items...)
+
+		jobs.TypeMeta = batch.TypeMeta
+		jobs.ListMeta = batch.ListMeta
+
+		if batch.Continue == "" {
+			break
+		}
+
+		continueToken = batch.Continue
+	}
+
+	jobs.Continue = ""
+
+	return jobs, err
+}
+
 // CompareJobs compare jobs in different clusters
 func CompareJobs(clientSet1, clientSet2 kubernetes.Interface, namespace string, skipEntityList skipper.SkipEntitiesList) (bool, error) {
 	var (
 		isClustersDiffer bool
 	)
 
-	jobs1, err := clientSet1.BatchV1().Jobs(namespace).List(metav1.ListOptions{})
+	jobs1, err := addItemsToJobList(clientSet1, namespace, objectBatchLimit)
 	if err != nil {
 		return false, fmt.Errorf("cannot obtain jobs list from 1st cluster: %w", err)
 	}
 
-	jobs2, err := clientSet2.BatchV1().Jobs(namespace).List(metav1.ListOptions{})
+	jobs2, err := addItemsToJobList(clientSet2, namespace, objectBatchLimit)
 	if err != nil {
-		return false, fmt.Errorf("cannot obtain jobs list from 2nd cluster: %w", err)
+		return false, fmt.Errorf("cannot obtain jobs list from 2st cluster: %w", err)
 	}
 
 	mapJobs1, mapJobs2 := prepareJobsMaps(jobs1, jobs2, skipEntityList.GetByKind("jobs"))

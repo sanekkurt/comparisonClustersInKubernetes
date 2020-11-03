@@ -11,18 +11,62 @@ import (
 	"k8s-cluster-comparator/internal/kubernetes/types"
 )
 
+func addItemsToStatefulSetList(clientSet kubernetes.Interface, namespace string, limit int64) (*v1.StatefulSetList, error) {
+	log.Debugf("addItemsToStatefulSetList started")
+	defer log.Debugf("addItemsToStatefulSetList completed")
+
+	var (
+		batch        *v1.StatefulSetList
+		statefulSets = &v1.StatefulSetList{
+			Items: make([]v1.StatefulSet, 0),
+		}
+
+		continueToken string
+
+		err error
+	)
+
+	for {
+		batch, err = clientSet.AppsV1().StatefulSets(namespace).List(metav1.ListOptions{
+			Limit:    limit,
+			Continue: continueToken,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		log.Debugf("addItemsToStatefulSetList: %d objects received", len(batch.Items))
+
+		statefulSets.Items = append(statefulSets.Items, batch.Items...)
+
+		statefulSets.TypeMeta = batch.TypeMeta
+		statefulSets.ListMeta = batch.ListMeta
+
+		if batch.Continue == "" {
+			break
+		}
+
+		continueToken = batch.Continue
+	}
+
+	statefulSets.Continue = ""
+
+	return statefulSets, err
+}
+
 func CompareStateFulSets(clientSet1, clientSet2 kubernetes.Interface, namespace string, skipEntityList skipper.SkipEntitiesList) (bool, error) {
 	var (
 		isClustersDiffer bool
 	)
-	statefulSet1, err := clientSet1.AppsV1().StatefulSets(namespace).List(metav1.ListOptions{})
+
+	statefulSet1, err := addItemsToStatefulSetList(clientSet1, namespace, objectBatchLimit)
 	if err != nil {
 		return false, fmt.Errorf("cannot obtain statefulsets list from 1st cluster: %w", err)
 	}
 
-	statefulSet2, err := clientSet2.AppsV1().StatefulSets(namespace).List(metav1.ListOptions{})
+	statefulSet2, err := addItemsToStatefulSetList(clientSet2, namespace, objectBatchLimit)
 	if err != nil {
-		return false, fmt.Errorf("cannot obtain statefulsets list from 2nd cluster: %w", err)
+		return false, fmt.Errorf("cannot obtain statefulsets list from 2st cluster: %w", err)
 	}
 
 	apc1List, map1, apc2List, map2 := prepareStatefulSetMaps(statefulSet1, statefulSet2, skipEntityList.GetByKind("statefulsets"))

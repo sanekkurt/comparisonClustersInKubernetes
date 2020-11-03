@@ -13,19 +13,63 @@ import (
 	"k8s-cluster-comparator/internal/kubernetes/types"
 )
 
+func addItemsToConfigMapList(clientSet kubernetes.Interface, namespace string, limit int64) (*v12.ConfigMapList, error) {
+	log.Debugf("addItemsToConfigMapList started")
+	defer log.Debugf("addItemsToConfigMapList completed")
+
+	var (
+		batch      *v12.ConfigMapList
+		configMaps = &v12.ConfigMapList{
+			Items: make([]v12.ConfigMap, 0),
+		}
+
+		continueToken string
+
+		err error
+	)
+
+	for {
+		batch, err = clientSet.CoreV1().ConfigMaps(namespace).List(metav1.ListOptions{
+			Limit:    limit,
+			Continue: continueToken,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		log.Debugf("addItemsToConfigMapList: %d objects received", len(batch.Items))
+
+		configMaps.Items = append(configMaps.Items, batch.Items...)
+
+		configMaps.TypeMeta = batch.TypeMeta
+		configMaps.ListMeta = batch.ListMeta
+
+		if batch.Continue == "" {
+			break
+		}
+
+		continueToken = batch.Continue
+	}
+
+	configMaps.Continue = ""
+
+	return configMaps, err
+}
+
 // CompareConfigMaps compares list of configmap objects in two given k8s-clusters
 func CompareConfigMaps(clientSet1, clientSet2 kubernetes.Interface, namespace string, skipEntityList skipper.SkipEntitiesList) (bool, error) {
 	var (
 		isClustersDiffer bool
 	)
-	configMaps1, err := clientSet1.CoreV1().ConfigMaps(namespace).List(metav1.ListOptions{})
+
+	configMaps1, err := addItemsToConfigMapList(clientSet1, namespace, objectBatchLimit)
 	if err != nil {
 		return false, fmt.Errorf("cannot obtain configmaps list from 1st cluster: %w", err)
 	}
 
-	configMaps2, err := clientSet2.CoreV1().ConfigMaps(namespace).List(metav1.ListOptions{})
+	configMaps2, err := addItemsToConfigMapList(clientSet2, namespace, objectBatchLimit)
 	if err != nil {
-		return false, fmt.Errorf("cannot obtain configmaps list from 2nd cluster: %w", err)
+		return false, fmt.Errorf("cannot obtain configmaps list from 2st cluster: %w", err)
 	}
 
 	mapConfigMaps1, mapConfigMaps2 := prepareConfigMapMaps(configMaps1, configMaps2, skipEntityList.GetByKind("configmaps"))

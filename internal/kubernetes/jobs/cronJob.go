@@ -12,19 +12,62 @@ import (
 	"sync"
 )
 
+func addItemsToCronJobList(clientSet kubernetes.Interface, namespace string, limit int64) (*v1beta1.CronJobList, error) {
+	log.Debugf("addItemsToCronJobList started")
+	defer log.Debugf("addItemsToCronJobList completed")
+
+	var (
+		batch    *v1beta1.CronJobList
+		cronJobs = &v1beta1.CronJobList{
+			Items: make([]v1beta1.CronJob, 0),
+		}
+
+		continueToken string
+
+		err error
+	)
+
+	for {
+		batch, err = clientSet.BatchV1beta1().CronJobs(namespace).List(metav1.ListOptions{
+			Limit:    limit,
+			Continue: continueToken,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		log.Debugf("addItemsToCronJobList: %d objects received", len(batch.Items))
+
+		cronJobs.Items = append(cronJobs.Items, batch.Items...)
+
+		cronJobs.TypeMeta = batch.TypeMeta
+		cronJobs.ListMeta = batch.ListMeta
+
+		if batch.Continue == "" {
+			break
+		}
+
+		continueToken = batch.Continue
+	}
+
+	cronJobs.Continue = ""
+
+	return cronJobs, err
+}
+
 func CompareCronJobs(clientSet1, clientSet2 kubernetes.Interface, namespace string, skipEntityList skipper.SkipEntitiesList) (bool, error) {
 	var (
 		isClustersDiffer bool
 	)
 
-	cronJobs1, err := clientSet1.BatchV1beta1().CronJobs(namespace).List(metav1.ListOptions{})
+	cronJobs1, err := addItemsToCronJobList(clientSet1, namespace, objectBatchLimit)
 	if err != nil {
-		return false, fmt.Errorf("cannot obtain jobs list from 1st cluster: %w", err)
+		return false, fmt.Errorf("cannot obtain cronJobs list from 1st cluster: %w", err)
 	}
 
-	cronJobs2, err := clientSet2.BatchV1beta1().CronJobs(namespace).List(metav1.ListOptions{})
+	cronJobs2, err := addItemsToCronJobList(clientSet2, namespace, objectBatchLimit)
 	if err != nil {
-		return false, fmt.Errorf("cannot obtain jobs list from 2nd cluster: %w", err)
+		return false, fmt.Errorf("cannot obtain cronJobs list from 2st cluster: %w", err)
 	}
 
 	mapJobs1, mapJobs2 := prepareCronJobsMaps(cronJobs1, cronJobs2, skipEntityList.GetByKind("cronJobs"))

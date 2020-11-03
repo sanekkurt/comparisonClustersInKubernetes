@@ -15,20 +15,67 @@ import (
 	"k8s-cluster-comparator/internal/kubernetes/types"
 )
 
+const (
+	objectBatchLimit = 25
+)
+
+func addItemsToServiceList(clientSet kubernetes.Interface, namespace string, limit int64) (*v12.ServiceList, error) {
+	log.Debugf("addItemsToServiceList started")
+	defer log.Debugf("addItemsToServiceList completed")
+
+	var (
+		batch    *v12.ServiceList
+		services = &v12.ServiceList{
+			Items: make([]v12.Service, 0),
+		}
+
+		continueToken string
+
+		err error
+	)
+
+	for {
+		batch, err = clientSet.CoreV1().Services(namespace).List(metav1.ListOptions{
+			Limit:    limit,
+			Continue: continueToken,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		log.Debugf("addItemsToServiceList: %d objects received", len(batch.Items))
+
+		services.Items = append(services.Items, batch.Items...)
+
+		services.TypeMeta = batch.TypeMeta
+		services.ListMeta = batch.ListMeta
+
+		if batch.Continue == "" {
+			break
+		}
+
+		continueToken = batch.Continue
+	}
+
+	services.Continue = ""
+
+	return services, err
+}
+
 // CompareServices compares list of services objects in two given k8s-clusters
 func CompareServices(clientSet1, clientSet2 kubernetes.Interface, namespace string, skipEntityList skipper.SkipEntitiesList) (bool, error) {
 	var (
 		isClustersDiffer bool
 	)
 
-	services1, err := clientSet1.CoreV1().Services(namespace).List(metav1.ListOptions{})
+	services1, err := addItemsToServiceList(clientSet1, namespace, objectBatchLimit)
 	if err != nil {
 		return false, fmt.Errorf("cannot obtain services list from 1st cluster: %w", err)
 	}
 
-	services2, err := clientSet2.CoreV1().Services(namespace).List(metav1.ListOptions{})
+	services2, err := addItemsToServiceList(clientSet2, namespace, objectBatchLimit)
 	if err != nil {
-		return false, fmt.Errorf("cannot obtain services list from 2nd cluster: %w", err)
+		return false, fmt.Errorf("cannot obtain services list from 2st cluster: %w", err)
 	}
 
 	mapServices1, mapServices2 := prepareServiceMaps(services1, services2, skipEntityList.GetByKind("secrets"))
