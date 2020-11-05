@@ -15,7 +15,7 @@ import (
 
 // CompareContainers main function for compare containers
 func CompareContainers(deploymentSpec1, deploymentSpec2 types.InformationAboutObject, namespace string, simplifiedVerification, switchFatalDifferentTag bool, clientSet1, clientSet2 kubernetes.Interface) error {
-	log.Debug("CompareContainers: start checking containers")
+	log.Debug("CompareContainers: start checking containers. Names template: %s, %s", deploymentSpec1.Template.Name, deploymentSpec2.Template.Name)
 
 	var (
 		containersDeploymentTemplate1 = deploymentSpec1.Template.Spec.Containers
@@ -48,57 +48,57 @@ func CompareContainers(deploymentSpec1, deploymentSpec2 types.InformationAboutOb
 	for podTemplate1ContainerIdx := 0; podTemplate1ContainerIdx < len(containersDeploymentTemplate1); podTemplate1ContainerIdx++ {
 
 		if containersDeploymentTemplate1[podTemplate1ContainerIdx].Name != containersDeploymentTemplate2[podTemplate1ContainerIdx].Name {
-			return ErrorContainerNamesTemplate
+			return fmt.Errorf("%w. Name container 1: %s. Name container 2: %s", ErrorContainerNamesTemplate, containersDeploymentTemplate1[podTemplate1ContainerIdx].Name, containersDeploymentTemplate2[podTemplate1ContainerIdx].Name)
 		}
 
 		if containersDeploymentTemplate1[podTemplate1ContainerIdx].Image != containersDeploymentTemplate2[podTemplate1ContainerIdx].Image {
-			return ErrorContainerImagesTemplate
+			return fmt.Errorf("%w. Container name: %s. The resulting image names: %s, %s ", ErrorContainerImagesTemplate, containersDeploymentTemplate1[podTemplate1ContainerIdx].Name, containersDeploymentTemplate1[podTemplate1ContainerIdx].Image, containersDeploymentTemplate2[podTemplate1ContainerIdx].Image)
 		}
 
-		if err := CompareEnvInContainers(containersDeploymentTemplate1[podTemplate1ContainerIdx].Env, containersDeploymentTemplate2[podTemplate1ContainerIdx].Env, namespace, simplifiedVerification, clientSet1, clientSet2); err != nil {
+		if err := CompareEnvInContainers(containersDeploymentTemplate1[podTemplate1ContainerIdx].Env, containersDeploymentTemplate2[podTemplate1ContainerIdx].Env, namespace, containersDeploymentTemplate1[podTemplate1ContainerIdx].Name, simplifiedVerification, clientSet1, clientSet2); err != nil {
 			return err
 		}
 
-		log.Debug("CompareContainers: start checking commands in containers")
+		log.Debug("CompareContainers: start checking commands in container - %s", containersDeploymentTemplate1[podTemplate1ContainerIdx].Name)
 		if err := CompareMassStringsInContainers(containersDeploymentTemplate1[podTemplate1ContainerIdx].Command, containersDeploymentTemplate2[podTemplate1ContainerIdx].Command); err != nil {
 			return fmt.Errorf("%w. Name container: %s. %s", ErrorContainerCommandsDifferent, containersDeploymentTemplate1[podTemplate1ContainerIdx].Name, err)
 		}
 
-		log.Debug("CompareContainers: start checking args in containers")
+		log.Debug("CompareContainers: start checking args in container - %s", containersDeploymentTemplate1[podTemplate1ContainerIdx].Name)
 		if err := CompareMassStringsInContainers(containersDeploymentTemplate1[podTemplate1ContainerIdx].Args, containersDeploymentTemplate2[podTemplate1ContainerIdx].Args); err != nil {
 			return fmt.Errorf("%w. Name container: %s. %s", ErrorContainerArgumentsDifferent, containersDeploymentTemplate1[podTemplate1ContainerIdx].Name, err)
 		}
 
 		if containersDeploymentTemplate1[podTemplate1ContainerIdx].LivenessProbe != nil && containersDeploymentTemplate2[podTemplate1ContainerIdx].LivenessProbe != nil {
 
-			log.Debug("CompareContainers: start checking LivenessProbe in containers")
+			log.Debug("CompareContainers: start checking LivenessProbe in container - %s", containersDeploymentTemplate1[podTemplate1ContainerIdx].Name)
 			if err := CompareProbeInContainers(*containersDeploymentTemplate1[podTemplate1ContainerIdx].LivenessProbe, *containersDeploymentTemplate1[podTemplate1ContainerIdx].LivenessProbe, containersDeploymentTemplate1[podTemplate1ContainerIdx].Name, ErrorContainerLivenessProbeDifferent); err != nil {
 				return err
 			}
 
 		} else if containersDeploymentTemplate1[podTemplate1ContainerIdx].LivenessProbe != nil || containersDeploymentTemplate2[podTemplate1ContainerIdx].LivenessProbe != nil {
 
-			log.Debug("CompareContainers: start checking LivenessProbe in containers")
+			log.Debug("CompareContainers: start checking LivenessProbe in container - %s", containersDeploymentTemplate1[podTemplate1ContainerIdx].Name)
 			return fmt.Errorf("%w. Name container: %s. One of the containers is missing Liveness probe", ErrorContainerLivenessProbeDifferent, containersDeploymentTemplate1[podTemplate1ContainerIdx].Name)
 
 		} else {
-			log.Debug("CompareContainers: start checking LivenessProbe in containers but unfortunately they are equal to nil")
+			log.Debug("CompareContainers: start checking LivenessProbe in container - %s, but unfortunately they are equal to nil", containersDeploymentTemplate1[podTemplate1ContainerIdx].Name)
 		}
 
 		if containersDeploymentTemplate1[podTemplate1ContainerIdx].ReadinessProbe != nil && containersDeploymentTemplate2[podTemplate1ContainerIdx].ReadinessProbe != nil {
 
-			log.Debug("CompareContainers: start checking ReadinessProbe in containers")
+			log.Debug("CompareContainers: start checking ReadinessProbe in container - %s", containersDeploymentTemplate1[podTemplate1ContainerIdx].Name)
 			if err := CompareProbeInContainers(*containersDeploymentTemplate1[podTemplate1ContainerIdx].ReadinessProbe, *containersDeploymentTemplate1[podTemplate1ContainerIdx].ReadinessProbe, containersDeploymentTemplate1[podTemplate1ContainerIdx].Name, ErrorContainerReadinessProbeDifferent); err != nil {
 				return err
 			}
 
 		} else if containersDeploymentTemplate1[podTemplate1ContainerIdx].ReadinessProbe != nil || containersDeploymentTemplate2[podTemplate1ContainerIdx].ReadinessProbe != nil {
 
-			log.Debug("CompareContainers: start checking ReadinessProbe in containers")
+			log.Debug("CompareContainers: start checking ReadinessProbe in container - %s", containersDeploymentTemplate1[podTemplate1ContainerIdx].Name)
 			return fmt.Errorf("%w. Name container: %s. One of the containers is missing Readiness probe", ErrorContainerReadinessProbeDifferent, containersDeploymentTemplate1[podTemplate1ContainerIdx].Name)
 
 		} else {
-			log.Debug("CompareContainers: start checking ReadinessProbe in containers but unfortunately they are equal to nil")
+			log.Debug("CompareContainers: start checking ReadinessProbe in container - %s, but unfortunately they are equal to nil", containersDeploymentTemplate1[podTemplate1ContainerIdx].Name)
 		}
 
 		if !simplifiedVerification {
@@ -106,7 +106,6 @@ func CompareContainers(deploymentSpec1, deploymentSpec2 types.InformationAboutOb
 			if len(pods1.Items) != len(pods2.Items) {
 				return ErrorPodsCount
 			}
-
 			for controlledPod1Idx := range pods1.Items {
 				var (
 					flag                       int
@@ -115,25 +114,23 @@ func CompareContainers(deploymentSpec1, deploymentSpec2 types.InformationAboutOb
 
 					containersStatusesInPod1 = GetContainerStatusesInPod(pods1.Items[controlledPod1Idx].Status.ContainerStatuses)
 					containersStatusesInPod2 = GetContainerStatusesInPod(pods2.Items[controlledPod1Idx].Status.ContainerStatuses)
-
 					containersDeploymentTemplateSplitLabel = strings.Split(containersDeploymentTemplate1[podTemplate1ContainerIdx].Image, ":")
 				)
 
 				if strings.Contains(containersDeploymentTemplate1[podTemplate1ContainerIdx].Image, "/") {
-					log.Debug("CompareContainers: image in template has absolute path. image: %s", containersDeploymentTemplate1[podTemplate1ContainerIdx].Image)
+					log.Debug("CompareContainers: image in template - %s has absolute path. image: %s", containersDeploymentTemplate1[podTemplate1ContainerIdx].Name, containersDeploymentTemplate1[podTemplate1ContainerIdx].Image)
 					templateHasAbsolutePath = true
 				} else {
-					log.Debug("CompareContainers: image in template doesn't have an absolute path. image: %s", containersDeploymentTemplate1[podTemplate1ContainerIdx].Image)
+					log.Debug("CompareContainers: image in template - %s doesn't have an absolute path. image: %s", containersDeploymentTemplate1[podTemplate1ContainerIdx].Name, containersDeploymentTemplate1[podTemplate1ContainerIdx].Image)
 				}
 
 				if len(containersStatusesInPod1) != len(containersStatusesInPod2) {
-					log.Debug("CompareContainers: ErrorContainersCountInPod. Count in pod 1 - %d, count in pod 2 - %d", len(containersStatusesInPod1), len(containersStatusesInPod2))
+					log.Debug("CompareContainers: ErrorContainersCountInPod. Pod 1 name - %s, pod 2 name - %s. Count in pod 1 - %d, count in pod 2 - %d", pods1.Items[controlledPod1Idx].Name, pods2.Items[controlledPod1Idx].Name,len(containersStatusesInPod1), len(containersStatusesInPod2))
 					return ErrorContainersCountInPod
 				}
 
 				for controlledPod1ContainerStatusIdx := range containersStatusesInPod1 {
 					if containersDeploymentTemplate1[podTemplate1ContainerIdx].Name == containersStatusesInPod1[controlledPod1ContainerStatusIdx].Name && containersDeploymentTemplate1[podTemplate1ContainerIdx].Name == containersStatusesInPod2[controlledPod1ContainerStatusIdx].Name { //nolint:gocritic,unused
-
 						flag++
 
 						var containersStatusesInPod1SplitLabel []string
@@ -171,11 +168,10 @@ func CompareContainers(deploymentSpec1, deploymentSpec2 types.InformationAboutOb
 						if len(containersDeploymentTemplateSplitLabel) > 1 {
 							if containersDeploymentTemplateSplitLabel[1] != containersStatusesInPod1SplitLabel[1] || containersDeploymentTemplateSplitLabel[1] != containersStatusesInPod2SplitLabel[1] {
 
-								log.Infof("the container image tag in the template does not match the actual image tag in the pod: template image tag - %s, pod1 image tag - %s, pod2 image tag - %s", containersDeploymentTemplateSplitLabel[1], containersStatusesInPod1SplitLabel[1], containersStatusesInPod2SplitLabel[1])
+								log.Infof("Container name - %s. the container image tag in the template does not match the actual image tag in the pod: template image tag - %s, pod1 image tag - %s, pod2 image tag - %s", containersDeploymentTemplate1[podTemplate1ContainerIdx].Name, containersDeploymentTemplateSplitLabel[1], containersStatusesInPod1SplitLabel[1], containersStatusesInPod2SplitLabel[1])
 
 								if switchFatalDifferentTag {
-
-									log.Debug("CompareContainers: the container image tag in the template does not match the actual image tag in the pod: template image tag - %s, pod1 image tag - %s, pod2 image tag - %s", containersDeploymentTemplateSplitLabel[1], containersStatusesInPod1SplitLabel[1], containersStatusesInPod2SplitLabel[1])
+									log.Debug("CompareContainers: Container name - %s. the container image tag in the template does not match the actual image tag in the pod: template image tag - %s, pod1 image tag - %s, pod2 image tag - %s", containersDeploymentTemplate1[podTemplate1ContainerIdx].Name, containersDeploymentTemplateSplitLabel[1], containersStatusesInPod1SplitLabel[1], containersStatusesInPod2SplitLabel[1])
 									return ErrorContainerImageTagTemplatePod
 
 								}
@@ -229,9 +225,9 @@ func GetContainerStatusesInPod(containerStatuses []v12.ContainerStatus) map[int]
 }
 
 // CompareEnvInContainers compare environment in containers
-func CompareEnvInContainers(env1, env2 []v12.EnvVar, namespace string, simplifiedVerification bool, clientSet1, clientSet2 kubernetes.Interface) error {
+func CompareEnvInContainers(env1, env2 []v12.EnvVar, namespace, containerName string, simplifiedVerification bool, clientSet1, clientSet2 kubernetes.Interface) error {
 
-	log.Debug("Start compare environments in containers")
+	log.Debug("Start compare environments in container. Container name: %s", containerName)
 
 	if len(env1) != len(env2) {
 		return ErrorNumberVariables
@@ -252,19 +248,19 @@ func CompareEnvInContainers(env1, env2 []v12.EnvVar, namespace string, simplifie
 					}
 
 					// logic check on configMapKey
-					log.Debug("compare environments: get configMap1")
+					log.Debug("compare environments in container %s: get configMap1", containerName)
 					configMap1, err := clientSet1.CoreV1().ConfigMaps(namespace).Get(env1[pod1EnvIdx].ValueFrom.ConfigMapKeyRef.Name, metav1.GetOptions{})
 					if err != nil {
 						panic(err.Error())
 					}
 
-					log.Debug("compare environments: get configMap2")
+					log.Debug("compare environments in container %s: get configMap2", containerName)
 					configMap2, err := clientSet2.CoreV1().ConfigMaps(namespace).Get(env2[pod1EnvIdx].ValueFrom.ConfigMapKeyRef.Name, metav1.GetOptions{})
 					if err != nil {
 						panic(err.Error())
 					}
 
-					log.Debug("compare environments: check env in config map")
+					log.Debug("compare environments in container %s: check env in config map %s", containerName, configMap1.Name)
 					if configMap1.Data[env1[pod1EnvIdx].ValueFrom.ConfigMapKeyRef.Key] != configMap2.Data[env2[pod1EnvIdx].ValueFrom.ConfigMapKeyRef.Key] {
 						return fmt.Errorf("%w. Environment in container 1: ConfigMapKeyRef.Key = %s, value = %s. Environment in container 2: ConfigMapKeyRef.Key = %s, value = %s", ErrorDifferentValueConfigMapKey, env1[pod1EnvIdx].ValueFrom.ConfigMapKeyRef.Key, configMap1.Data[env1[pod1EnvIdx].ValueFrom.ConfigMapKeyRef.Key], env2[pod1EnvIdx].ValueFrom.ConfigMapKeyRef.Key, configMap2.Data[env2[pod1EnvIdx].ValueFrom.ConfigMapKeyRef.Key])
 					}
@@ -276,19 +272,19 @@ func CompareEnvInContainers(env1, env2 []v12.EnvVar, namespace string, simplifie
 					}
 
 					// logic check on secretKey
-					log.Debug("compare environments: get secrets1")
+					log.Debug("compare environments in container %s: get secrets1", containerName)
 					secret1, err := clientSet1.CoreV1().Secrets(namespace).Get(env1[pod1EnvIdx].ValueFrom.SecretKeyRef.Name, metav1.GetOptions{})
 					if err != nil {
 						panic(err.Error())
 					}
 
-					log.Debug("compare environments: get secrets2")
+					log.Debug("compare environments in container %s: get secrets2", containerName)
 					secret2, err := clientSet2.CoreV1().Secrets(namespace).Get(env2[pod1EnvIdx].ValueFrom.SecretKeyRef.Name, metav1.GetOptions{})
 					if err != nil {
 						panic(err.Error())
 					}
 
-					log.Debug("compare environments: check env in secret")
+					log.Debug("compare environments in container %s: check env in secret %s", containerName, secret1.Name)
 					if string(secret1.Data[env1[pod1EnvIdx].ValueFrom.SecretKeyRef.Key]) != string(secret2.Data[env2[pod1EnvIdx].ValueFrom.SecretKeyRef.Key]) {
 						return fmt.Errorf("%w. Environment in container 1: SecretKeyRef.Key = %s, value = %s. Environment in container 2: SecretKeyRef.Key = %s, value = %s", ErrorDifferentValueSecretKey, env1[pod1EnvIdx].ValueFrom.SecretKeyRef.Key, string(secret1.Data[env1[pod1EnvIdx].ValueFrom.SecretKeyRef.Key]), env2[pod1EnvIdx].ValueFrom.SecretKeyRef.Key, string(secret2.Data[env2[pod1EnvIdx].ValueFrom.SecretKeyRef.Key]))
 					}
