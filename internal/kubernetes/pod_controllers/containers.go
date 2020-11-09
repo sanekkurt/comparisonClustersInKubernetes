@@ -59,12 +59,12 @@ func CompareContainers(deploymentSpec1, deploymentSpec2 types.InformationAboutOb
 			return err
 		}
 
-		log.Debug("CompareContainers: start checking commands in container - %s", containersDeploymentTemplate1[podTemplate1ContainerIdx].Name)
+		log.Debugf("CompareContainers: start checking commands in container - %s", containersDeploymentTemplate1[podTemplate1ContainerIdx].Name)
 		if err := CompareMassStringsInContainers(containersDeploymentTemplate1[podTemplate1ContainerIdx].Command, containersDeploymentTemplate2[podTemplate1ContainerIdx].Command); err != nil {
 			return fmt.Errorf("%w. Name container: %s. %s", ErrorContainerCommandsDifferent, containersDeploymentTemplate1[podTemplate1ContainerIdx].Name, err)
 		}
 
-		log.Debug("CompareContainers: start checking args in container - %s", containersDeploymentTemplate1[podTemplate1ContainerIdx].Name)
+		log.Debugf("CompareContainers: start checking args in container - %s", containersDeploymentTemplate1[podTemplate1ContainerIdx].Name)
 		if err := CompareMassStringsInContainers(containersDeploymentTemplate1[podTemplate1ContainerIdx].Args, containersDeploymentTemplate2[podTemplate1ContainerIdx].Args); err != nil {
 			return fmt.Errorf("%w. Name container: %s. %s", ErrorContainerArgumentsDifferent, containersDeploymentTemplate1[podTemplate1ContainerIdx].Name, err)
 		}
