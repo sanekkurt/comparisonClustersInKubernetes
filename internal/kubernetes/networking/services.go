@@ -1,25 +1,30 @@
 package networking
 
 import (
+	"context"
 	"fmt"
 
+	"go.uber.org/zap"
 	v12 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
 	"sync"
 
-	"k8s-cluster-comparator/internal/kubernetes/common"
-	"k8s-cluster-comparator/internal/kubernetes/kv_maps"
+	"k8s-cluster-comparator/internal/config"
+	"k8s-cluster-comparator/internal/kubernetes/metadata"
 	"k8s-cluster-comparator/internal/kubernetes/skipper"
 	"k8s-cluster-comparator/internal/kubernetes/types"
+	"k8s-cluster-comparator/internal/logging"
 )
 
 const (
 	objectBatchLimit = 25
 )
 
-func addItemsToServiceList(clientSet kubernetes.Interface, namespace string, limit int64) (*v12.ServiceList, error) {
+func addItemsToServiceList(ctx context.Context, clientSet kubernetes.Interface, namespace string, limit int64) (*v12.ServiceList, error) {
+	log := logging.FromContext(ctx)
+
 	log.Debugf("addItemsToServiceList started")
 	defer log.Debugf("addItemsToServiceList completed")
 
@@ -63,30 +68,37 @@ func addItemsToServiceList(clientSet kubernetes.Interface, namespace string, lim
 }
 
 // CompareServices compares list of services objects in two given k8s-clusters
-func CompareServices(clientSet1, clientSet2 kubernetes.Interface, namespace string, skipEntityList skipper.SkipEntitiesList) (bool, error) {
+func CompareServices(ctx context.Context, skipEntityList skipper.SkipEntitiesList) (bool, error) {
 	var (
+		log = logging.FromContext(ctx).With(zap.String("kind", "service"))
+
+		clientSet1, clientSet2, namespace = config.FromContext(ctx)
+
 		isClustersDiffer bool
 	)
+	ctx = logging.WithLogger(ctx, log)
 
-	services1, err := addItemsToServiceList(clientSet1, namespace, objectBatchLimit)
+	services1, err := addItemsToServiceList(ctx, clientSet1, namespace, objectBatchLimit)
 	if err != nil {
 		return false, fmt.Errorf("cannot obtain services list from 1st cluster: %w", err)
 	}
 
-	services2, err := addItemsToServiceList(clientSet2, namespace, objectBatchLimit)
+	services2, err := addItemsToServiceList(ctx, clientSet2, namespace, objectBatchLimit)
 	if err != nil {
 		return false, fmt.Errorf("cannot obtain services list from 2st cluster: %w", err)
 	}
 
-	mapServices1, mapServices2 := prepareServiceMaps(services1, services2, skipEntityList.GetByKind("secrets"))
+	mapServices1, mapServices2 := prepareServiceMaps(ctx, services1, services2, skipEntityList.GetByKind("secrets"))
 
-	isClustersDiffer = compareServicesSpecs(mapServices1, mapServices2, services1, services2)
+	isClustersDiffer = compareServicesSpecs(ctx, mapServices1, mapServices2, services1, services2)
 
 	return isClustersDiffer, nil
 }
 
 // prepareServiceMaps add value secrets in map
-func prepareServiceMaps(services1, services2 *v12.ServiceList, skipEntities skipper.SkipComponentNames) (map[string]types.IsAlreadyComparedFlag, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
+func prepareServiceMaps(ctx context.Context, services1, services2 *v12.ServiceList, skipEntities skipper.SkipComponentNames) (map[string]types.IsAlreadyComparedFlag, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
+	log := logging.FromContext(ctx)
+
 	mapServices1 := make(map[string]types.IsAlreadyComparedFlag)
 	mapServices2 := make(map[string]types.IsAlreadyComparedFlag)
 	var indexCheck types.IsAlreadyComparedFlag
@@ -115,29 +127,25 @@ func prepareServiceMaps(services1, services2 *v12.ServiceList, skipEntities skip
 	return mapServices1, mapServices2
 }
 
-func compareServiceSpecInternals(wg *sync.WaitGroup, channel chan bool, name string, svc1, svc2 *v12.Service) {
+func compareServiceSpecInternals(ctx context.Context, wg *sync.WaitGroup, channel chan bool, name string, svc1, svc2 *v12.Service) {
 	var (
+		log  = logging.FromContext(ctx).With(zap.String("objectName", name))
 		flag bool
 	)
+	ctx = logging.WithLogger(ctx, log)
+
 	defer func() {
 		wg.Done()
 	}()
 
 	log.Debugf("----- Start checking service: '%s' -----", name)
 
-	if !kv_maps.AreKVMapsEqual(svc1.ObjectMeta.Labels, svc2.ObjectMeta.Labels, common.SkippedKubeLabels) {
-		log.Infof("metadata of ingress '%s' differs: different labels", svc1.Name)
+	if !metadata.IsMetadataDiffers(ctx, svc1.ObjectMeta, svc2.ObjectMeta) {
 		channel <- true
 		return
 	}
 
-	if !kv_maps.AreKVMapsEqual(svc1.ObjectMeta.Labels, svc2.ObjectMeta.Labels, nil) {
-		log.Infof("metadata of ingress '%s' differs: different annotations", svc1.Name)
-		channel <- true
-		return
-	}
-
-	err := compareSpecInServices(*svc1, *svc2)
+	err := compareSpecInServices(ctx, *svc1, *svc2)
 	if err != nil {
 		log.Infof("Service %s: %s", name, err.Error())
 		flag = true
@@ -148,13 +156,15 @@ func compareServiceSpecInternals(wg *sync.WaitGroup, channel chan bool, name str
 }
 
 // compareServicesSpecs set information about services
-func compareServicesSpecs(map1, map2 map[string]types.IsAlreadyComparedFlag, services1, services2 *v12.ServiceList) bool {
+func compareServicesSpecs(ctx context.Context, map1, map2 map[string]types.IsAlreadyComparedFlag, services1, services2 *v12.ServiceList) bool {
 	var (
+		log = logging.FromContext(ctx)
+
 		flag bool
 	)
 
 	if len(map1) != len(map2) {
-		log.Infof("service counts are different")
+		log.Warnw("object counts are different", zap.Int("objectsCount1st", len(map1)), zap.Int("objectsCount2nd", len(map2)))
 		flag = true
 	}
 
@@ -170,7 +180,7 @@ func compareServicesSpecs(map1, map2 map[string]types.IsAlreadyComparedFlag, ser
 			index2.Check = true
 			map2[name] = index2
 
-			go compareServiceSpecInternals(wg, channel, name, &services1.Items[index1.Index], &services2.Items[index2.Index])
+			go compareServiceSpecInternals(ctx, wg, channel, name, &services1.Items[index1.Index], &services2.Items[index2.Index])
 
 		} else {
 			log.Infof("service '%s' does not exist in 2nd cluster", name)
@@ -202,7 +212,7 @@ func compareServicesSpecs(map1, map2 map[string]types.IsAlreadyComparedFlag, ser
 }
 
 // compareSpecInServices compares spec in services
-func compareSpecInServices(service1, service2 v12.Service) error {
+func compareSpecInServices(ctx context.Context, service1, service2 v12.Service) error {
 	if len(service1.Spec.Ports) != len(service2.Spec.Ports) {
 		return fmt.Errorf("%w. Name service: '%s'. In first service - %d ports, in second service - '%d' ports", ErrorPortsCountDifferent, service1.Name, len(service1.Spec.Ports), len(service2.Spec.Ports))
 	}

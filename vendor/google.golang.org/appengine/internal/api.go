@@ -341,7 +341,7 @@ func RegisterTestRequest(req *http.Request, apiURL *url.URL, decorate func(netco
 
 var errTimeout = &CallError{
 	Detail:  "Deadline exceeded",
-	Code:    int32(remotepb.RpcError_CANCELLED),
+	Code:    int32(remotepb.RpcError_Canceled),
 	Timeout: true,
 }
 
@@ -524,7 +524,7 @@ func Call(ctx netcontext.Context, service, method string, in, out proto.Message)
 			Code:   *res.RpcError.Code,
 		}
 		switch remotepb.RpcError_ErrorCode(ce.Code) {
-		case remotepb.RpcError_CANCELLED, remotepb.RpcError_DEADLINE_EXCEEDED:
+		case remotepb.RpcError_Canceled, remotepb.RpcError_DEADLINE_EXCEEDED:
 			ce.Timeout = true
 		}
 		return ce

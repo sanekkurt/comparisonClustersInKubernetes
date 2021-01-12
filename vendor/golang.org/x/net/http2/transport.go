@@ -782,7 +782,7 @@ func (cc *ClientConn) Shutdown(ctx context.Context) error {
 	}
 	// Wait for all in-flight streams to complete or connection to close
 	done := make(chan error, 1)
-	cancelled := false // guarded by cc.mu
+	Canceled := false // guarded by cc.mu
 	go func() {
 		cc.mu.Lock()
 		defer cc.mu.Unlock()
@@ -792,7 +792,7 @@ func (cc *ClientConn) Shutdown(ctx context.Context) error {
 				done <- cc.tconn.Close()
 				break
 			}
-			if cancelled {
+			if Canceled {
 				break
 			}
 			cc.cond.Wait()
@@ -805,7 +805,7 @@ func (cc *ClientConn) Shutdown(ctx context.Context) error {
 	case <-ctx.Done():
 		cc.mu.Lock()
 		// Free the goroutine above
-		cancelled = true
+		Canceled = true
 		cc.cond.Broadcast()
 		cc.mu.Unlock()
 		return ctx.Err()

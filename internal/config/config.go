@@ -79,8 +79,10 @@ func Parse(ctx context.Context) (*AppConfig, error) {
 		appConfig.Namespaces = opts.NameSpaces
 	}
 
+	log.Infof("Analyzing objects in %s namespace(s)", appConfig.Namespaces)
+
 	if opts.Skip != "" {
-		log.Debug("Filling the skip list...")
+		log.Debugw("Filling the skip list...")
 
 		skipEntities, err := skipper.ParseSkipConfig(ctx, opts.Skip)
 		if err != nil {

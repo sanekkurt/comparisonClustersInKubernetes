@@ -1,18 +1,27 @@
 package jobs
 
 import (
+	"context"
 	"fmt"
-	"k8s-cluster-comparator/internal/kubernetes/common"
-	"k8s-cluster-comparator/internal/kubernetes/kv_maps"
+
+	"go.uber.org/zap"
+
+	"k8s-cluster-comparator/internal/config"
+	"k8s-cluster-comparator/internal/kubernetes/metadata"
 	"k8s-cluster-comparator/internal/kubernetes/skipper"
 	"k8s-cluster-comparator/internal/kubernetes/types"
+	"k8s-cluster-comparator/internal/logging"
+
+	"sync"
+
 	"k8s.io/api/batch/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"sync"
 )
 
-func addItemsToCronJobList(clientSet kubernetes.Interface, namespace string, limit int64) (*v1beta1.CronJobList, error) {
+func addItemsToCronJobList(ctx context.Context, clientSet kubernetes.Interface, namespace string, limit int64) (*v1beta1.CronJobList, error) {
+	log := logging.FromContext(ctx)
+
 	log.Debugf("addItemsToCronJobList started")
 	defer log.Debugf("addItemsToCronJobList completed")
 
@@ -55,29 +64,35 @@ func addItemsToCronJobList(clientSet kubernetes.Interface, namespace string, lim
 	return cronJobs, err
 }
 
-func CompareCronJobs(clientSet1, clientSet2 kubernetes.Interface, namespace string, skipEntityList skipper.SkipEntitiesList) (bool, error) {
+func CompareCronJobs(ctx context.Context, skipEntityList skipper.SkipEntitiesList) (bool, error) {
 	var (
+		log = logging.FromContext(ctx).With(zap.String("kind", "cronjob"))
+
+		clientSet1, clientSet2, namespace = config.FromContext(ctx)
+
 		isClustersDiffer bool
 	)
+	ctx = logging.WithLogger(ctx, log)
 
-	cronJobs1, err := addItemsToCronJobList(clientSet1, namespace, objectBatchLimit)
+	cronJobs1, err := addItemsToCronJobList(ctx, clientSet1, namespace, objectBatchLimit)
 	if err != nil {
 		return false, fmt.Errorf("cannot obtain cronJobs list from 1st cluster: %w", err)
 	}
 
-	cronJobs2, err := addItemsToCronJobList(clientSet2, namespace, objectBatchLimit)
+	cronJobs2, err := addItemsToCronJobList(ctx, clientSet2, namespace, objectBatchLimit)
 	if err != nil {
 		return false, fmt.Errorf("cannot obtain cronJobs list from 2st cluster: %w", err)
 	}
 
-	mapJobs1, mapJobs2 := prepareCronJobsMaps(cronJobs1, cronJobs2, skipEntityList.GetByKind("cronJobs"))
+	mapJobs1, mapJobs2 := prepareCronJobsMaps(ctx, cronJobs1, cronJobs2, skipEntityList.GetByKind("cronJobs"))
 
-	isClustersDiffer = setInformationAboutCronJobs(mapJobs1, mapJobs2, cronJobs1, cronJobs2, namespace)
+	isClustersDiffer = setInformationAboutCronJobs(ctx, mapJobs1, mapJobs2, cronJobs1, cronJobs2, namespace)
 
 	return isClustersDiffer, nil
 }
 
-func prepareCronJobsMaps(cronJobs1, cronJobs2 *v1beta1.CronJobList, skipEntities skipper.SkipComponentNames) (map[string]types.IsAlreadyComparedFlag, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
+func prepareCronJobsMaps(ctx context.Context, cronJobs1, cronJobs2 *v1beta1.CronJobList, skipEntities skipper.SkipComponentNames) (map[string]types.IsAlreadyComparedFlag, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
+	log := logging.FromContext(ctx)
 
 	mapCronJobs1 := make(map[string]types.IsAlreadyComparedFlag)
 	mapCronJobs2 := make(map[string]types.IsAlreadyComparedFlag)
@@ -85,7 +100,7 @@ func prepareCronJobsMaps(cronJobs1, cronJobs2 *v1beta1.CronJobList, skipEntities
 
 	for index, value := range cronJobs1.Items {
 		if skipEntities.IsSkippedEntity(value.Name) {
-			log.Debugf("cronJob %s is skipped from comparison due to its name", value.Name)
+			log.Debugf("cronjob/%s is skipped from comparison due to its name", value.Name)
 			continue
 		}
 		indexCheck.Index = index
@@ -95,7 +110,7 @@ func prepareCronJobsMaps(cronJobs1, cronJobs2 *v1beta1.CronJobList, skipEntities
 
 	for index, value := range cronJobs2.Items {
 		if skipEntities.IsSkippedEntity(value.Name) {
-			log.Debugf("cronJob %s is skipped from comparison due to its name", value.Name)
+			log.Debugf("cronjob/%s is skipped from comparison due to its name", value.Name)
 			continue
 		}
 		indexCheck.Index = index
@@ -106,13 +121,14 @@ func prepareCronJobsMaps(cronJobs1, cronJobs2 *v1beta1.CronJobList, skipEntities
 }
 
 // setInformationAboutCronJobs set information about jobs
-func setInformationAboutCronJobs(map1, map2 map[string]types.IsAlreadyComparedFlag, cronJobs1, cronJobs2 *v1beta1.CronJobList, namespace string) bool {
+func setInformationAboutCronJobs(ctx context.Context, map1, map2 map[string]types.IsAlreadyComparedFlag, cronJobs1, cronJobs2 *v1beta1.CronJobList, namespace string) bool {
 	var (
+		log  = logging.FromContext(ctx)
 		flag bool
 	)
 
 	if len(map1) != len(map2) {
-		log.Infof("cronJobs counts are different")
+		log.Warnw("object counts are different", zap.Int("objectsCount1st", len(map1)), zap.Int("objectsCount2nd", len(map2)))
 		flag = true
 	}
 
@@ -128,10 +144,9 @@ func setInformationAboutCronJobs(map1, map2 map[string]types.IsAlreadyComparedFl
 			index2.Check = true
 			map2[name] = index2
 
-			compareCronJobSpecInternals(wg, channel, name, namespace, &cronJobs1.Items[index1.Index], &cronJobs2.Items[index2.Index])
-
+			compareCronJobSpecs(ctx, wg, channel, name, namespace, &cronJobs1.Items[index1.Index], &cronJobs2.Items[index2.Index])
 		} else {
-			log.Infof("cronJob '%s' does not exist in 2nd cluster", name)
+			log.Infof("cronjob/%s does not exist in 2nd cluster", name)
 			flag = true
 			channel <- flag
 		}
@@ -150,7 +165,7 @@ func setInformationAboutCronJobs(map1, map2 map[string]types.IsAlreadyComparedFl
 	for name, index := range map2 {
 		if !index.Check {
 
-			log.Infof("cronJob '%s' does not exist in 1st cluster", name)
+			log.Infof("cronjob/%s does not exist in 1st cluster", name)
 			flag = true
 
 		}
@@ -159,48 +174,42 @@ func setInformationAboutCronJobs(map1, map2 map[string]types.IsAlreadyComparedFl
 	return flag
 }
 
-func compareCronJobSpecInternals(wg *sync.WaitGroup, channel chan bool, name, namespace string, cronJob1, cronJob2 *v1beta1.CronJob) {
+func compareCronJobSpecs(ctx context.Context, wg *sync.WaitGroup, channel chan bool, name, namespace string, obj1, obj2 *v1beta1.CronJob) {
 	var (
+		log = logging.FromContext(ctx)
+
 		flag bool
 	)
 	defer func() {
 		wg.Done()
 	}()
 
-	log.Debugf("----- Start checking cronJob: '%s' -----", name)
+	log.Debugf("----- Start checking cronjob/%s -----", name)
 
-	if !kv_maps.AreKVMapsEqual(cronJob1.ObjectMeta.Labels, cronJob2.ObjectMeta.Labels, common.SkippedKubeLabels) {
-		log.Infof("metadata of cronJob '%s' differs: different labels", cronJob1.Name)
+	if metadata.IsMetadataDiffers(ctx, obj1.ObjectMeta, obj2.ObjectMeta) {
 		channel <- true
 		return
 	}
 
-	if !kv_maps.AreKVMapsEqual(cronJob1.ObjectMeta.Labels, cronJob2.ObjectMeta.Labels, nil) {
-		log.Infof("metadata of cronJob '%s' differs: different annotations", cronJob2.Name)
-		channel <- true
-		return
-	}
-
-	err := compareSpecInCronJobs(*cronJob1, *cronJob2, namespace)
-	if err != nil {
-		log.Infof("CronJob %s: %s", name, err.Error())
+	bDiff, err := compareCronJobSpecInternals(ctx, *obj1, *obj2)
+	if err != nil || bDiff {
+		log.Warnw(err.Error())
 		flag = true
 	}
 
-	log.Debugf("----- End checking cronJob: '%s' -----", name)
+	log.Debugf("----- End checking cronjob/%s -----", name)
 	channel <- flag
 }
 
-func compareSpecInCronJobs(cronJob1, cronJob2 v1beta1.CronJob, namespace string) error {
+func compareCronJobSpecInternals(ctx context.Context, obj1, obj2 v1beta1.CronJob) (bool, error) {
+	log := logging.FromContext(ctx)
 
-	if cronJob1.Spec.Schedule != cronJob2.Spec.Schedule {
-		return fmt.Errorf("%w. CronJob name: %s. CronJob 1 - %s, cronJob2 - %s ", ErrorScheduleDifferent, cronJob1.Name, cronJob1.Spec.Schedule, cronJob2.Spec.Schedule)
+	if obj1.Spec.Schedule != obj2.Spec.Schedule {
+		log.Warnw("CronJob schedule is different", zap.String("schedule1", obj1.Spec.Schedule), zap.String("schedule2", obj2.Spec.Schedule))
+		return true, ErrorScheduleDifferent
 	}
 
-	err := compareSpecInJobs(cronJob1.Spec.JobTemplate.Spec, cronJob1.Spec.JobTemplate.Spec, namespace)
-	if err != nil {
-		return err
-	}
+	bDiff, err := compareJobSpecInternals(ctx, obj1.Spec.JobTemplate.Spec, obj1.Spec.JobTemplate.Spec)
 
-	return nil
+	return bDiff, err
 }

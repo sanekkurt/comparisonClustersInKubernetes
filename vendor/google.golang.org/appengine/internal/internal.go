@@ -88,7 +88,7 @@ func (e *CallError) Error() string {
 		msg = "Over quota"
 	case remotepb.RpcError_CAPABILITY_DISABLED:
 		msg = "Capability disabled"
-	case remotepb.RpcError_CANCELLED:
+	case remotepb.RpcError_Canceled:
 		msg = "Canceled"
 	default:
 		msg = fmt.Sprintf("Call error %d", e.Code)

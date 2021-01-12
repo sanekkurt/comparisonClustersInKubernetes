@@ -1,13 +1,19 @@
 package kv_maps
 
 import (
+	"context"
+
+	"go.uber.org/zap"
 	v12 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"k8s-cluster-comparator/internal/config"
 	"k8s-cluster-comparator/internal/kubernetes/common"
+	"k8s-cluster-comparator/internal/kubernetes/metadata"
 	"k8s-cluster-comparator/internal/kubernetes/skipper"
 	"k8s-cluster-comparator/internal/kubernetes/types"
+	"k8s-cluster-comparator/internal/logging"
 
 	"fmt"
 	"sync"
@@ -22,15 +28,22 @@ var (
 )
 
 const (
-	objectBatchLimit = 25
+	secretObjectBatchLimit = 25
 )
 
-func addItemsToSecretList(clientSet kubernetes.Interface, namespace string, limit int64) (*v12.SecretList, error) {
+func GetSecretMapByName(ctx context.Context, clientSet kubernetes.Interface, namespace, configMapName string) (*v12.Secret, error) {
+	secret, err := clientSet.CoreV1().Secrets(namespace).Get(configMapName, metav1.GetOptions{})
+	return secret, err
+}
+
+func addItemsToSecretList(ctx context.Context, clientSet kubernetes.Interface, namespace string, limit int64) (*v12.SecretList, error) {
+	log := logging.FromContext(ctx)
+
 	log.Debugf("addItemsToSecretList started")
 	defer log.Debugf("addItemsToSecretList completed")
 
 	var (
-		batch       *v12.SecretList
+		batch   *v12.SecretList
 		secrets = &v12.SecretList{
 			Items: make([]v12.Secret, 0),
 		}
@@ -40,27 +53,33 @@ func addItemsToSecretList(clientSet kubernetes.Interface, namespace string, limi
 		err error
 	)
 
+forLoop:
 	for {
-		batch, err = clientSet.CoreV1().Secrets(namespace).List(metav1.ListOptions{
-			Limit:    limit,
-			Continue: continueToken,
-		})
-		if err != nil {
-			return nil, err
+		select {
+		case <-ctx.Done():
+			return nil, context.Canceled
+		default:
+			batch, err = clientSet.CoreV1().Secrets(namespace).List(metav1.ListOptions{
+				Limit:    limit,
+				Continue: continueToken,
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			log.Debugf("addItemsToSecretList: %d objects received", len(batch.Items))
+
+			secrets.Items = append(secrets.Items, batch.Items...)
+
+			secrets.TypeMeta = batch.TypeMeta
+			secrets.ListMeta = batch.ListMeta
+
+			if batch.Continue == "" {
+				break forLoop
+			}
+
+			continueToken = batch.Continue
 		}
-
-		log.Debugf("addItemsToSecretList: %d objects received", len(batch.Items))
-
-		secrets.Items = append(secrets.Items, batch.Items...)
-
-		secrets.TypeMeta = batch.TypeMeta
-		secrets.ListMeta = batch.ListMeta
-
-		if batch.Continue == "" {
-			break
-		}
-
-		continueToken = batch.Continue
 	}
 
 	secrets.Continue = ""
@@ -69,42 +88,49 @@ func addItemsToSecretList(clientSet kubernetes.Interface, namespace string, limi
 }
 
 // CompareSecrets compares list of secret objects in two given k8s-clusters
-func CompareSecrets(clientSet1, clientSet2 kubernetes.Interface, namespace string, skipEntityList skipper.SkipEntitiesList) (bool, error) {
+func CompareSecrets(ctx context.Context, skipEntityList skipper.SkipEntitiesList) (bool, error) {
 	var (
+		log = logging.FromContext(ctx).With(zap.String("kind", "secret"))
+
+		clientSet1, clientSet2, namespace = config.FromContext(ctx)
+
 		isClustersDiffer bool
 	)
+	ctx = logging.WithLogger(ctx, log)
 
-	secrets1, err := addItemsToSecretList(clientSet1, namespace, objectBatchLimit)
+	secrets1, err := addItemsToSecretList(ctx, clientSet1, namespace, secretObjectBatchLimit)
 	if err != nil {
 		return false, fmt.Errorf("cannot obtain secrets list from 1st cluster: %w", err)
 	}
 
-	secrets2, err := addItemsToSecretList(clientSet2, namespace, objectBatchLimit)
+	secrets2, err := addItemsToSecretList(ctx, clientSet2, namespace, secretObjectBatchLimit)
 	if err != nil {
 		return false, fmt.Errorf("cannot obtain secrets list from 2st cluster: %w", err)
 	}
 
-	mapSecrets1, mapSecrets2 := prepareSecretMaps(secrets1, secrets2, skipEntityList.GetByKind("secrets"))
+	mapSecrets1, mapSecrets2 := prepareSecretMaps(ctx, secrets1, secrets2, skipEntityList.GetByKind("secrets"))
 
-	isClustersDiffer = compareSecretsSpecs(mapSecrets1, mapSecrets2, secrets1, secrets2)
+	isClustersDiffer = compareSecretsSpecs(ctx, mapSecrets1, mapSecrets2, secrets1, secrets2)
 
 	return isClustersDiffer, nil
 }
 
 // prepareSecretMaps add value secrets in map
-func prepareSecretMaps(secrets1, secrets2 *v12.SecretList, skipEntities skipper.SkipComponentNames) (map[string]types.IsAlreadyComparedFlag, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
+func prepareSecretMaps(ctx context.Context, secrets1, secrets2 *v12.SecretList, skipEntities skipper.SkipComponentNames) (map[string]types.IsAlreadyComparedFlag, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
+	log := logging.FromContext(ctx)
+
 	mapSecrets1 := make(map[string]types.IsAlreadyComparedFlag)
 	mapSecrets2 := make(map[string]types.IsAlreadyComparedFlag)
 	var indexCheck types.IsAlreadyComparedFlag
 
 	for index, value := range secrets1.Items {
 		if checkContinueTypes(value.Type) {
-			log.Debugf("secret %s is skipped from comparison due to its '%s' type", value.Name, value.Type)
+			log.Debugf("secret/%s is skipped from comparison due to its '%s' type", value.Name, value.Type)
 			continue
 		}
 
 		if skipEntities.IsSkippedEntity(value.Name) {
-			log.Debugf("secret %s is skipped from comparison due to its name", value.Name)
+			log.Debugf("secret/%s is skipped from comparison due to its name", value.Name)
 			continue
 		}
 
@@ -114,12 +140,12 @@ func prepareSecretMaps(secrets1, secrets2 *v12.SecretList, skipEntities skipper.
 	}
 	for index, value := range secrets2.Items {
 		if checkContinueTypes(value.Type) {
-			log.Debugf("secret %s is skipped from comparison due to its '%s' type", value.Name, value.Type)
+			log.Debugf("secret/%s is skipped from comparison due to its '%s' type", value.Name, value.Type)
 			continue
 		}
 
 		if skipEntities.IsSkippedEntity(value.Name) {
-			log.Debugf("secret %s is skipped from comparison due to its name", value.Name)
+			log.Debugf("secret/%s is skipped from comparison due to its name", value.Name)
 			continue
 		}
 
@@ -131,57 +157,43 @@ func prepareSecretMaps(secrets1, secrets2 *v12.SecretList, skipEntities skipper.
 	return mapSecrets1, mapSecrets2
 }
 
-func compareSecretSpecInternals(wg *sync.WaitGroup, channel chan bool, name string, secret1, secret2 *v12.Secret) {
+func compareSecretSpecInternals(ctx context.Context, wg *sync.WaitGroup, channel chan bool, name string, secret1, secret2 *v12.Secret) {
 	var (
+		log = logging.FromContext(ctx).With(zap.String("objectName", name))
+
 		flag bool
 	)
+	ctx = logging.WithLogger(ctx, log)
 
 	defer func() {
 		wg.Done()
 	}()
 
-	log.Debugf("----- Start checking secret: '%s' -----", name)
+	log.Debugf("----- Start checking secret/%s -----", name)
 
-	if !AreKVMapsEqual(secret1.ObjectMeta.Labels, secret1.ObjectMeta.Labels, common.SkippedKubeLabels) {
-		log.Infof("metadata of configmap '%s' differs: different labels", secret1.Name)
+	if !metadata.IsMetadataDiffers(ctx, secret1.ObjectMeta, secret1.ObjectMeta) {
 		channel <- true
 		return
 	}
 
-	if !AreKVMapsEqual(secret1.ObjectMeta.Annotations, secret1.ObjectMeta.Annotations, nil) {
-		log.Infof("metadata of configmap '%s' differs: different annotations", secret1.Name)
-		channel <- true
-		return
-	}
-
-	if len(secret1.Data) != len(secret2.Data) {
-		log.Infof("secret '%s' in 1st cluster has '%d' keys but the 2nd - '%d'", name, len(secret1.Data), len(secret2.Data))
+	if !common.AreKVBytesMapsEqual(ctx, secret1.Data, secret2.Data, nil) {
 		flag = true
-	} else {
-		for key, value := range secret1.Data {
-			v1 := string(value)
-			v2 := string(secret2.Data[key])
-
-			if v1 != v2 {
-				log.Infof("secret '%s', values by key '%s' do not match: '%s' and %s", name, key, v1, v2)
-				flag = true
-			}
-		}
 	}
-
-	log.Debugf("----- End checking secret: '%s' -----", name)
+	log.Debugf("----- End checking secret/%s -----", name)
 
 	channel <- flag
 }
 
 // compareSecretsSpecs set information about secrets
-func compareSecretsSpecs(map1, map2 map[string]types.IsAlreadyComparedFlag, secrets1, secrets2 *v12.SecretList) bool {
+func compareSecretsSpecs(ctx context.Context, map1, map2 map[string]types.IsAlreadyComparedFlag, secrets1, secrets2 *v12.SecretList) bool {
 	var (
+		log = logging.FromContext(ctx)
+
 		flag bool
 	)
 
 	if len(map1) != len(map2) {
-		log.Infof("secret counts are different")
+		log.Warnw("object counts are different", zap.Int("objectsCount1st", len(map1)), zap.Int("objectsCount2nd", len(map2)))
 		flag = true
 	}
 
@@ -189,18 +201,24 @@ func compareSecretsSpecs(map1, map2 map[string]types.IsAlreadyComparedFlag, secr
 	channel := make(chan bool, len(map1))
 
 	for name, index1 := range map1 {
-		if index2, ok := map2[name]; ok {
-			wg.Add(1)
+		select {
+		case <-ctx.Done():
+			log.Warnw(context.Canceled.Error())
+			return true
+		default:
+			if index2, ok := map2[name]; ok {
+				wg.Add(1)
 
-			index1.Check = true
-			map1[name] = index1
-			index2.Check = true
-			map2[name] = index2
+				index1.Check = true
+				map1[name] = index1
+				index2.Check = true
+				map2[name] = index2
 
-			compareSecretSpecInternals(wg, channel, name, &secrets1.Items[index1.Index], &secrets2.Items[index2.Index])
-		} else {
-			log.Infof("secret '%s' does not exist in 2nd cluster", name)
-			flag = true
+				compareSecretSpecInternals(ctx, wg, channel, name, &secrets1.Items[index1.Index], &secrets2.Items[index2.Index])
+			} else {
+				log.Infof("secret/%s does not exist in 2nd cluster", name)
+				flag = true
+			}
 		}
 	}
 
@@ -216,8 +234,7 @@ func compareSecretsSpecs(map1, map2 map[string]types.IsAlreadyComparedFlag, secr
 
 	for name, index := range map2 {
 		if !index.Check {
-
-			log.Infof("secret '%s' does not exist in 1st cluster", name)
+			log.Warnw("secret/%s does not exist in 1st cluster", name)
 			flag = true
 
 		}

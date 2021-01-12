@@ -1,20 +1,26 @@
 package networking
 
 import (
+	"context"
 	"fmt"
+
+	"go.uber.org/zap"
 	v1beta12 "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
 	"sync"
 
-	"k8s-cluster-comparator/internal/kubernetes/common"
-	"k8s-cluster-comparator/internal/kubernetes/kv_maps"
+	"k8s-cluster-comparator/internal/config"
+	"k8s-cluster-comparator/internal/kubernetes/metadata"
 	"k8s-cluster-comparator/internal/kubernetes/skipper"
 	"k8s-cluster-comparator/internal/kubernetes/types"
+	"k8s-cluster-comparator/internal/logging"
 )
 
-func addItemsToIngressList(clientSet kubernetes.Interface, namespace string, limit int64) (*v1beta12.IngressList, error) {
+func addItemsToIngressList(ctx context.Context, clientSet kubernetes.Interface, namespace string, limit int64) (*v1beta12.IngressList, error) {
+	log := logging.FromContext(ctx)
+
 	log.Debugf("addItemsToIngressList started")
 	defer log.Debugf("addItemsToIngressList completed")
 
@@ -58,30 +64,37 @@ func addItemsToIngressList(clientSet kubernetes.Interface, namespace string, lim
 }
 
 // CompareIngresses compares list of ingresses objects in two given k8s-clusters
-func CompareIngresses(clientSet1, clientSet2 kubernetes.Interface, namespace string, skipEntityList skipper.SkipEntitiesList) (bool, error) {
+func CompareIngresses(ctx context.Context, skipEntityList skipper.SkipEntitiesList) (bool, error) {
 	var (
+		log = logging.FromContext(ctx).With(zap.String("kind", "ingress"))
+
+		clientSet1, clientSet2, namespace = config.FromContext(ctx)
+
 		isClustersDiffer bool
 	)
+	ctx = logging.WithLogger(ctx, log)
 
-	ingresses1, err := addItemsToIngressList(clientSet1, namespace, objectBatchLimit)
+	ingresses1, err := addItemsToIngressList(ctx, clientSet1, namespace, objectBatchLimit)
 	if err != nil {
 		return false, fmt.Errorf("cannot obtain ingresses list from 1st cluster: %w", err)
 	}
 
-	ingresses2, err := addItemsToIngressList(clientSet2, namespace, objectBatchLimit)
+	ingresses2, err := addItemsToIngressList(ctx, clientSet2, namespace, objectBatchLimit)
 	if err != nil {
 		return false, fmt.Errorf("cannot obtain ingresses list from 2st cluster: %w", err)
 	}
 
-	mapIngresses1, mapIngresses2 := prepareIngressMaps(ingresses1, ingresses2, skipEntityList.GetByKind("ingresses"))
+	mapIngresses1, mapIngresses2 := prepareIngressMaps(ctx, ingresses1, ingresses2, skipEntityList.GetByKind("ingresses"))
 
-	isClustersDiffer = setInformationAboutIngresses(mapIngresses1, mapIngresses2, ingresses1, ingresses2)
+	isClustersDiffer = setInformationAboutIngresses(ctx, mapIngresses1, mapIngresses2, ingresses1, ingresses2)
 
 	return isClustersDiffer, nil
 }
 
 // prepareIngressMaps add value secrets in map
-func prepareIngressMaps(ingresses1, ingresses2 *v1beta12.IngressList, skipEntities skipper.SkipComponentNames) (map[string]types.IsAlreadyComparedFlag, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
+func prepareIngressMaps(ctx context.Context, ingresses1, ingresses2 *v1beta12.IngressList, skipEntities skipper.SkipComponentNames) (map[string]types.IsAlreadyComparedFlag, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
+	log := logging.FromContext(ctx)
+
 	mapIngresses1 := make(map[string]types.IsAlreadyComparedFlag)
 	mapIngresses2 := make(map[string]types.IsAlreadyComparedFlag)
 	var indexCheck types.IsAlreadyComparedFlag
@@ -109,46 +122,45 @@ func prepareIngressMaps(ingresses1, ingresses2 *v1beta12.IngressList, skipEntiti
 	return mapIngresses1, mapIngresses2
 }
 
-func compareIngressSpecInternals(wg *sync.WaitGroup, channel chan bool, name string, ing1, ing2 *v1beta12.Ingress) {
+func compareIngressSpecInternals(ctx context.Context, wg *sync.WaitGroup, channel chan bool, name string, ing1, ing2 *v1beta12.Ingress) {
 	var (
+		log = logging.FromContext(ctx).With(zap.String("objectName", name))
+
 		flag bool
 	)
+	ctx = logging.WithLogger(ctx, log)
+
 	defer func() {
 		wg.Done()
 	}()
 
-	log.Debugf("----- Start checking ingress: '%s' -----", name)
+	log.Debugf("----- Start checking ingress/%s -----", name)
 
-	if !kv_maps.AreKVMapsEqual(ing1.ObjectMeta.Labels, ing2.ObjectMeta.Labels, common.SkippedKubeLabels) {
-		log.Infof("metadata of ingress '%s' differs: different labels", ing1.Name)
+	if !metadata.IsMetadataDiffers(ctx, ing1.ObjectMeta, ing2.ObjectMeta) {
 		channel <- true
 		return
 	}
 
-	if !kv_maps.AreKVMapsEqual(ing1.ObjectMeta.Labels, ing2.ObjectMeta.Labels, nil) {
-		log.Infof("metadata of ingress '%s' differs: different annotations", ing2.Name)
-		channel <- true
-		return
-	}
-
-	err := compareSpecInIngresses(*ing1, *ing2)
+	err := compareSpecInIngresses(ctx, *ing1, *ing2)
 	if err != nil {
-		log.Infof("Ingress %s: %s", name, err.Error())
+		log.Warnw(err.Error())
 		flag = true
 	}
 
-	log.Debugf("----- End checking ingress: '%s' -----", name)
+	log.Debugf("----- End checking ingress/%s -----", name)
 	channel <- flag
 }
 
 // setInformationAboutIngresses set information about ingresses
-func setInformationAboutIngresses(map1, map2 map[string]types.IsAlreadyComparedFlag, ingresses1, ingresses2 *v1beta12.IngressList) bool {
+func setInformationAboutIngresses(ctx context.Context, map1, map2 map[string]types.IsAlreadyComparedFlag, ingresses1, ingresses2 *v1beta12.IngressList) bool {
 	var (
+		log = logging.FromContext(ctx)
+
 		flag bool
 	)
 
 	if len(map1) != len(map2) {
-		log.Infof("ingress counts are different")
+		log.Warnw("object counts are different", zap.Int("objectsCount1st", len(map1)), zap.Int("objectsCount2nd", len(map2)))
 		flag = true
 	}
 
@@ -164,7 +176,7 @@ func setInformationAboutIngresses(map1, map2 map[string]types.IsAlreadyComparedF
 			index2.Check = true
 			map2[name] = index2
 
-			compareIngressSpecInternals(wg, channel, name, &ingresses1.Items[index1.Index], &ingresses2.Items[index2.Index])
+			compareIngressSpecInternals(ctx, wg, channel, name, &ingresses1.Items[index1.Index], &ingresses2.Items[index2.Index])
 
 		} else {
 			log.Infof("ingress '%s' does not exist in 2nd cluster", name)
@@ -195,7 +207,7 @@ func setInformationAboutIngresses(map1, map2 map[string]types.IsAlreadyComparedF
 }
 
 // compareSpecInIngresses compare spec in the ingresses
-func compareSpecInIngresses(ingress1, ingress2 v1beta12.Ingress) error { //nolint
+func compareSpecInIngresses(ctx context.Context, ingress1, ingress2 v1beta12.Ingress) error { //nolint
 	if ingress1.Spec.TLS != nil && ingress2.Spec.TLS != nil {
 
 		if len(ingress1.Spec.TLS) != len(ingress2.Spec.TLS) {
@@ -228,7 +240,7 @@ func compareSpecInIngresses(ingress1, ingress2 v1beta12.Ingress) error { //nolin
 	}
 
 	if ingress1.Spec.Backend != nil && ingress2.Spec.Backend != nil {
-		err := compareIngressesBackend(*ingress1.Spec.Backend, *ingress2.Spec.Backend, ingress1.Name)
+		err := compareIngressesBackend(ctx, *ingress1.Spec.Backend, *ingress2.Spec.Backend, ingress1.Name)
 		if err != nil {
 			return err
 		}
@@ -247,7 +259,7 @@ func compareSpecInIngresses(ingress1, ingress2 v1beta12.Ingress) error { //nolin
 			}
 
 			if value.HTTP != nil && ingress2.Spec.Rules[index].HTTP != nil {
-				err := compareIngressesHTTP(*value.HTTP, *ingress2.Spec.Rules[index].HTTP, ingress1.Name)
+				err := compareIngressesHTTP(ctx, *value.HTTP, *ingress2.Spec.Rules[index].HTTP, ingress1.Name)
 				if err != nil {
 					return err
 				}
@@ -256,7 +268,7 @@ func compareSpecInIngresses(ingress1, ingress2 v1beta12.Ingress) error { //nolin
 			}
 
 			if value.IngressRuleValue.HTTP != nil && ingress2.Spec.Rules[index].IngressRuleValue.HTTP != nil {
-				err := compareIngressesHTTP(*value.IngressRuleValue.HTTP, *ingress2.Spec.Rules[index].IngressRuleValue.HTTP, ingress1.Name)
+				err := compareIngressesHTTP(ctx, *value.IngressRuleValue.HTTP, *ingress2.Spec.Rules[index].IngressRuleValue.HTTP, ingress1.Name)
 				if err != nil {
 					return err
 				}
@@ -273,7 +285,7 @@ func compareSpecInIngresses(ingress1, ingress2 v1beta12.Ingress) error { //nolin
 }
 
 // compareIngressesBackend compare backend in ingresses
-func compareIngressesBackend(backend1, backend2 v1beta12.IngressBackend, name string) error {
+func compareIngressesBackend(ctx context.Context, backend1, backend2 v1beta12.IngressBackend, name string) error {
 	if backend1.ServiceName != backend2.ServiceName {
 		return fmt.Errorf("%w. Name ingress: '%s'. Service name in first ingress: '%s'. Service name in second ingress: '%s'", ErrorServiceNameInBackendDifferent, name, backend1.ServiceName, backend2.ServiceName)
 	}
@@ -285,7 +297,7 @@ func compareIngressesBackend(backend1, backend2 v1beta12.IngressBackend, name st
 }
 
 // compareIngressesHTTP compare http in ingresses
-func compareIngressesHTTP(http1, http2 v1beta12.HTTPIngressRuleValue, name string) error {
+func compareIngressesHTTP(ctx context.Context, http1, http2 v1beta12.HTTPIngressRuleValue, name string) error {
 	if len(http1.Paths) != len(http2.Paths) {
 		return fmt.Errorf("%w. Name ingress: '%s'. In first ingress - '%d' paths. In second ingress - '%d' paths", ErrorPathsCountDifferent, name, len(http1.Paths), len(http2.Paths))
 	}
@@ -295,7 +307,7 @@ func compareIngressesHTTP(http1, http2 v1beta12.HTTPIngressRuleValue, name strin
 			return fmt.Errorf("%w. Name ingress: '%s'. Name path in first ingress - '%s'. Name path in second ingress - '%s'", ErrorPathValueDifferent, name, http1.Paths[i].Path, http2.Paths[i].Path)
 		}
 
-		err := compareIngressesBackend(http1.Paths[i].Backend, http2.Paths[i].Backend, name)
+		err := compareIngressesBackend(ctx, http1.Paths[i].Backend, http2.Paths[i].Backend, name)
 		if err != nil {
 			return err
 		}

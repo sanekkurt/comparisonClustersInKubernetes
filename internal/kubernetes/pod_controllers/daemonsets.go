@@ -1,20 +1,26 @@
 package pod_controllers
 
 import (
+	"context"
 	"fmt"
+	"go.uber.org/zap"
 	v1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"k8s-cluster-comparator/internal/config"
 	"k8s-cluster-comparator/internal/kubernetes/skipper"
 	"k8s-cluster-comparator/internal/kubernetes/types"
+	"k8s-cluster-comparator/internal/logging"
 )
 
 const (
 	objectBatchLimit = 25
 )
 
-func addItemsToDaemonSetsList(clientSet kubernetes.Interface, namespace string, limit int64) (*v1.DaemonSetList, error) {
+func addItemsToDaemonSetsList(ctx context.Context, clientSet kubernetes.Interface, namespace string, limit int64) (*v1.DaemonSetList, error) {
+	log := logging.FromContext(ctx)
+
 	log.Debugf("addItemsToDaemonSetsList started")
 	defer log.Debugf("addItemsToDaemonSetsList completed")
 	var (
@@ -28,27 +34,33 @@ func addItemsToDaemonSetsList(clientSet kubernetes.Interface, namespace string, 
 		err error
 	)
 
+forLoop:
 	for {
-		batch, err = clientSet.AppsV1().DaemonSets(namespace).List(metav1.ListOptions{
-			Limit:    limit,
-			Continue: continueToken,
-		})
-		if err != nil {
-			return nil, err
+		select {
+		case <-ctx.Done():
+			return nil, context.Canceled
+		default:
+			batch, err = clientSet.AppsV1().DaemonSets(namespace).List(metav1.ListOptions{
+				Limit:    limit,
+				Continue: continueToken,
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			log.Debugf("addItemsToDaemonSetsList: %d objects received", len(batch.Items))
+
+			daemonSets.Items = append(daemonSets.Items, batch.Items...)
+
+			daemonSets.TypeMeta = batch.TypeMeta
+			daemonSets.ListMeta = batch.ListMeta
+
+			if batch.Continue == "" {
+				break forLoop
+			}
+
+			continueToken = batch.Continue
 		}
-
-		log.Debugf("addItemsToDaemonSetsList: %d objects received", len(batch.Items))
-
-		daemonSets.Items = append(daemonSets.Items, batch.Items...)
-
-		daemonSets.TypeMeta = batch.TypeMeta
-		daemonSets.ListMeta = batch.ListMeta
-
-		if batch.Continue == "" {
-			break
-		}
-
-		continueToken = batch.Continue
 	}
 
 	daemonSets.Continue = ""
@@ -57,24 +69,29 @@ func addItemsToDaemonSetsList(clientSet kubernetes.Interface, namespace string, 
 }
 
 // CompareDaemonSets compares list of daemonsets objects in two given k8s-clusters
-func CompareDaemonSets(clientSet1, clientSet2 kubernetes.Interface, namespace string, skipEntityList skipper.SkipEntitiesList) (bool, error) {
+func CompareDaemonSets(ctx context.Context, skipEntityList skipper.SkipEntitiesList) (bool, error) {
 	var (
+		log = logging.FromContext(ctx).With(zap.String("kind", "daemonset"))
+
+		clientSet1, clientSet2, namespace = config.FromContext(ctx)
+
 		isClustersDiffer bool
 	)
+	ctx = logging.WithLogger(ctx, log)
 
-	daemonSets1, err := addItemsToDaemonSetsList(clientSet1, namespace, objectBatchLimit)
+	daemonSets1, err := addItemsToDaemonSetsList(ctx, clientSet1, namespace, objectBatchLimit)
 	if err != nil {
 		return false, fmt.Errorf("cannot obtain daemonsets list from 1st cluster: %w", err)
 	}
 
-	daemonSets2, err := addItemsToDaemonSetsList(clientSet2, namespace, objectBatchLimit)
+	daemonSets2, err := addItemsToDaemonSetsList(ctx, clientSet2, namespace, objectBatchLimit)
 	if err != nil {
 		return false, fmt.Errorf("cannot obtain daemonsets list from 2st cluster: %w", err)
 	}
 
-	apc1List, map1, apc2List, map2 := prepareDaemonSetMaps(daemonSets1, daemonSets2, skipEntityList.GetByKind("daemonsets"))
+	apc1List, map1, apc2List, map2 := prepareDaemonSetMaps(ctx, daemonSets1, daemonSets2, skipEntityList.GetByKind("daemonsets"))
 
-	isClustersDiffer = comparePodControllerSpecs(&clusterCompareTask{
+	isClustersDiffer, err = ComparePodControllers(ctx, &clusterCompareTask{
 		Client:                   clientSet1,
 		APCList:                  apc1List,
 		IsAlreadyCheckedFlagsMap: map1,
@@ -84,12 +101,14 @@ func CompareDaemonSets(clientSet1, clientSet2 kubernetes.Interface, namespace st
 		IsAlreadyCheckedFlagsMap: map2,
 	}, namespace)
 
-	return isClustersDiffer, nil
+	return isClustersDiffer, err
 }
 
 // prepareDaemonSetMaps prepares DaemonSet maps for comparison
-func prepareDaemonSetMaps(obj1, obj2 *v1.DaemonSetList, skipEntities skipper.SkipComponentNames) ([]AbstractPodController, map[string]types.IsAlreadyComparedFlag, []AbstractPodController, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
+func prepareDaemonSetMaps(ctx context.Context, obj1, obj2 *v1.DaemonSetList, skipEntities skipper.SkipComponentNames) ([]AbstractPodController, map[string]types.IsAlreadyComparedFlag, []AbstractPodController, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
 	var (
+		log = logging.FromContext(ctx)
+
 		map1     = make(map[string]types.IsAlreadyComparedFlag)
 		apc1List = make([]AbstractPodController, 0)
 
@@ -102,7 +121,7 @@ func prepareDaemonSetMaps(obj1, obj2 *v1.DaemonSetList, skipEntities skipper.Ski
 	for index, value := range obj1.Items {
 
 		if skipEntities.IsSkippedEntity(value.Name) {
-			log.Debugf("daemonset %s is skipped from comparison due to its name", value.Name)
+			log.Debugf("daemonset/%s is skipped from comparison due to its name", value.Name)
 			continue
 		}
 
@@ -128,7 +147,7 @@ func prepareDaemonSetMaps(obj1, obj2 *v1.DaemonSetList, skipEntities skipper.Ski
 
 	for index, value := range obj2.Items {
 		if skipEntities.IsSkippedEntity(value.Name) {
-			log.Debugf("daemonset %s is skipped from comparison due to its name", value.Name)
+			log.Debugf("daemonset/%s is skipped from comparison due to its name", value.Name)
 			continue
 		}
 		indexCheck.Index = index

@@ -2,11 +2,10 @@ package kubernetes
 
 import (
 	"context"
-	"fmt"
-	"k8s-cluster-comparator/internal/kubernetes/jobs"
 	"sync"
 
 	"k8s-cluster-comparator/internal/config"
+	"k8s-cluster-comparator/internal/kubernetes/jobs"
 	"k8s-cluster-comparator/internal/kubernetes/kv_maps"
 	"k8s-cluster-comparator/internal/kubernetes/networking"
 	"k8s-cluster-comparator/internal/kubernetes/pod_controllers"
@@ -24,23 +23,7 @@ func CompareClusters(ctx context.Context, cfg *config.AppConfig) (bool, error) {
 		wg = &sync.WaitGroup{}
 
 		resCh = make(chan ResStr, len(cfg.Namespaces))
-
-		clientSet1 = cfg.Cluster1.Kubeconfig
-		clientSet2 = cfg.Cluster2.Kubeconfig
 	)
-
-	if err := pod_controllers.Init(ctx); err != nil {
-		return false, fmt.Errorf("cannot init pod_controllers package: %w", err)
-	}
-	if err := kv_maps.Init(ctx); err != nil {
-		return false, fmt.Errorf("cannot init kv_maps package: %w", err)
-	}
-	if err := networking.Init(ctx); err != nil {
-		return false, fmt.Errorf("cannot init networking package: %w", err)
-	}
-	if err := jobs.Init(ctx); err != nil {
-		return false, fmt.Errorf("cannot init jobs package: %w", err)
-	}
 
 	for _, namespace := range cfg.Namespaces {
 		wg.Add(1)
@@ -48,13 +31,21 @@ func CompareClusters(ctx context.Context, cfg *config.AppConfig) (bool, error) {
 		go func(wg *sync.WaitGroup, resCh chan ResStr, namespace string) {
 			var (
 				isClustersDifferFlag types.OnceSettableFlag
+
+				kubeConns = &types.KubeConnections{
+					C1:        cfg.Cluster1.Kubeconfig,
+					C2:        cfg.Cluster2.Kubeconfig,
+					Namespace: namespace,
+				}
 			)
 
 			defer func() {
 				wg.Done()
 			}()
 
-			isClustersDiffer, err := pod_controllers.CompareDeployments(clientSet1, clientSet2, namespace, cfg.SkipEntitiesList)
+			ctx = config.With(ctx, kubeConns)
+
+			isClustersDiffer, err := pod_controllers.CompareDeployments(ctx, cfg.SkipEntitiesList)
 			if err != nil {
 				resCh <- ResStr{
 					IsClustersDiffer: isClustersDiffer,
@@ -64,7 +55,7 @@ func CompareClusters(ctx context.Context, cfg *config.AppConfig) (bool, error) {
 			}
 			isClustersDifferFlag.SetFlag(isClustersDiffer)
 
-			isClustersDiffer, err = pod_controllers.CompareStateFulSets(clientSet1, clientSet2, namespace, cfg.SkipEntitiesList)
+			isClustersDiffer, err = pod_controllers.CompareStateFulSets(ctx, cfg.SkipEntitiesList)
 			if err != nil {
 				resCh <- ResStr{
 					IsClustersDiffer: isClustersDiffer,
@@ -74,7 +65,7 @@ func CompareClusters(ctx context.Context, cfg *config.AppConfig) (bool, error) {
 			}
 			isClustersDifferFlag.SetFlag(isClustersDiffer)
 
-			isClustersDiffer, err = pod_controllers.CompareDaemonSets(clientSet1, clientSet2, namespace, cfg.SkipEntitiesList)
+			isClustersDiffer, err = pod_controllers.CompareDaemonSets(ctx, cfg.SkipEntitiesList)
 			if err != nil {
 				resCh <- ResStr{
 					IsClustersDiffer: isClustersDiffer,
@@ -84,7 +75,7 @@ func CompareClusters(ctx context.Context, cfg *config.AppConfig) (bool, error) {
 			}
 			isClustersDifferFlag.SetFlag(isClustersDiffer)
 
-			isClustersDiffer, err = kv_maps.CompareConfigMaps(clientSet1, clientSet2, namespace, cfg.SkipEntitiesList)
+			isClustersDiffer, err = kv_maps.CompareConfigMaps(ctx, cfg.SkipEntitiesList)
 			if err != nil {
 				resCh <- ResStr{
 					IsClustersDiffer: isClustersDiffer,
@@ -94,7 +85,7 @@ func CompareClusters(ctx context.Context, cfg *config.AppConfig) (bool, error) {
 			}
 			isClustersDifferFlag.SetFlag(isClustersDiffer)
 
-			isClustersDiffer, err = kv_maps.CompareSecrets(clientSet1, clientSet2, namespace, cfg.SkipEntitiesList)
+			isClustersDiffer, err = kv_maps.CompareSecrets(ctx, cfg.SkipEntitiesList)
 			if err != nil {
 				resCh <- ResStr{
 					IsClustersDiffer: isClustersDiffer,
@@ -104,7 +95,7 @@ func CompareClusters(ctx context.Context, cfg *config.AppConfig) (bool, error) {
 			}
 			isClustersDifferFlag.SetFlag(isClustersDiffer)
 
-			isClustersDiffer, err = networking.CompareServices(clientSet1, clientSet2, namespace, cfg.SkipEntitiesList)
+			isClustersDiffer, err = jobs.CompareJobs(ctx, cfg.SkipEntitiesList)
 			if err != nil {
 				resCh <- ResStr{
 					IsClustersDiffer: isClustersDiffer,
@@ -114,7 +105,7 @@ func CompareClusters(ctx context.Context, cfg *config.AppConfig) (bool, error) {
 			}
 			isClustersDifferFlag.SetFlag(isClustersDiffer)
 
-			isClustersDiffer, err = networking.CompareIngresses(clientSet1, clientSet2, namespace, cfg.SkipEntitiesList)
+			isClustersDiffer, err = jobs.CompareCronJobs(ctx, cfg.SkipEntitiesList)
 			if err != nil {
 				resCh <- ResStr{
 					IsClustersDiffer: isClustersDiffer,
@@ -124,7 +115,7 @@ func CompareClusters(ctx context.Context, cfg *config.AppConfig) (bool, error) {
 			}
 			isClustersDifferFlag.SetFlag(isClustersDiffer)
 
-			isClustersDiffer, err = jobs.CompareJobs(clientSet1, clientSet2, namespace, cfg.SkipEntitiesList)
+			isClustersDiffer, err = networking.CompareServices(ctx, cfg.SkipEntitiesList)
 			if err != nil {
 				resCh <- ResStr{
 					IsClustersDiffer: isClustersDiffer,
@@ -134,7 +125,7 @@ func CompareClusters(ctx context.Context, cfg *config.AppConfig) (bool, error) {
 			}
 			isClustersDifferFlag.SetFlag(isClustersDiffer)
 
-			isClustersDiffer, err = jobs.CompareCronJobs(clientSet1, clientSet2, namespace, cfg.SkipEntitiesList)
+			isClustersDiffer, err = networking.CompareIngresses(ctx, cfg.SkipEntitiesList)
 			if err != nil {
 				resCh <- ResStr{
 					IsClustersDiffer: isClustersDiffer,

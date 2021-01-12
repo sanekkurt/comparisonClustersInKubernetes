@@ -1,6 +1,7 @@
 package common
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"sort"
@@ -19,6 +20,10 @@ var (
 	SkippedKubeLabels = map[string]struct{}{
 		"app.kubernetes.io/version": {},
 	}
+)
+
+const (
+	matchLabelsStringSep = ","
 )
 
 // YamlToStruct parse yaml file into structure
@@ -55,27 +60,22 @@ func GetClientSet(kubeconfig string) *kubernetes.Clientset {
 }
 
 // GetPodsListOnMatchLabels get pods list
-func GetPodsListOnMatchLabels(matchLabels map[string]string, namespace string, clientSet1, clientSet2 kubernetes.Interface) (*v12.PodList, *v12.PodList) { //nolint:gocritic,unused
-	matchLabelsString := ConvertMatchLabelsToString(matchLabels)
+func GetPodsListOnMatchLabels(ctx context.Context, matchLabels map[string]string, namespace string, clientSet kubernetes.Interface) (*v12.PodList, error) { //nolint:gocritic,unused
+	matchLabelsString := ConvertMatchLabelsToString(ctx, matchLabels)
 
-	pods1, err := clientSet1.CoreV1().Pods(namespace).List(metav1.ListOptions{LabelSelector: matchLabelsString})
+	pods, err := clientSet.CoreV1().Pods(namespace).List(metav1.ListOptions{LabelSelector: matchLabelsString})
 	if err != nil {
-		panic(err.Error())
+		return nil, err
 	}
 
-	pods2, err := clientSet2.CoreV1().Pods(namespace).List(metav1.ListOptions{LabelSelector: matchLabelsString})
-	if err != nil {
-		panic(err.Error())
-	}
-
-	return pods1, pods2
+	return pods, nil
 }
 
 // ConvertMatchLabelsToString convert MatchLabels to string
-func ConvertMatchLabelsToString(matchLabels map[string]string) string {
+func ConvertMatchLabelsToString(ctx context.Context, matchLabels map[string]string) string {
 	var (
-		keys   []string
-		values []string
+		keys   = make([]string, 0, len(matchLabels))
+		values = make([]string, 0, len(matchLabels))
 	)
 
 	for key, _ := range matchLabels { //nolint
@@ -84,8 +84,9 @@ func ConvertMatchLabelsToString(matchLabels map[string]string) string {
 
 	sort.Strings(keys)
 
-	for i := 0; i < len(keys); i++ {
-		values = append(values, fmt.Sprintf("%s=%s", keys[i], matchLabels[keys[i]]))
+	for _, k := range keys {
+		values = append(values, fmt.Sprintf("%s=%s", k, matchLabels[k]))
 	}
-	return strings.Join(values, ",")
+
+	return strings.Join(values, matchLabelsStringSep)
 }

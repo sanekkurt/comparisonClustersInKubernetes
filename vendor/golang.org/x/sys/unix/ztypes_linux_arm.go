@@ -904,7 +904,7 @@ type Taskstats struct {
 	Write_syscalls            uint64
 	Read_bytes                uint64
 	Write_bytes               uint64
-	Cancelled_write_bytes     uint64
+	Canceled_write_bytes     uint64
 	Nvcsw                     uint64
 	Nivcsw                    uint64
 	Ac_utimescaled            uint64

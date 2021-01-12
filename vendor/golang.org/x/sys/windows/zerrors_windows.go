@@ -200,7 +200,7 @@ const (
 	ERROR_BAD_REM_ADAP                                                        syscall.Errno = 60
 	ERROR_PRINTQ_FULL                                                         syscall.Errno = 61
 	ERROR_NO_SPOOL_SPACE                                                      syscall.Errno = 62
-	ERROR_PRINT_CANCELLED                                                     syscall.Errno = 63
+	ERROR_PRINT_Canceled                                                     syscall.Errno = 63
 	ERROR_NETNAME_DELETED                                                     syscall.Errno = 64
 	ERROR_NETWORK_ACCESS_DENIED                                               syscall.Errno = 65
 	ERROR_BAD_DEV_TYPE                                                        syscall.Errno = 66
@@ -916,7 +916,7 @@ const (
 	ERROR_REMOTE_SESSION_LIMIT_EXCEEDED                                       syscall.Errno = 1220
 	ERROR_DUP_DOMAINNAME                                                      syscall.Errno = 1221
 	ERROR_NO_NETWORK                                                          syscall.Errno = 1222
-	ERROR_CANCELLED                                                           syscall.Errno = 1223
+	ERROR_Canceled                                                           syscall.Errno = 1223
 	ERROR_USER_MAPPED_FILE                                                    syscall.Errno = 1224
 	ERROR_CONNECTION_REFUSED                                                  syscall.Errno = 1225
 	ERROR_GRACEFUL_DISCONNECT                                                 syscall.Errno = 1226
@@ -1342,7 +1342,7 @@ const (
 	ERROR_RESOURCE_LANG_NOT_FOUND                                             syscall.Errno = 1815
 	ERROR_NOT_ENOUGH_QUOTA                                                    syscall.Errno = 1816
 	RPC_S_NO_INTERFACES                                                       syscall.Errno = 1817
-	RPC_S_CALL_CANCELLED                                                      syscall.Errno = 1818
+	RPC_S_CALL_Canceled                                                      syscall.Errno = 1818
 	RPC_S_BINDING_INCOMPLETE                                                  syscall.Errno = 1819
 	RPC_S_COMM_FAILURE                                                        syscall.Errno = 1820
 	RPC_S_UNSUPPORTED_AUTHN_LEVEL                                             syscall.Errno = 1821
@@ -1350,7 +1350,7 @@ const (
 	RPC_S_NOT_RPC_ERROR                                                       syscall.Errno = 1823
 	RPC_S_UUID_LOCAL_ONLY                                                     syscall.Errno = 1824
 	RPC_S_SEC_PKG_ERROR                                                       syscall.Errno = 1825
-	RPC_S_NOT_CANCELLED                                                       syscall.Errno = 1826
+	RPC_S_NOT_Canceled                                                       syscall.Errno = 1826
 	RPC_X_INVALID_ES_ACTION                                                   syscall.Errno = 1827
 	RPC_X_WRONG_ES_VERSION                                                    syscall.Errno = 1828
 	RPC_X_WRONG_STUB_VERSION                                                  syscall.Errno = 1829
@@ -2246,7 +2246,7 @@ const (
 	ERROR_DS_DRA_NO_REPLICA                                                   syscall.Errno = 8452
 	ERROR_DS_DRA_ACCESS_DENIED                                                syscall.Errno = 8453
 	ERROR_DS_DRA_NOT_SUPPORTED                                                syscall.Errno = 8454
-	ERROR_DS_DRA_RPC_CANCELLED                                                syscall.Errno = 8455
+	ERROR_DS_DRA_RPC_Canceled                                                syscall.Errno = 8455
 	ERROR_DS_DRA_SOURCE_DISABLED                                              syscall.Errno = 8456
 	ERROR_DS_DRA_SINK_DISABLED                                                syscall.Errno = 8457
 	ERROR_DS_DRA_NAME_COLLISION                                               syscall.Errno = 8458
@@ -2693,7 +2693,7 @@ const (
 	WSANOTINITIALISED                                                         syscall.Errno = 10093
 	WSAEDISCON                                                                syscall.Errno = 10101
 	WSAENOMORE                                                                syscall.Errno = 10102
-	WSAECANCELLED                                                             syscall.Errno = 10103
+	WSAECanceled                                                             syscall.Errno = 10103
 	WSAEINVALIDPROCTABLE                                                      syscall.Errno = 10104
 	WSAEINVALIDPROVIDER                                                       syscall.Errno = 10105
 	WSAEPROVIDERFAILEDINIT                                                    syscall.Errno = 10106
@@ -2701,7 +2701,7 @@ const (
 	WSASERVICE_NOT_FOUND                                                      syscall.Errno = 10108
 	WSATYPE_NOT_FOUND                                                         syscall.Errno = 10109
 	WSA_E_NO_MORE                                                             syscall.Errno = 10110
-	WSA_E_CANCELLED                                                           syscall.Errno = 10111
+	WSA_E_Canceled                                                           syscall.Errno = 10111
 	WSAEREFUSED                                                               syscall.Errno = 10112
 	WSAHOST_NOT_FOUND                                                         syscall.Errno = 11001
 	WSATRY_AGAIN                                                              syscall.Errno = 11002
@@ -3302,7 +3302,7 @@ const (
 	OLE_E_CANT_GETMONIKER                                                     Handle        = 0x80040009
 	OLE_E_CANT_BINDTOSOURCE                                                   Handle        = 0x8004000A
 	OLE_E_STATIC                                                              Handle        = 0x8004000B
-	OLE_E_PROMPTSAVECANCELLED                                                 Handle        = 0x8004000C
+	OLE_E_PROMPTSAVECanceled                                                 Handle        = 0x8004000C
 	OLE_E_INVALIDRECT                                                         Handle        = 0x8004000D
 	OLE_E_WRONGCOMPOBJ                                                        Handle        = 0x8004000E
 	OLE_E_INVALIDHWND                                                         Handle        = 0x8004000F
@@ -3941,7 +3941,7 @@ const (
 	NTE_INCORRECT_PASSWORD                                                    Handle        = 0x80090033
 	NTE_ENCRYPTION_FAILURE                                                    Handle        = 0x80090034
 	NTE_DEVICE_NOT_FOUND                                                      Handle        = 0x80090035
-	NTE_USER_CANCELLED                                                        Handle        = 0x80090036
+	NTE_USER_Canceled                                                        Handle        = 0x80090036
 	NTE_PASSWORD_CHANGE_REQUIRED                                              Handle        = 0x80090037
 	NTE_NOT_ACTIVE_CONSOLE                                                    Handle        = 0x80090038
 	SEC_E_INSUFFICIENT_MEMORY                                                 Handle        = 0x80090300
@@ -4370,7 +4370,7 @@ const (
 	SPAPI_E_ERROR_NOT_INSTALLED                                               Handle        = 0x800F1000
 	SCARD_S_SUCCESS                                                                         = S_OK
 	SCARD_F_INTERNAL_ERROR                                                    Handle        = 0x80100001
-	SCARD_E_CANCELLED                                                         Handle        = 0x80100002
+	SCARD_E_Canceled                                                         Handle        = 0x80100002
 	SCARD_E_INVALID_HANDLE                                                    Handle        = 0x80100003
 	SCARD_E_INVALID_PARAMETER                                                 Handle        = 0x80100004
 	SCARD_E_INVALID_TARGET                                                    Handle        = 0x80100005
@@ -4386,7 +4386,7 @@ const (
 	SCARD_E_PROTO_MISMATCH                                                    Handle        = 0x8010000F
 	SCARD_E_NOT_READY                                                         Handle        = 0x80100010
 	SCARD_E_INVALID_VALUE                                                     Handle        = 0x80100011
-	SCARD_E_SYSTEM_CANCELLED                                                  Handle        = 0x80100012
+	SCARD_E_SYSTEM_Canceled                                                  Handle        = 0x80100012
 	SCARD_F_COMM_ERROR                                                        Handle        = 0x80100013
 	SCARD_F_UNKNOWN_ERROR                                                     Handle        = 0x80100014
 	SCARD_E_INVALID_ATR                                                       Handle        = 0x80100015
@@ -4430,7 +4430,7 @@ const (
 	SCARD_W_WRONG_CHV                                                         Handle        = 0x8010006B
 	SCARD_W_CHV_BLOCKED                                                       Handle        = 0x8010006C
 	SCARD_W_EOF                                                               Handle        = 0x8010006D
-	SCARD_W_CANCELLED_BY_USER                                                 Handle        = 0x8010006E
+	SCARD_W_Canceled_BY_USER                                                 Handle        = 0x8010006E
 	SCARD_W_CARD_NOT_AUTHENTICATED                                            Handle        = 0x8010006F
 	SCARD_W_CACHE_ITEM_NOT_FOUND                                              Handle        = 0x80100070
 	SCARD_W_CACHE_ITEM_STALE                                                  Handle        = 0x80100071
@@ -5881,7 +5881,7 @@ const (
 	GCN_E_NETCOMPARTMENT_NOT_FOUND                                            Handle        = 0x803B0027
 	GCN_E_NETINTERFACE_NOT_FOUND                                              Handle        = 0x803B0028
 	GCN_E_DEFAULTNAMESPACE_EXISTS                                             Handle        = 0x803B0029
-	SDIAG_E_CANCELLED                                                         syscall.Errno = 0x803C0100
+	SDIAG_E_Canceled                                                         syscall.Errno = 0x803C0100
 	SDIAG_E_SCRIPT                                                            syscall.Errno = 0x803C0101
 	SDIAG_E_POWERSHELL                                                        syscall.Errno = 0x803C0102
 	SDIAG_E_MANAGEDHOST                                                       syscall.Errno = 0x803C0103
@@ -6035,7 +6035,7 @@ const (
 	PEER_E_INVALID_PEER_HOST_NAME                                             Handle        = 0x80634002
 	PEER_E_NO_MORE                                                            Handle        = 0x80634003
 	PEER_E_PNRP_DUPLICATE_PEER_NAME                                           Handle        = 0x80634005
-	PEER_E_INVITE_CANCELLED                                                   Handle        = 0x80637000
+	PEER_E_INVITE_Canceled                                                   Handle        = 0x80637000
 	PEER_E_INVITE_RESPONSE_NOT_AVAILABLE                                      Handle        = 0x80637001
 	PEER_E_NOT_SIGNED_IN                                                      Handle        = 0x80637003
 	PEER_E_PRIVACY_DECLINED                                                   Handle        = 0x80637004
@@ -6269,7 +6269,7 @@ const (
 	DWRITE_E_FLOWDIRECTIONCONFLICTS                                           Handle        = 0x8898500B
 	DWRITE_E_NOCOLOR                                                          Handle        = 0x8898500C
 	DWRITE_E_REMOTEFONT                                                       Handle        = 0x8898500D
-	DWRITE_E_DOWNLOADCANCELLED                                                Handle        = 0x8898500E
+	DWRITE_E_DOWNLOADCanceled                                                Handle        = 0x8898500E
 	DWRITE_E_DOWNLOADFAILED                                                   Handle        = 0x8898500F
 	DWRITE_E_TOOMANYDOWNLOADS                                                 Handle        = 0x88985010
 	WINCODEC_ERR_WRONGSTATE                                                   Handle        = 0x88982F04
@@ -6615,7 +6615,7 @@ const (
 	WININET_E_INCORRECT_PASSWORD                                              Handle        = 0x80072EEE
 	WININET_E_LOGIN_FAILURE                                                   Handle        = 0x80072EEF
 	WININET_E_INVALID_OPERATION                                               Handle        = 0x80072EF0
-	WININET_E_OPERATION_CANCELLED                                             Handle        = 0x80072EF1
+	WININET_E_OPERATION_Canceled                                             Handle        = 0x80072EF1
 	WININET_E_INCORRECT_HANDLE_TYPE                                           Handle        = 0x80072EF2
 	WININET_E_INCORRECT_HANDLE_STATE                                          Handle        = 0x80072EF3
 	WININET_E_NOT_PROXY_REQUEST                                               Handle        = 0x80072EF4
@@ -6844,7 +6844,7 @@ const (
 	UTC_E_SCENARIO_HAS_NO_ACTIONS                                             Handle        = 0x87C51057
 	UTC_E_TTTRACER_STORAGE_FULL                                               Handle        = 0x87C51058
 	UTC_E_INSUFFICIENT_SPACE_TO_START_TRACE                                   Handle        = 0x87C51059
-	UTC_E_ESCALATION_CANCELLED_AT_SHUTDOWN                                    Handle        = 0x87C5105A
+	UTC_E_ESCALATION_Canceled_AT_SHUTDOWN                                    Handle        = 0x87C5105A
 	UTC_E_GETFILEINFOACTION_FILE_NOT_APPROVED                                 Handle        = 0x87C5105B
 	WINML_ERR_INVALID_DEVICE                                                  Handle        = 0x88900001
 	WINML_ERR_INVALID_BINDING                                                 Handle        = 0x88900002

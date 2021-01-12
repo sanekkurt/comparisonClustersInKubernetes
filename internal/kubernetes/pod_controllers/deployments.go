@@ -1,16 +1,23 @@
 package pod_controllers
 
 import (
+	"context"
 	"fmt"
+
+	"go.uber.org/zap"
 	v1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"k8s-cluster-comparator/internal/config"
 	"k8s-cluster-comparator/internal/kubernetes/skipper"
 	"k8s-cluster-comparator/internal/kubernetes/types"
+	"k8s-cluster-comparator/internal/logging"
 )
 
-func addItemsToDeploymentList(clientSet kubernetes.Interface, namespace string, limit int64) (*v1.DeploymentList, error) {
+func addItemsToDeploymentList(ctx context.Context, clientSet kubernetes.Interface, namespace string, limit int64) (*v1.DeploymentList, error) {
+	log := logging.FromContext(ctx)
+
 	log.Debugf("addItemsToDeploymentList started")
 	defer log.Debugf("addItemsToDeploymentList completed")
 
@@ -25,27 +32,33 @@ func addItemsToDeploymentList(clientSet kubernetes.Interface, namespace string, 
 		err error
 	)
 
+forLoop:
 	for {
-		batch, err = clientSet.AppsV1().Deployments(namespace).List(metav1.ListOptions{
-			Limit:    limit,
-			Continue: continueToken,
-		})
-		if err != nil {
-			return nil, err
+		select {
+		case <-ctx.Done():
+			return nil, context.Canceled
+		default:
+			batch, err = clientSet.AppsV1().Deployments(namespace).List(metav1.ListOptions{
+				Limit:    limit,
+				Continue: continueToken,
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			log.Debugf("addItemsToDeploymentList: %d objects received", len(batch.Items))
+
+			deployments.Items = append(deployments.Items, batch.Items...)
+
+			deployments.TypeMeta = batch.TypeMeta
+			deployments.ListMeta = batch.ListMeta
+
+			if batch.Continue == "" {
+				break forLoop
+			}
+
+			continueToken = batch.Continue
 		}
-
-		log.Debugf("addItemsToDeploymentList: %d objects received", len(batch.Items))
-
-		deployments.Items = append(deployments.Items, batch.Items...)
-
-		deployments.TypeMeta = batch.TypeMeta
-		deployments.ListMeta = batch.ListMeta
-
-		if batch.Continue == "" {
-			break
-		}
-
-		continueToken = batch.Continue
 	}
 
 	deployments.Continue = ""
@@ -53,22 +66,28 @@ func addItemsToDeploymentList(clientSet kubernetes.Interface, namespace string, 
 	return deployments, err
 }
 
-func CompareDeployments(clientSet1, clientSet2 kubernetes.Interface, namespace string, skipEntityList skipper.SkipEntitiesList) (bool, error) {
+func CompareDeployments(ctx context.Context, skipEntityList skipper.SkipEntitiesList) (bool, error) {
 	var (
+		log = logging.FromContext(ctx).With(zap.String("kind", "deployment"))
+
+		clientSet1, clientSet2, namespace = config.FromContext(ctx)
+
 		isClustersDiffer bool
 	)
 
-	deployments1, err := addItemsToDeploymentList(clientSet1, namespace, objectBatchLimit)
+	ctx = logging.WithLogger(ctx, log)
+
+	deployments1, err := addItemsToDeploymentList(ctx, clientSet1, namespace, objectBatchLimit)
 	if err != nil {
 		return false, fmt.Errorf("cannot obtain deployments list from 1st cluster: %w", err)
 	}
 
-	deployments2, err := addItemsToDeploymentList(clientSet2, namespace, objectBatchLimit)
+	deployments2, err := addItemsToDeploymentList(ctx, clientSet2, namespace, objectBatchLimit)
 	if err != nil {
 		return false, fmt.Errorf("cannot obtain deployments list from 2st cluster: %w", err)
 	}
 
-	apc1List, deploymentStatuses1, map1, apc2List, deploymentStatuses2, map2 := prepareDeploymentMaps(deployments1, deployments2, skipEntityList.GetByKind("deployments"))
+	apc1List, deploymentStatuses1, map1, apc2List, deploymentStatuses2, map2 := prepareDeploymentMaps(ctx, deployments1, deployments2, skipEntityList.GetByKind("deployments"))
 
 	for _, value := range deploymentStatuses1 {
 		if value.Replicas != value.ReadyReplicas {
@@ -82,7 +101,7 @@ func CompareDeployments(clientSet1, clientSet2 kubernetes.Interface, namespace s
 		}
 	}
 
-	isClustersDiffer = comparePodControllerSpecs(&clusterCompareTask{
+	isClustersDiffer, err = ComparePodControllers(ctx, &clusterCompareTask{
 		Client:                   clientSet1,
 		APCList:                  apc1List,
 		IsAlreadyCheckedFlagsMap: map1,
@@ -92,12 +111,14 @@ func CompareDeployments(clientSet1, clientSet2 kubernetes.Interface, namespace s
 		IsAlreadyCheckedFlagsMap: map2,
 	}, namespace)
 
-	return isClustersDiffer, nil
+	return isClustersDiffer, err
 }
 
 // prepareDeploymentMaps prepare deployment maps for comparison
-func prepareDeploymentMaps(obj1, obj2 *v1.DeploymentList, skipEntities skipper.SkipComponentNames) ([]AbstractPodController, []v1.DeploymentStatus, map[string]types.IsAlreadyComparedFlag, []AbstractPodController, []v1.DeploymentStatus, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
+func prepareDeploymentMaps(ctx context.Context, obj1, obj2 *v1.DeploymentList, skipEntities skipper.SkipComponentNames) ([]AbstractPodController, []v1.DeploymentStatus, map[string]types.IsAlreadyComparedFlag, []AbstractPodController, []v1.DeploymentStatus, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
 	var (
+		log = logging.FromContext(ctx)
+
 		map1                = make(map[string]types.IsAlreadyComparedFlag)
 		apc1List            = make([]AbstractPodController, 0)
 		deploymentStatuses1 = make([]v1.DeploymentStatus, 0)
@@ -111,7 +132,7 @@ func prepareDeploymentMaps(obj1, obj2 *v1.DeploymentList, skipEntities skipper.S
 
 	for index, value := range obj1.Items {
 		if skipEntities.IsSkippedEntity(value.Name) {
-			log.Debugf("deployment %s is skipped from comparison due to its name", value.Name)
+			log.Debugf("deployment/%s is skipped from comparison due to its name", value.Name)
 			continue
 		}
 
@@ -139,7 +160,7 @@ func prepareDeploymentMaps(obj1, obj2 *v1.DeploymentList, skipEntities skipper.S
 
 	for index, value := range obj2.Items {
 		if skipEntities.IsSkippedEntity(value.Name) {
-			log.Debugf("deployment %s is skipped from comparison due to its name", value.Name)
+			log.Debugf("deployment/%s is skipped from comparison due to its name", value.Name)
 			continue
 		}
 		indexCheck.Index = index

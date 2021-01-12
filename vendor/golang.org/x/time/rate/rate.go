@@ -226,7 +226,7 @@ func (lim *Limiter) WaitN(ctx context.Context, n int) (err error) {
 	if n > lim.burst && lim.limit != Inf {
 		return fmt.Errorf("rate: Wait(n=%d) exceeds limiter's burst %d", n, lim.burst)
 	}
-	// Check if ctx is already cancelled
+	// Check if ctx is already Canceled
 	select {
 	case <-ctx.Done():
 		return ctx.Err()

@@ -27,7 +27,7 @@ message RpcError {
     FEATURE_DISABLED = 7;
     BAD_REQUEST = 8;
     RESPONSE_TOO_LARGE = 9;
-    CANCELLED = 10;
+    Canceled = 10;
     REPLAY_ERROR = 11;
     DEADLINE_EXCEEDED = 12;
   }

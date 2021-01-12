@@ -13,7 +13,7 @@ import (
 func main() {
 	var (
 		debug bool
-		ret   int
+		//ret   int
 	)
 
 	if os.Getenv("DEBUG") == "true" {
@@ -23,19 +23,24 @@ func main() {
 	ctx, doneFn := interrupt.Context()
 
 	defer func() {
+		fmt.Printf("k8s-cluster-comparator interrupted")
+
 		doneFn()
-		os.Exit(ret)
+		//os.Exit(ret)
+		//fmt.Println(ret)
 	}()
 
 	err := logging.Configure(debug)
 	if err != nil {
 		fmt.Println("[ERROR] ", err.Error())
 
-		ret = 1
+		//ret = 1
 		return
 	}
 
 	log := logging.FromContext(ctx)
+
+	log.Infow("Starting k8s-cluster-comparator")
 
 	cfg, err := config.Parse(ctx)
 	if err != nil {
@@ -43,23 +48,21 @@ func main() {
 			return
 		}
 
-		ret = 1
+		//ret = 1
 		return
 	}
 
-	log.Infow("Starting k8s-cluster-comparator")
-
-	isClustersDiffer, err := kube.CompareClusters(ctx, cfg)
+	_, err = kube.CompareClusters(ctx, cfg)
 	if err != nil {
 		log.Errorf("cannot compare clusters: %s", err.Error())
 
-		ret = 2
+		//ret = 2
 		return
 	}
 
-	if isClustersDiffer {
-		ret = 1
-	}
+	//if isClustersDiffer {
+	//	ret = 1
+	//}
 
-	log.Infow("k8s-cluster-comparator completed")
+	log.Debugw("k8s-cluster-comparator completed")
 }

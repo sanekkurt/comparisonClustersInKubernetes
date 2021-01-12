@@ -2,8 +2,10 @@ package logging
 
 import (
 	"context"
+	"fmt"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 type loggingCtxKey struct{}
@@ -13,19 +15,45 @@ var (
 )
 
 func Configure(debugMode bool) error { //nolint
-	var err error
-	var logger *zap.Logger
+	var (
+		err    error
+		logger *zap.Logger
 
-	logLevel := zap.InfoLevel
-	if debugMode {
-		logLevel = zap.DebugLevel
+		logLevel = zap.InfoLevel
+	)
+
+	zapConfig := zap.Config{
+		Level:       zap.NewAtomicLevelAt(logLevel),
+		Development: false,
+		Encoding:    "json",
+		EncoderConfig: zapcore.EncoderConfig{
+			// Keys can be anything except the empty string.
+			TimeKey: "",
+			//LevelKey:      "L",
+			LevelKey: "level",
+			//NameKey:       "N",
+			CallerKey:   "",
+			FunctionKey: zapcore.OmitKey,
+			MessageKey:  "message",
+			//StacktraceKey: "S",
+			LineEnding:  zapcore.DefaultLineEnding,
+			EncodeLevel: zapcore.CapitalLevelEncoder,
+			//EncodeTime:     zapcore.ISO8601TimeEncoder,
+			EncodeDuration: zapcore.StringDurationEncoder,
+		},
+		OutputPaths:      []string{"stderr"},
+		ErrorOutputPaths: []string{"stderr"},
 	}
 
-	zapConfig := zap.NewDevelopmentConfig()
-	zapConfig.Level = zap.NewAtomicLevelAt(logLevel)
+	if debugMode {
+		zapConfig.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
+		zapConfig.Development = true
+		zapConfig.EncoderConfig.CallerKey = "caller"
+		zapConfig.EncoderConfig.EncodeCaller = zapcore.ShortCallerEncoder
+	}
 
 	if logger, err = zapConfig.Build(); err != nil {
-		log = zap.NewNop().Sugar()
+		return fmt.Errorf("cannot create logger: %w", err)
 	} else {
 		log = logger.Sugar()
 	}

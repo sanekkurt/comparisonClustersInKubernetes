@@ -6,6 +6,7 @@ import (
 
 	v12 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 type ObjectKind string
@@ -97,4 +98,11 @@ type KubeconfigYaml struct {
 			ClientKeyData         string `json:"client-key-data"`
 		} `json:"user"`
 	} `json:"users"`
+}
+
+type KubeConnections struct {
+	C1 kubernetes.Interface
+	C2 kubernetes.Interface
+
+	Namespace string
 }

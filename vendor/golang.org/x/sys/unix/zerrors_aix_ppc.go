@@ -1306,7 +1306,7 @@ var errorList = [...]struct {
 	{114, "ENOTRUST", "not a Trusted Program"},
 	{115, "ETOOMANYREFS", "too many references: can't splice"},
 	{116, "EILSEQ", "invalid wide character"},
-	{117, "ECANCELED", "asynchronous I/O cancelled"},
+	{117, "ECANCELED", "asynchronous I/O Canceled"},
 	{118, "ENOSR", "out of STREAMS resources"},
 	{119, "ETIME", "system call timed out"},
 	{120, "EBADMSG", "next message has wrong type"},
