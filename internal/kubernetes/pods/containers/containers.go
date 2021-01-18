@@ -10,8 +10,7 @@ import (
 )
 
 var (
-	ErrorContainerDifferentNames  = errors.New("different container names in Pod specs")
-	ErrorContainerDifferentImages = errors.New("different container images in Pod specs")
+	ErrorContainerDifferentNames = errors.New("different container names in Pod specs")
 )
 
 func CompareContainerSpecs(ctx context.Context, container1, container2 v1.Container) (bool, error) {
@@ -24,12 +23,12 @@ func CompareContainerSpecs(ctx context.Context, container1, container2 v1.Contai
 		return true, ErrorContainerDifferentNames
 	}
 
-	if container1.Image != container2.Image {
-		log.Warnf("%s: %s vs %s", ErrorContainerDifferentImages.Error(), container1.Image, container2.Image)
-		return true, ErrorContainerDifferentImages
+	bDiff, err := compareContainerSpecImages(ctx, container1, container2)
+	if err != nil || bDiff {
+		return bDiff, err
 	}
 
-	bDiff, err := compareContainerEnvVars(ctx, container1.Env, container2.Env)
+	bDiff, err = compareContainerEnvVars(ctx, container1.Env, container2.Env)
 	if err != nil {
 		return false, err
 	}

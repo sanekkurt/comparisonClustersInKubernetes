@@ -5,8 +5,6 @@ import (
 
 	"go.uber.org/zap"
 
-	"k8s-cluster-comparator/internal/kubernetes/common"
-	errors "k8s-cluster-comparator/internal/kubernetes/errors"
 	"k8s-cluster-comparator/internal/kubernetes/pods/containers"
 	"k8s-cluster-comparator/internal/kubernetes/types"
 	"k8s-cluster-comparator/internal/logging"
@@ -121,23 +119,10 @@ func ComparePodSpecs(ctx context.Context, spec1, spec2 types.InformationAboutObj
 	var (
 		containersPod1 = spec1.Template.Spec.Containers
 		containersPod2 = spec2.Template.Spec.Containers
-
-		//pods1 *v12.PodList
-		//pods2 *v12.PodList
-
-		matchLabelsString1 string
-		matchLabelsString2 string
 	)
 
 	if len(containersPod1) != len(containersPod2) {
 		return true, ErrorDiffersTemplatesNumber
-	}
-
-	matchLabelsString1 = common.ConvertMatchLabelsToString(ctx, spec1.Selector.MatchLabels)
-	matchLabelsString2 = common.ConvertMatchLabelsToString(ctx, spec2.Selector.MatchLabels)
-
-	if matchLabelsString1 != matchLabelsString2 {
-		return true, errors.ErrorMatchlabelsNotEqual
 	}
 
 	//pods1, err := common.GetPodsListOnMatchLabels(ctx, spec1.Selector.MatchLabels, namespace, clientSet1)

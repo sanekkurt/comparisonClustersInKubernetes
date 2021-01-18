@@ -4,6 +4,8 @@ import (
 	"context"
 	"strings"
 
+	"go.uber.org/zap"
+
 	"k8s-cluster-comparator/internal/kubernetes/types"
 	"k8s-cluster-comparator/internal/logging"
 )
@@ -30,7 +32,7 @@ func AreKVMapsEqual(ctx context.Context, map1, map2 types.KVMap, skipKeys map[st
 		}
 
 		if _, ok := map2[k]; !ok {
-			log.Debugf("key '%s' does not exist in map2")
+			log.Warnf("key does not exist in map2", zap.String("key", k))
 			return false
 		}
 
@@ -53,7 +55,7 @@ func AreKVMapsEqual(ctx context.Context, map1, map2 types.KVMap, skipKeys map[st
 		}
 
 		if len(keys) > 0 {
-			log.Debugf("the number of keys is not equal in maps. map2 contains following keys that does not exist in the map1: %s", strings.Join(keys, ","))
+			log.Warnf("map2 has a number of extra keys which are not found in map1: %s", strings.Join(keys, ", "))
 
 			return false
 		}
@@ -78,7 +80,7 @@ func AreKVBytesMapsEqual(ctx context.Context, map1, map2 map[string][]byte, skip
 		}
 
 		if _, ok := map2[k]; !ok {
-			log.Debugf("key '%s' does not exist in map2")
+			log.Warnf("key does not exist in map2", zap.String("key", k))
 			return false
 		}
 
@@ -101,7 +103,7 @@ func AreKVBytesMapsEqual(ctx context.Context, map1, map2 map[string][]byte, skip
 		}
 
 		if len(keys) > 0 {
-			log.Debugf("the number of keys is not equal in maps. map2 contains following keys that does not exist in the map1: %s", strings.Join(keys, ","))
+			log.Warnf("map2 has a number of extra keys which are not found in map1: %s", strings.Join(keys, ", "))
 
 			return false
 		}

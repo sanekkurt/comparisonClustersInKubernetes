@@ -7,6 +7,7 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
 
+	"k8s-cluster-comparator/internal/kubernetes/common"
 	//"k8s-cluster-comparator/internal/kubernetes/metadata"
 	"k8s-cluster-comparator/internal/kubernetes/pods"
 	"k8s-cluster-comparator/internal/kubernetes/types"
@@ -32,6 +33,7 @@ func ComparePodControllerSpecs(ctx context.Context, wg *sync.WaitGroup, channel 
 	ctx = logging.WithLogger(ctx, log)
 
 	defer func() {
+		channel <- flag
 		wg.Done()
 	}()
 
@@ -66,6 +68,14 @@ func ComparePodControllerSpecs(ctx context.Context, wg *sync.WaitGroup, channel 
 		Selector: apc2.PodLabelSelector,
 	}
 
+	matchLabelsString1 := common.ConvertMatchLabelsToString(ctx, object1.Selector.MatchLabels)
+	matchLabelsString2 := common.ConvertMatchLabelsToString(ctx, object1.Selector.MatchLabels)
+
+	if matchLabelsString1 != matchLabelsString2 {
+		log.Warnf("%s: %s vs %s", ErrorMatchLabelsNotEqual.Error(), matchLabelsString1, matchLabelsString2)
+		flag = true
+	}
+
 	bDiff, err := pods.ComparePodSpecs(ctx, object1, object2)
 	if err != nil || bDiff {
 		log.Warnw(err.Error())
@@ -73,8 +83,6 @@ func ComparePodControllerSpecs(ctx context.Context, wg *sync.WaitGroup, channel 
 	}
 
 	log.Debugf("----- End checking %s/%s -----", kind, name)
-
-	channel <- flag
 }
 
 // ComparePodControllers compares abstracted pod controller specifications in two k8s clusters

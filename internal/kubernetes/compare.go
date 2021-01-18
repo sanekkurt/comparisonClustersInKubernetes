@@ -9,8 +9,14 @@ import (
 	"k8s-cluster-comparator/internal/kubernetes/kv_maps"
 	"k8s-cluster-comparator/internal/kubernetes/networking"
 	"k8s-cluster-comparator/internal/kubernetes/pod_controllers"
+	"k8s-cluster-comparator/internal/kubernetes/skipper"
 	"k8s-cluster-comparator/internal/kubernetes/types"
 )
+
+type ObjectComparator interface {
+	PrepareCompareLists() error
+	Compare(ctx context.Context, list skipper.SkipEntitiesList) (bool, error)
+}
 
 // CompareClusters main compare function, runs functions for comparing clusters by different parameters one at a time: Deployments, StatefulSets, DaemonSets, ConfigMaps
 func CompareClusters(ctx context.Context, cfg *config.AppConfig) (bool, error) {
