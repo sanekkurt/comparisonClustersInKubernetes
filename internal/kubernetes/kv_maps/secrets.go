@@ -234,7 +234,7 @@ func compareSecretsSpecs(ctx context.Context, map1, map2 map[string]types.IsAlre
 
 	for name, index := range map2 {
 		if !index.Check {
-			log.Warnw("secret/%s does not exist in 1st cluster", name)
+			log.Warnf("secret/%s does not exist in 1st cluster", name)
 			flag = true
 
 		}
