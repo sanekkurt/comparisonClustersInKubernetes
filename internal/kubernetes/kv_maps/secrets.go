@@ -171,7 +171,7 @@ func compareSecretSpecInternals(ctx context.Context, wg *sync.WaitGroup, channel
 
 	log.Debugf("----- Start checking secret/%s -----", name)
 
-	if !metadata.IsMetadataDiffers(ctx, secret1.ObjectMeta, secret1.ObjectMeta) {
+	if !metadata.IsMetadataDiffers(ctx, secret1.ObjectMeta, secret2.ObjectMeta) {
 		channel <- true
 		return
 	}

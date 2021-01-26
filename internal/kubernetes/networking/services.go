@@ -180,7 +180,7 @@ func compareServicesSpecs(ctx context.Context, map1, map2 map[string]types.IsAlr
 			index2.Check = true
 			map2[name] = index2
 
-			go compareServiceSpecInternals(ctx, wg, channel, name, &services1.Items[index1.Index], &services2.Items[index2.Index])
+			compareServiceSpecInternals(ctx, wg, channel, name, &services1.Items[index1.Index], &services2.Items[index2.Index]) // тут была горутина
 
 		} else {
 			log.Infof("service '%s' does not exist in 2nd cluster", name)

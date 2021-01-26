@@ -23,13 +23,13 @@ func IsMetadataDiffers(ctx context.Context, meta1, meta2 v1.ObjectMeta) bool {
 
 	if !CompareLabels(ctx, meta1.Labels, meta2.Labels, common.SkippedKubeLabels) {
 		log.Warnw("metadata differs: different labels")
-		return true
+		return false
 	}
 
-	if !CompareAnnotations(ctx, meta1.Annotations, meta2.Annotations, nil) {
+	if !CompareAnnotations(ctx, meta1.Annotations, meta2.Annotations, common.SkippedKubeAnnotations) {
 		log.Warnw("metadata differs: different annotations")
-		return true
+		return false
 	}
 
-	return false
+	return true
 }

@@ -22,6 +22,9 @@ var (
 	SkippedKubeLabels = map[string]struct{}{
 		"app.kubernetes.io/version": {},
 	}
+	SkippedKubeAnnotations = map[string]struct{}{
+		"kubectl.kubernetes.io/last-applied-configuration": {},
+	}
 )
 
 const (
