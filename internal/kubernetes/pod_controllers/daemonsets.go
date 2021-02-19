@@ -3,18 +3,20 @@ package pod_controllers
 import (
 	"context"
 	"fmt"
+
 	"go.uber.org/zap"
 	v1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
 	"k8s-cluster-comparator/internal/config"
-	"k8s-cluster-comparator/internal/kubernetes/skipper"
 	"k8s-cluster-comparator/internal/kubernetes/types"
 	"k8s-cluster-comparator/internal/logging"
 )
 
 const (
+	daemonSetKind = "daemonset"
+
 	objectBatchLimit = 25
 )
 
@@ -68,46 +70,51 @@ forLoop:
 	return daemonSets, err
 }
 
-// CompareDaemonSets compares list of daemonsets objects in two given k8s-clusters
-func CompareDaemonSets(ctx context.Context, skipEntityList skipper.SkipEntitiesList) (bool, error) {
+type DaemonSetsComparator struct {
+}
+
+func NewDaemonSetsComparator(ctx context.Context, namespace string) DaemonSetsComparator {
+	return DaemonSetsComparator{}
+}
+
+// Compare compares list of DaemonSets in two given k8s-clusters
+func (cmp DaemonSetsComparator) Compare(ctx context.Context, namespace string) ([]types.KubeObjectsDifference, error) {
 	var (
-		log = logging.FromContext(ctx).With(zap.String("kind", "daemonset"))
-
-		clientSet1, clientSet2, namespace = config.FromContext(ctx)
-
-		isClustersDiffer bool
+		log = logging.FromContext(ctx).With(zap.String("kind", daemonSetKind))
+		cfg = config.FromContext(ctx)
 	)
 	ctx = logging.WithLogger(ctx, log)
 
-	daemonSets1, err := addItemsToDaemonSetsList(ctx, clientSet1, namespace, objectBatchLimit)
+	daemonSets1, err := addItemsToDaemonSetsList(ctx, cfg.Connections.Cluster1.ClientSet, namespace, objectBatchLimit)
 	if err != nil {
-		return false, fmt.Errorf("cannot obtain daemonsets list from 1st cluster: %w", err)
+		return nil, fmt.Errorf("cannot obtain daemonsets list from 1st cluster: %w", err)
 	}
 
-	daemonSets2, err := addItemsToDaemonSetsList(ctx, clientSet2, namespace, objectBatchLimit)
+	daemonSets2, err := addItemsToDaemonSetsList(ctx, cfg.Connections.Cluster2.ClientSet, namespace, objectBatchLimit)
 	if err != nil {
-		return false, fmt.Errorf("cannot obtain daemonsets list from 2st cluster: %w", err)
+		return nil, fmt.Errorf("cannot obtain daemonsets list from 2st cluster: %w", err)
 	}
 
-	apc1List, map1, apc2List, map2 := prepareDaemonSetMaps(ctx, daemonSets1, daemonSets2, skipEntityList.GetByKind("daemonsets"))
+	apc1List, map1, apc2List, map2 := prepareDaemonSetMaps(ctx, daemonSets1, daemonSets2)
 
-	isClustersDiffer, err = ComparePodControllers(ctx, &clusterCompareTask{
-		Client:                   clientSet1,
+	_, err = ComparePodControllers(ctx, &clusterCompareTask{
+		Client:                   cfg.Connections.Cluster1.ClientSet,
 		APCList:                  apc1List,
 		IsAlreadyCheckedFlagsMap: map1,
 	}, &clusterCompareTask{
-		Client:                   clientSet2,
+		Client:                   cfg.Connections.Cluster2.ClientSet,
 		APCList:                  apc2List,
 		IsAlreadyCheckedFlagsMap: map2,
 	}, namespace)
 
-	return isClustersDiffer, err
+	return nil, err
 }
 
 // prepareDaemonSetMaps prepares DaemonSet maps for comparison
-func prepareDaemonSetMaps(ctx context.Context, obj1, obj2 *v1.DaemonSetList, skipEntities skipper.SkipComponentNames) ([]AbstractPodController, map[string]types.IsAlreadyComparedFlag, []AbstractPodController, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
+func prepareDaemonSetMaps(ctx context.Context, obj1, obj2 *v1.DaemonSetList) ([]AbstractPodController, map[string]types.IsAlreadyComparedFlag, []AbstractPodController, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
 	var (
 		log = logging.FromContext(ctx)
+		cfg = config.FromContext(ctx)
 
 		map1     = make(map[string]types.IsAlreadyComparedFlag)
 		apc1List = make([]AbstractPodController, 0)
@@ -119,9 +126,8 @@ func prepareDaemonSetMaps(ctx context.Context, obj1, obj2 *v1.DaemonSetList, ski
 	)
 
 	for index, value := range obj1.Items {
-
-		if skipEntities.IsSkippedEntity(value.Name) {
-			log.Debugf("daemonset/%s is skipped from comparison due to its name", value.Name)
+		if cfg.Skips.IsSkippedEntity(daemonSetKind, value.Name) {
+			log.With(zap.String("name", value.Name)).Debugf("daemonset/%s is skipped from comparison", value.Name)
 			continue
 		}
 
@@ -146,10 +152,11 @@ func prepareDaemonSetMaps(ctx context.Context, obj1, obj2 *v1.DaemonSetList, ski
 	}
 
 	for index, value := range obj2.Items {
-		if skipEntities.IsSkippedEntity(value.Name) {
-			log.Debugf("daemonset/%s is skipped from comparison due to its name", value.Name)
+		if cfg.Skips.IsSkippedEntity(daemonSetKind, value.Name) {
+			log.With(zap.String("name", value.Name)).Debugf("daemonset/%s is skipped from comparison", value.Name)
 			continue
 		}
+
 		indexCheck.Index = index
 		map2[value.Name] = indexCheck
 

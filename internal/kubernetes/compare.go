@@ -2,7 +2,9 @@ package kubernetes
 
 import (
 	"context"
-	"sync"
+	"fmt"
+
+	"go.uber.org/zap"
 
 	"k8s-cluster-comparator/internal/config"
 	"k8s-cluster-comparator/internal/kubernetes/jobs"
@@ -10,150 +12,60 @@ import (
 	"k8s-cluster-comparator/internal/kubernetes/networking"
 	"k8s-cluster-comparator/internal/kubernetes/pod_controllers"
 	"k8s-cluster-comparator/internal/kubernetes/types"
+	"k8s-cluster-comparator/internal/logging"
 )
 
+type ResStr struct {
+	IsClustersDiffer bool
+	Err              error
+}
+
+func compareKubeNamespaces(ctx context.Context, ns string) (*types.KubeObjectsDifference, error) {
+	log := logging.FromContext(ctx).With(zap.String("namespace", ns))
+
+	log.Debugf("Processing namespace/%s", ns)
+	defer func() {
+		log.Debugf("End of namespace/%s processing", ns)
+	}()
+
+	return nil, nil
+}
+
 // CompareClusters main compare function, runs functions for comparing clusters by different parameters one at a time: Deployments, StatefulSets, DaemonSets, ConfigMaps
-func CompareClusters(ctx context.Context, cfg *config.AppConfig) (bool, error) {
-	type ResStr struct {
-		IsClustersDiffer bool
-		Err              error
-	}
-
+func CompareClusters(ctx context.Context) ([]types.KubeObjectsDifference, error) {
 	var (
-		wg = &sync.WaitGroup{}
+		//log = logging.FromContext(ctx)
+		cfg = config.FromContext(ctx)
 
-		resCh = make(chan ResStr, len(cfg.Namespaces))
+		diffs = make([]types.KubeObjectsDifference, 0)
 	)
 
-	for _, namespace := range cfg.Namespaces {
-		wg.Add(1)
+	for _, namespace := range cfg.Connections.Namespaces {
+		comparators := []types.KubeResourceComparator{
+			pod_controllers.NewDeploymentsComparator(ctx, namespace),
+			pod_controllers.NewStatefulSetsComparator(ctx, namespace),
+			pod_controllers.NewDaemonSetsComparator(ctx, namespace),
 
-		go func(wg *sync.WaitGroup, resCh chan ResStr, namespace string) {
-			var (
-				isClustersDifferFlag types.OnceSettableFlag
+			jobs.NewJobsComparator(ctx, namespace),
+			jobs.NewCronJobsComparator(ctx, namespace),
 
-				kubeConns = &types.KubeConnections{
-					C1:        cfg.Cluster1.Kubeconfig,
-					C2:        cfg.Cluster2.Kubeconfig,
-					Namespace: namespace,
-				}
-			)
+			kv_maps.NewConfigMapsComparator(ctx, namespace),
+			kv_maps.NewSecretsComparator(ctx, namespace),
 
-			defer func() {
-				wg.Done()
-			}()
-
-			ctx = config.With(ctx, kubeConns)
-
-			isClustersDiffer, err := pod_controllers.CompareDeployments(ctx, cfg.SkipEntitiesList)
-			if err != nil {
-				resCh <- ResStr{
-					IsClustersDiffer: isClustersDiffer,
-					Err:              err,
-				}
-				return
-			}
-			isClustersDifferFlag.SetFlag(isClustersDiffer)
-
-			isClustersDiffer, err = pod_controllers.CompareStateFulSets(ctx, cfg.SkipEntitiesList)
-			if err != nil {
-				resCh <- ResStr{
-					IsClustersDiffer: isClustersDiffer,
-					Err:              err,
-				}
-				return
-			}
-			isClustersDifferFlag.SetFlag(isClustersDiffer)
-
-			isClustersDiffer, err = pod_controllers.CompareDaemonSets(ctx, cfg.SkipEntitiesList)
-			if err != nil {
-				resCh <- ResStr{
-					IsClustersDiffer: isClustersDiffer,
-					Err:              err,
-				}
-				return
-			}
-			isClustersDifferFlag.SetFlag(isClustersDiffer)
-
-			isClustersDiffer, err = kv_maps.CompareConfigMaps(ctx, cfg.SkipEntitiesList)
-			if err != nil {
-				resCh <- ResStr{
-					IsClustersDiffer: isClustersDiffer,
-					Err:              err,
-				}
-				return
-			}
-			isClustersDifferFlag.SetFlag(isClustersDiffer)
-
-			isClustersDiffer, err = kv_maps.CompareSecrets(ctx, cfg.SkipEntitiesList)
-			if err != nil {
-				resCh <- ResStr{
-					IsClustersDiffer: isClustersDiffer,
-					Err:              err,
-				}
-				return
-			}
-			isClustersDifferFlag.SetFlag(isClustersDiffer)
-
-			isClustersDiffer, err = jobs.CompareJobs(ctx, cfg.SkipEntitiesList)
-			if err != nil {
-				resCh <- ResStr{
-					IsClustersDiffer: isClustersDiffer,
-					Err:              err,
-				}
-				return
-			}
-			isClustersDifferFlag.SetFlag(isClustersDiffer)
-
-			isClustersDiffer, err = jobs.CompareCronJobs(ctx, cfg.SkipEntitiesList)
-			if err != nil {
-				resCh <- ResStr{
-					IsClustersDiffer: isClustersDiffer,
-					Err:              err,
-				}
-				return
-			}
-			isClustersDifferFlag.SetFlag(isClustersDiffer)
-
-			isClustersDiffer, err = networking.CompareServices(ctx, cfg.SkipEntitiesList)
-			if err != nil {
-				resCh <- ResStr{
-					IsClustersDiffer: isClustersDiffer,
-					Err:              err,
-				}
-				return
-			}
-			isClustersDifferFlag.SetFlag(isClustersDiffer)
-
-			isClustersDiffer, err = networking.CompareIngresses(ctx, cfg.SkipEntitiesList)
-			if err != nil {
-				resCh <- ResStr{
-					IsClustersDiffer: isClustersDiffer,
-					Err:              err,
-				}
-				return
-			}
-			isClustersDifferFlag.SetFlag(isClustersDiffer)
-
-			resCh <- ResStr{
-				Err:              nil,
-				IsClustersDiffer: isClustersDifferFlag.GetFlag(),
-			}
-		}(wg, resCh, namespace)
-	}
-
-	wg.Wait()
-
-	close(resCh)
-
-	for res := range resCh {
-		if res.Err != nil {
-			return false, res.Err
+			networking.NewServicesComparator(ctx, namespace),
+			networking.NewIngressesComparator(ctx, namespace),
 		}
-		if res.IsClustersDiffer {
-			return res.IsClustersDiffer, nil
+
+		diffs := make([]types.KubeObjectsDifference, len(comparators))
+		for _, cmp := range comparators {
+			diff, err := cmp.Compare(ctx, namespace)
+			if err != nil {
+				return nil, fmt.Errorf("cannot call %t: %w", cmp, err)
+			}
+
+			diffs = append(diffs, diff...)
 		}
 	}
 
-	return false, nil
+	return diffs, nil
 }

@@ -47,10 +47,12 @@ func compareContainerSpecImages(ctx context.Context, container1, container2 v1.C
 		return true, ErrorContainerDifferentImageTags
 	}
 
+OUTER:
 	for _, tag := range rollingTagList {
 		for idx := range imgParts {
 			if imgParts[idx][1] == tag {
-				log.Warnf("cluster #%d: rolling tag '%s' detected, comparison might be inaccurate", idx+1, tag)
+				log.Infof("cluster #%d: rolling tag '%s' detected, comparison might be inaccurate", idx+1, tag)
+				break OUTER
 			}
 		}
 	}

@@ -13,9 +13,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"k8s-cluster-comparator/internal/kubernetes/skipper"
 	"k8s-cluster-comparator/internal/kubernetes/types"
-	"k8s-cluster-comparator/internal/logging"
 )
 
 var (
@@ -102,29 +100,29 @@ type KubeObject struct {
 	Item     interface{}
 }
 
-func CreateKubeObjectsMap(ctx context.Context, items []KubeObject, skipEntities skipper.SkipComponentNames) map[string]types.IsAlreadyComparedFlag {
-	var (
-		log = logging.FromContext(ctx)
-
-		objMap = make(map[string]types.IsAlreadyComparedFlag)
-
-		indexCheck types.IsAlreadyComparedFlag
-	)
-
-	for index, itm := range items {
-		//if checkContinueTypes(value.Type) {
-		//	log.Debugf("secret/%s is skipped from comparison due to its '%s' type", value.Name, value.Type)
-		//	continue
-		//}
-
-		if skipEntities.IsSkippedEntity(itm.Metadata.Name) {
-			log.Debugf("%s/%s is skipped from comparison due to its name", strings.ToLower(itm.Type.Kind), itm.Metadata.Name)
-			continue
-		}
-
-		indexCheck.Index = index
-		objMap[itm.Metadata.Name] = indexCheck
-	}
-
-	return objMap
-}
+//func CreateKubeObjectsMap(ctx context.Context, items []KubeObject, skipEntities skipper.SkipComponentNames) map[string]types.IsAlreadyComparedFlag {
+//	var (
+//		log = logging.FromContext(ctx)
+//
+//		objMap = make(map[string]types.IsAlreadyComparedFlag)
+//
+//		indexCheck types.IsAlreadyComparedFlag
+//	)
+//
+//	for index, itm := range items {
+//		//if checkContinueTypes(value.Type) {
+//		//	log.Debugf("secret/%s is skipped from comparison due to its '%s' type", value.Name, value.Type)
+//		//	continue
+//		//}
+//
+//		if skipEntities.IsSkippedEntity(itm.Metadata.Name) {
+//			log.Debugf("%s/%s is skipped from comparison due to its name", strings.ToLower(itm.Type.Kind), itm.Metadata.Name)
+//			continue
+//		}
+//
+//		indexCheck.Index = index
+//		objMap[itm.Metadata.Name] = indexCheck
+//	}
+//
+//	return objMap
+//}

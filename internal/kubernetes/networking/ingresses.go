@@ -13,9 +13,12 @@ import (
 
 	"k8s-cluster-comparator/internal/config"
 	"k8s-cluster-comparator/internal/kubernetes/metadata"
-	"k8s-cluster-comparator/internal/kubernetes/skipper"
 	"k8s-cluster-comparator/internal/kubernetes/types"
 	"k8s-cluster-comparator/internal/logging"
+)
+
+const (
+	ingressKind = "ingress"
 )
 
 func addItemsToIngressList(ctx context.Context, clientSet kubernetes.Interface, namespace string, limit int64) (*v1beta12.IngressList, error) {
@@ -63,58 +66,66 @@ func addItemsToIngressList(ctx context.Context, clientSet kubernetes.Interface, 
 	return ingresses, err
 }
 
-// CompareIngresses compares list of ingresses objects in two given k8s-clusters
-func CompareIngresses(ctx context.Context, skipEntityList skipper.SkipEntitiesList) (bool, error) {
+type IngressesComparator struct {
+}
+
+func NewIngressesComparator(ctx context.Context, namespace string) IngressesComparator {
+	return IngressesComparator{}
+}
+
+// Compare compares list of ingresses objects in two given k8s-clusters
+func (cmd IngressesComparator) Compare(ctx context.Context, namespace string) ([]types.KubeObjectsDifference, error) {
 	var (
-		log = logging.FromContext(ctx).With(zap.String("kind", "ingress"))
-
-		clientSet1, clientSet2, namespace = config.FromContext(ctx)
-
-		isClustersDiffer bool
+		log = logging.FromContext(ctx).With(zap.String("kind", ingressKind))
+		cfg = config.FromContext(ctx)
 	)
 	ctx = logging.WithLogger(ctx, log)
 
-	ingresses1, err := addItemsToIngressList(ctx, clientSet1, namespace, objectBatchLimit)
+	ingresses1, err := addItemsToIngressList(ctx, cfg.Connections.Cluster1.ClientSet, namespace, objectBatchLimit)
 	if err != nil {
-		return false, fmt.Errorf("cannot obtain ingresses list from 1st cluster: %w", err)
+		return nil, fmt.Errorf("cannot obtain ingresses list from 1st cluster: %w", err)
 	}
 
-	ingresses2, err := addItemsToIngressList(ctx, clientSet2, namespace, objectBatchLimit)
+	ingresses2, err := addItemsToIngressList(ctx, cfg.Connections.Cluster2.ClientSet, namespace, objectBatchLimit)
 	if err != nil {
-		return false, fmt.Errorf("cannot obtain ingresses list from 2st cluster: %w", err)
+		return nil, fmt.Errorf("cannot obtain ingresses list from 2st cluster: %w", err)
 	}
 
-	mapIngresses1, mapIngresses2 := prepareIngressMaps(ctx, ingresses1, ingresses2, skipEntityList.GetByKind("ingresses"))
+	mapIngresses1, mapIngresses2 := prepareIngressMaps(ctx, ingresses1, ingresses2)
 
-	isClustersDiffer = setInformationAboutIngresses(ctx, mapIngresses1, mapIngresses2, ingresses1, ingresses2)
+	_ = setInformationAboutIngresses(ctx, mapIngresses1, mapIngresses2, ingresses1, ingresses2)
 
-	return isClustersDiffer, nil
+	return nil, nil
 }
 
 // prepareIngressMaps add value secrets in map
-func prepareIngressMaps(ctx context.Context, ingresses1, ingresses2 *v1beta12.IngressList, skipEntities skipper.SkipComponentNames) (map[string]types.IsAlreadyComparedFlag, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
-	log := logging.FromContext(ctx)
+func prepareIngressMaps(ctx context.Context, ingresses1, ingresses2 *v1beta12.IngressList) (map[string]types.IsAlreadyComparedFlag, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
+	var (
+		log = logging.FromContext(ctx)
+		cfg = config.FromContext(ctx)
 
-	mapIngresses1 := make(map[string]types.IsAlreadyComparedFlag)
-	mapIngresses2 := make(map[string]types.IsAlreadyComparedFlag)
-	var indexCheck types.IsAlreadyComparedFlag
+		mapIngresses1 = make(map[string]types.IsAlreadyComparedFlag)
+		mapIngresses2 = make(map[string]types.IsAlreadyComparedFlag)
+
+		indexCheck types.IsAlreadyComparedFlag
+	)
 
 	for index, value := range ingresses1.Items {
-
-		if skipEntities.IsSkippedEntity(value.Name) {
-			log.Debugf("ingress %s is skipped from comparison due to its name", value.Name)
+		if cfg.Skips.IsSkippedEntity(ingressKind, value.Name) {
+			log.With(zap.String("name", value.Name)).Debugf("ingress/%s is skipped from comparison", value.Name)
 			continue
 		}
+
 		indexCheck.Index = index
 		mapIngresses1[value.Name] = indexCheck
 
 	}
 	for index, value := range ingresses2.Items {
-
-		if skipEntities.IsSkippedEntity(value.Name) {
-			log.Debugf("ingress %s is skipped from comparison due to its name", value.Name)
+		if cfg.Skips.IsSkippedEntity(ingressKind, value.Name) {
+			log.With(zap.String("name", value.Name)).Debugf("ingress/%s is skipped from comparison", value.Name)
 			continue
 		}
+
 		indexCheck.Index = index
 		mapIngresses2[value.Name] = indexCheck
 
@@ -168,6 +179,8 @@ func setInformationAboutIngresses(ctx context.Context, map1, map2 map[string]typ
 	channel := make(chan bool, len(map1))
 
 	for name, index1 := range map1 {
+		ctx = logging.WithLogger(ctx, log.With(zap.String("objectName", name)))
+
 		if index2, ok := map2[name]; ok {
 			wg.Add(1)
 
@@ -177,9 +190,8 @@ func setInformationAboutIngresses(ctx context.Context, map1, map2 map[string]typ
 			map2[name] = index2
 
 			compareIngressSpecInternals(ctx, wg, channel, name, &ingresses1.Items[index1.Index], &ingresses2.Items[index2.Index])
-
 		} else {
-			log.Infof("ingress '%s' does not exist in 2nd cluster", name)
+			log.With(zap.String("objectName", name)).Warn("ingress does not exist in 2nd cluster")
 			flag = true
 			channel <- flag
 		}
@@ -196,10 +208,8 @@ func setInformationAboutIngresses(ctx context.Context, map1, map2 map[string]typ
 	}
 	for name, index := range map2 {
 		if !index.Check {
-
-			log.Infof("ingress '%s' does not exist in 1st cluster", name)
+			log.With(zap.String("objectName", name)).Warn("ingress does not exist in 1st cluster")
 			flag = true
-
 		}
 	}
 

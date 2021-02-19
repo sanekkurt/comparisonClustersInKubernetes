@@ -32,12 +32,12 @@ func AreKVMapsEqual(ctx context.Context, map1, map2 types.KVMap, skipKeys map[st
 		}
 
 		if _, ok := map2[k]; !ok {
-			log.Warnf("key does not exist in map2", zap.String("key", k))
+			log.With(zap.String("key", k)).Warn("key does not exist in map2")
 			return false
 		}
 
 		if val1 != map2[k] {
-			log.Warnf("the value from map1 does not match the value from map2", zap.String("key", k), zap.String("value1", val1), zap.String("value2", map2[k]))
+			log.With(zap.String("key", k)).Warn("key values does not equal")
 			return false
 		}
 
@@ -60,7 +60,7 @@ func AreKVMapsEqual(ctx context.Context, map1, map2 types.KVMap, skipKeys map[st
 		}
 
 		if len(keys) > 0 {
-			log.Warnf("map2 has a number of extra keys which are not found in map1: %s", strings.Join(keys, ", "))
+			log.With(zap.String("extraKeys", strings.Join(keys, ", "))).Warn("Extra keys found in 2nd map")
 
 			return false
 		}
@@ -85,12 +85,12 @@ func AreKVBytesMapsEqual(ctx context.Context, map1, map2 map[string][]byte, skip
 		}
 
 		if _, ok := map2[k]; !ok {
-			log.Warnf("key does not exist in map2", zap.String("key", k))
+			log.With(zap.String("key", k)).Warn("key does not exist in map2")
 			return false
 		}
 
 		if string(val1) != string(map2[k]) {
-			log.Warnf("the data from map1 does not match the data from map2", zap.String("key", k))
+			log.With(zap.String("key", k)).Warn("key values does not equal")
 			return false
 		}
 
@@ -113,7 +113,7 @@ func AreKVBytesMapsEqual(ctx context.Context, map1, map2 map[string][]byte, skip
 		}
 
 		if len(keys) > 0 {
-			log.Warnf("map2 has a number of extra keys which are not found in map1: %s", strings.Join(keys, ", "))
+			log.With(zap.String("extraKeys", strings.Join(keys, ", "))).Warn("Extra keys found in 2nd map")
 
 			return false
 		}

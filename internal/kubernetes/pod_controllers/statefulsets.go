@@ -10,9 +10,12 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"k8s-cluster-comparator/internal/config"
-	"k8s-cluster-comparator/internal/kubernetes/skipper"
 	"k8s-cluster-comparator/internal/kubernetes/types"
 	"k8s-cluster-comparator/internal/logging"
+)
+
+const (
+	statefulSetKind = "statefulset"
 )
 
 func addItemsToStatefulSetList(ctx context.Context, clientSet kubernetes.Interface, namespace string, limit int64) (*v1.StatefulSetList, error) {
@@ -66,46 +69,51 @@ forLoop:
 	return statefulSets, err
 }
 
-func CompareStateFulSets(ctx context.Context, skipEntityList skipper.SkipEntitiesList) (bool, error) {
+type StatefulSetsComparator struct {
+}
+
+func NewStatefulSetsComparator(ctx context.Context, namespace string) StatefulSetsComparator {
+	return StatefulSetsComparator{}
+}
+
+func (cmp StatefulSetsComparator) Compare(ctx context.Context, namespace string) ([]types.KubeObjectsDifference, error) {
 	var (
-		log = logging.FromContext(ctx).With(zap.String("kind", "statefulset"))
-
-		clientSet1, clientSet2, namespace = config.FromContext(ctx)
-
-		isClustersDiffer bool
+		log = logging.FromContext(ctx).With(zap.String("kind", statefulSetKind))
+		cfg = config.FromContext(ctx)
 	)
 
 	ctx = logging.WithLogger(ctx, log)
 
-	statefulSet1, err := addItemsToStatefulSetList(ctx, clientSet1, namespace, objectBatchLimit)
+	statefulSet1, err := addItemsToStatefulSetList(ctx, cfg.Connections.Cluster1.ClientSet, namespace, objectBatchLimit)
 	if err != nil {
-		return false, fmt.Errorf("cannot obtain statefulsets list from 1st cluster: %w", err)
+		return nil, fmt.Errorf("cannot obtain statefulsets list from 1st cluster: %w", err)
 	}
 
-	statefulSet2, err := addItemsToStatefulSetList(ctx, clientSet2, namespace, objectBatchLimit)
+	statefulSet2, err := addItemsToStatefulSetList(ctx, cfg.Connections.Cluster2.ClientSet, namespace, objectBatchLimit)
 	if err != nil {
-		return false, fmt.Errorf("cannot obtain statefulsets list from 2st cluster: %w", err)
+		return nil, fmt.Errorf("cannot obtain statefulsets list from 2st cluster: %w", err)
 	}
 
-	apc1List, map1, apc2List, map2 := prepareStatefulSetMaps(ctx, statefulSet1, statefulSet2, skipEntityList.GetByKind("statefulsets"))
+	apc1List, map1, apc2List, map2 := prepareStatefulSetMaps(ctx, statefulSet1, statefulSet2)
 
-	isClustersDiffer, err = ComparePodControllers(ctx, &clusterCompareTask{
-		Client:                   clientSet1,
+	_, err = ComparePodControllers(ctx, &clusterCompareTask{
+		Client:                   cfg.Connections.Cluster1.ClientSet,
 		APCList:                  apc1List,
 		IsAlreadyCheckedFlagsMap: map1,
 	}, &clusterCompareTask{
-		Client:                   clientSet2,
+		Client:                   cfg.Connections.Cluster2.ClientSet,
 		APCList:                  apc2List,
 		IsAlreadyCheckedFlagsMap: map2,
 	}, namespace)
 
-	return isClustersDiffer, err
+	return nil, err
 }
 
 // prepareStatefulSetMaps prepares StatefulSet maps for comparison
-func prepareStatefulSetMaps(ctx context.Context, obj1, obj2 *v1.StatefulSetList, skipEntities skipper.SkipComponentNames) ([]AbstractPodController, map[string]types.IsAlreadyComparedFlag, []AbstractPodController, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
+func prepareStatefulSetMaps(ctx context.Context, obj1, obj2 *v1.StatefulSetList) ([]AbstractPodController, map[string]types.IsAlreadyComparedFlag, []AbstractPodController, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
 	var (
 		log = logging.FromContext(ctx)
+		cfg = config.FromContext(ctx)
 
 		map1     = make(map[string]types.IsAlreadyComparedFlag)
 		apc1List = make([]AbstractPodController, 0)
@@ -117,8 +125,8 @@ func prepareStatefulSetMaps(ctx context.Context, obj1, obj2 *v1.StatefulSetList,
 	)
 
 	for index, value := range obj1.Items {
-		if skipEntities.IsSkippedEntity(value.Name) {
-			log.Debugf("statefulset/%s is skipped from comparison due to its name", value.Name)
+		if cfg.Skips.IsSkippedEntity(statefulSetKind, value.Name) {
+			log.With(zap.String("name", value.Name)).Debugf("statefulset/%s is skipped from comparison", value.Name)
 			continue
 		}
 
@@ -143,10 +151,11 @@ func prepareStatefulSetMaps(ctx context.Context, obj1, obj2 *v1.StatefulSetList,
 	}
 
 	for index, value := range obj2.Items {
-		if skipEntities.IsSkippedEntity(value.Name) {
-			log.Debugf("statefulset/%s is skipped from comparison due to its name", value.Name)
+		if cfg.Skips.IsSkippedEntity(statefulSetKind, value.Name) {
+			log.With(zap.String("name", value.Name)).Debugf("statefulset/%s is skipped from comparison", value.Name)
 			continue
 		}
+
 		indexCheck.Index = index
 		map2[value.Name] = indexCheck
 

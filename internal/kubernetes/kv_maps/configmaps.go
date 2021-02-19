@@ -14,9 +14,12 @@ import (
 	"k8s-cluster-comparator/internal/config"
 	"k8s-cluster-comparator/internal/kubernetes/common"
 	"k8s-cluster-comparator/internal/kubernetes/metadata"
-	"k8s-cluster-comparator/internal/kubernetes/skipper"
 	"k8s-cluster-comparator/internal/kubernetes/types"
 	"k8s-cluster-comparator/internal/logging"
+)
+
+const (
+	configMapKind = "configmap"
 )
 
 func GetConfigMapByName(ctx context.Context, clientSet kubernetes.Interface, namespace, configMapName string) (*v12.ConfigMap, error) {
@@ -69,56 +72,66 @@ func addItemsToConfigMapList(ctx context.Context, clientSet kubernetes.Interface
 	return configMaps, err
 }
 
-// CompareConfigMaps compares list of configmap objects in two given k8s-clusters
-func CompareConfigMaps(ctx context.Context, skipEntityList skipper.SkipEntitiesList) (bool, error) {
+type ConfigMapsComparator struct {
+}
+
+func NewConfigMapsComparator(ctx context.Context, namespace string) ConfigMapsComparator {
+	return ConfigMapsComparator{}
+}
+
+// Compare compares list of configmap objects in two given k8s-clusters
+func (cmp ConfigMapsComparator) Compare(ctx context.Context, namespace string) ([]types.KubeObjectsDifference, error) {
 	var (
-		log = logging.FromContext(ctx).With(zap.String("kind", "configmap"))
-
-		clientSet1, clientSet2, namespace = config.FromContext(ctx)
-
-		isClustersDiffer bool
+		log = logging.FromContext(ctx).With(zap.String("kind", configMapKind))
+		cfg = config.FromContext(ctx)
 	)
 	ctx = logging.WithLogger(ctx, log)
 
-	configMaps1, err := addItemsToConfigMapList(ctx, clientSet1, namespace, secretObjectBatchLimit)
+	configMaps1, err := addItemsToConfigMapList(ctx, cfg.Connections.Cluster1.ClientSet, namespace, secretObjectBatchLimit)
 	if err != nil {
-		return false, fmt.Errorf("cannot obtain configmaps list from 1st cluster: %w", err)
+		return nil, fmt.Errorf("cannot obtain configmaps list from 1st cluster: %w", err)
 	}
 
-	configMaps2, err := addItemsToConfigMapList(ctx, clientSet2, namespace, secretObjectBatchLimit)
+	configMaps2, err := addItemsToConfigMapList(ctx, cfg.Connections.Cluster2.ClientSet, namespace, secretObjectBatchLimit)
 	if err != nil {
-		return false, fmt.Errorf("cannot obtain configmaps list from 2st cluster: %w", err)
+		return nil, fmt.Errorf("cannot obtain configmaps list from 2st cluster: %w", err)
 	}
 
-	mapConfigMaps1, mapConfigMaps2 := prepareConfigMapMaps(ctx, configMaps1, configMaps2, skipEntityList.GetByKind("configmaps"))
+	mapConfigMaps1, mapConfigMaps2 := prepareConfigMapMaps(ctx, configMaps1, configMaps2)
 
-	isClustersDiffer = compareConfigMapsSpecs(ctx, mapConfigMaps1, mapConfigMaps2, configMaps1, configMaps2)
+	_ = compareConfigMapsSpecs(ctx, mapConfigMaps1, mapConfigMaps2, configMaps1, configMaps2)
 
-	return isClustersDiffer, nil
+	return nil, nil
 }
 
 // prepareConfigMapMaps add value ConfigMaps in map
-func prepareConfigMapMaps(ctx context.Context, configMaps1, configMaps2 *v12.ConfigMapList, skipEntities skipper.SkipComponentNames) (map[string]types.IsAlreadyComparedFlag, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
-	log := logging.FromContext(ctx)
+func prepareConfigMapMaps(ctx context.Context, configMaps1, configMaps2 *v12.ConfigMapList) (map[string]types.IsAlreadyComparedFlag, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
+	var (
+		log = logging.FromContext(ctx)
+		cfg = config.FromContext(ctx)
 
-	mapConfigMap1 := make(map[string]types.IsAlreadyComparedFlag)
-	mapConfigMap2 := make(map[string]types.IsAlreadyComparedFlag)
-	var indexCheck types.IsAlreadyComparedFlag
+		mapConfigMap1 = make(map[string]types.IsAlreadyComparedFlag)
+		mapConfigMap2 = make(map[string]types.IsAlreadyComparedFlag)
+
+		indexCheck types.IsAlreadyComparedFlag
+	)
 
 	for index, value := range configMaps1.Items {
-		if skipEntities.IsSkippedEntity(value.Name) {
-			log.Debugf("configmap/%s is skipped from comparison due to its name", value.Name)
+		if cfg.Skips.IsSkippedEntity(configMapKind, value.Name) {
+			log.With(zap.String("name", value.Name)).Debugf("configmap/%s is skipped from comparison", value.Name)
 			continue
 		}
+
 		indexCheck.Index = index
 		mapConfigMap1[value.Name] = indexCheck
 	}
 
 	for index, value := range configMaps2.Items {
-		if skipEntities.IsSkippedEntity(value.Name) {
-			log.Debugf("configmap/%s is skipped from comparison due to its name", value.Name)
+		if cfg.Skips.IsSkippedEntity(configMapKind, value.Name) {
+			log.With(zap.String("name", value.Name)).Debugf("configmap/%s is skipped from comparison", value.Name)
 			continue
 		}
+
 		indexCheck.Index = index
 		mapConfigMap2[value.Name] = indexCheck
 	}
@@ -171,6 +184,8 @@ func compareConfigMapsSpecs(ctx context.Context, map1, map2 map[string]types.IsA
 	channel := make(chan bool, len(map1))
 
 	for name, index1 := range map1 {
+		ctx = logging.WithLogger(ctx, log.With(zap.String("objectName", name)))
+
 		select {
 		case <-ctx.Done():
 			log.Warnw(context.Canceled.Error())
@@ -187,7 +202,7 @@ func compareConfigMapsSpecs(ctx context.Context, map1, map2 map[string]types.IsA
 
 				compareConfigMapSpecInternals(ctx, wg, channel, name, &configMaps1.Items[index1.Index], &configMaps2.Items[index2.Index])
 			} else {
-				log.Infof("configmap/%s - 1 cluster. Does not exist on another cluster", name)
+				log.With(zap.String("objectName", name)).Warn("configmap does not exist in 2nd cluster")
 				flag = true
 			}
 		}
@@ -205,7 +220,7 @@ func compareConfigMapsSpecs(ctx context.Context, map1, map2 map[string]types.IsA
 
 	for name, index := range map2 {
 		if !index.Check {
-			log.Infof("configmap/%s - 2 cluster. Does not exist on another cluster", name)
+			log.With(zap.String("objectName", name)).Warn("configmap does not exist in 1st cluster")
 			flag = true
 		}
 	}

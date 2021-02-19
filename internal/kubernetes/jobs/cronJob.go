@@ -8,7 +8,6 @@ import (
 
 	"k8s-cluster-comparator/internal/config"
 	"k8s-cluster-comparator/internal/kubernetes/metadata"
-	"k8s-cluster-comparator/internal/kubernetes/skipper"
 	"k8s-cluster-comparator/internal/kubernetes/types"
 	"k8s-cluster-comparator/internal/logging"
 
@@ -17,6 +16,10 @@ import (
 	"k8s.io/api/batch/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+)
+
+const (
+	cronJobKind = "cronjob"
 )
 
 func addItemsToCronJobList(ctx context.Context, clientSet kubernetes.Interface, namespace string, limit int64) (*v1beta1.CronJobList, error) {
@@ -64,55 +67,65 @@ func addItemsToCronJobList(ctx context.Context, clientSet kubernetes.Interface, 
 	return cronJobs, err
 }
 
-func CompareCronJobs(ctx context.Context, skipEntityList skipper.SkipEntitiesList) (bool, error) {
+type CronJobsComparator struct {
+}
+
+func NewCronJobsComparator(ctx context.Context, namespace string) CronJobsComparator {
+	return CronJobsComparator{}
+}
+
+func (cmp CronJobsComparator) Compare(ctx context.Context, namespace string) ([]types.KubeObjectsDifference, error) {
 	var (
-		log = logging.FromContext(ctx).With(zap.String("kind", "cronjob"))
-
-		clientSet1, clientSet2, namespace = config.FromContext(ctx)
-
-		isClustersDiffer bool
+		log = logging.FromContext(ctx).With(zap.String("kind", cronJobKind))
+		cfg = config.FromContext(ctx)
 	)
 	ctx = logging.WithLogger(ctx, log)
 
-	cronJobs1, err := addItemsToCronJobList(ctx, clientSet1, namespace, objectBatchLimit)
+	cronJobs1, err := addItemsToCronJobList(ctx, cfg.Connections.Cluster1.ClientSet, namespace, objectBatchLimit)
 	if err != nil {
-		return false, fmt.Errorf("cannot obtain cronJobs list from 1st cluster: %w", err)
+		return nil, fmt.Errorf("cannot obtain cronJobs list from 1st cluster: %w", err)
 	}
 
-	cronJobs2, err := addItemsToCronJobList(ctx, clientSet2, namespace, objectBatchLimit)
+	cronJobs2, err := addItemsToCronJobList(ctx, cfg.Connections.Cluster2.ClientSet, namespace, objectBatchLimit)
 	if err != nil {
-		return false, fmt.Errorf("cannot obtain cronJobs list from 2st cluster: %w", err)
+		return nil, fmt.Errorf("cannot obtain cronJobs list from 2st cluster: %w", err)
 	}
 
-	mapJobs1, mapJobs2 := prepareCronJobsMaps(ctx, cronJobs1, cronJobs2, skipEntityList.GetByKind("cronJobs"))
+	mapJobs1, mapJobs2 := prepareCronJobsMaps(ctx, cronJobs1, cronJobs2)
 
-	isClustersDiffer = setInformationAboutCronJobs(ctx, mapJobs1, mapJobs2, cronJobs1, cronJobs2, namespace)
+	_ = setInformationAboutCronJobs(ctx, mapJobs1, mapJobs2, cronJobs1, cronJobs2, namespace)
 
-	return isClustersDiffer, nil
+	return nil, nil
 }
 
-func prepareCronJobsMaps(ctx context.Context, cronJobs1, cronJobs2 *v1beta1.CronJobList, skipEntities skipper.SkipComponentNames) (map[string]types.IsAlreadyComparedFlag, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
-	log := logging.FromContext(ctx)
+func prepareCronJobsMaps(ctx context.Context, cronJobs1, cronJobs2 *v1beta1.CronJobList) (map[string]types.IsAlreadyComparedFlag, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
+	var (
+		log = logging.FromContext(ctx)
+		cfg = config.FromContext(ctx)
 
-	mapCronJobs1 := make(map[string]types.IsAlreadyComparedFlag)
-	mapCronJobs2 := make(map[string]types.IsAlreadyComparedFlag)
-	var indexCheck types.IsAlreadyComparedFlag
+		mapCronJobs1 = make(map[string]types.IsAlreadyComparedFlag)
+		mapCronJobs2 = make(map[string]types.IsAlreadyComparedFlag)
+
+		indexCheck types.IsAlreadyComparedFlag
+	)
 
 	for index, value := range cronJobs1.Items {
-		if skipEntities.IsSkippedEntity(value.Name) {
-			log.Debugf("cronjob/%s is skipped from comparison due to its name", value.Name)
+		if cfg.Skips.IsSkippedEntity(cronJobKind, value.Name) {
+			log.With(zap.String("name", value.Name)).Debugf("cronjob/%s is skipped from comparison", value.Name)
 			continue
 		}
+
 		indexCheck.Index = index
 		mapCronJobs1[value.Name] = indexCheck
 
 	}
 
 	for index, value := range cronJobs2.Items {
-		if skipEntities.IsSkippedEntity(value.Name) {
-			log.Debugf("cronjob/%s is skipped from comparison due to its name", value.Name)
+		if cfg.Skips.IsSkippedEntity(cronJobKind, value.Name) {
+			log.With(zap.String("name", value.Name)).Debugf("cronjob/%s is skipped from comparison", value.Name)
 			continue
 		}
+
 		indexCheck.Index = index
 		mapCronJobs2[value.Name] = indexCheck
 
@@ -136,6 +149,8 @@ func setInformationAboutCronJobs(ctx context.Context, map1, map2 map[string]type
 	channel := make(chan bool, len(map1))
 
 	for name, index1 := range map1 {
+		ctx = logging.WithLogger(ctx, log.With(zap.String("objectName", name)))
+
 		if index2, ok := map2[name]; ok {
 			wg.Add(1)
 
@@ -146,7 +161,7 @@ func setInformationAboutCronJobs(ctx context.Context, map1, map2 map[string]type
 
 			compareCronJobSpecs(ctx, wg, channel, name, namespace, &cronJobs1.Items[index1.Index], &cronJobs2.Items[index2.Index])
 		} else {
-			log.Infof("cronjob/%s does not exist in 2nd cluster", name)
+			log.With(zap.String("objectName", name)).Warn("cronjob does not exist in 2nd cluster")
 			flag = true
 			channel <- flag
 		}
@@ -164,10 +179,9 @@ func setInformationAboutCronJobs(ctx context.Context, map1, map2 map[string]type
 
 	for name, index := range map2 {
 		if !index.Check {
+			log.With(zap.String("objectName", name)).Warn("cronjob does not exist in 1st cluster")
 
-			log.Infof("cronjob/%s does not exist in 1st cluster", name)
 			flag = true
-
 		}
 	}
 

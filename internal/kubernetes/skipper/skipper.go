@@ -5,68 +5,87 @@ import (
 	"fmt"
 	"strings"
 
+	"go.uber.org/zap"
+
 	"k8s-cluster-comparator/internal/kubernetes/types"
 	"k8s-cluster-comparator/internal/logging"
-)
-
-const (
-	skipEntityTypesSep     = ";"
-	skipEntityTypeNamesSep = ":"
-	skipEntityNamesSep     = ","
 )
 
 // SkipComponentNames is a map of blank structs of k8s objects that must be skipped from the comparison
 type SkipComponentNames map[types.ObjectName]struct{}
 
-func (skipNames SkipComponentNames) IsSkippedEntity(name string) bool {
-	_, bToSkip := skipNames[types.ObjectName(name)]
-	return bToSkip
+// SkipEntitiesList represents map[objectKind][listOfObjectNamesToSkipDuringCompare]
+type SkipEntitiesList struct {
+	FullResourceNamesSkip map[types.ObjectKind]SkipComponentNames
+	NameBasedSkip         map[types.ObjectName]struct{}
 }
 
-// SkipEntitiesList represents map[objectKind][listOfObjectNamesToSkipDuringCompare]
-type SkipEntitiesList map[types.ObjectKind]SkipComponentNames
-
-func (sel SkipEntitiesList) GetByKind(kind string) SkipComponentNames {
-	l, ok := sel[types.ObjectKind(types.ObjectKindWrapper(kind))]
-	if !ok {
-		return nil
+func (skipCfg SkipEntitiesList) IsSkippedEntity(kind string, name string) bool {
+	if _, bToSkip := skipCfg.NameBasedSkip[types.ObjectName(name)]; bToSkip {
+		return true
 	}
 
-	return l
+	if skipNames, ok := skipCfg.FullResourceNamesSkip[types.ObjectKind(kind)]; ok {
+		if _, bToSkip := skipNames[types.ObjectName(name)]; bToSkip {
+			return true
+		}
+	}
+
+	return false
 }
 
-// ParseSkipConfig parses information about entities to skip from a environment
-func ParseSkipConfig(ctx context.Context, skipSpec string) (SkipEntitiesList, error) {
-	log := logging.FromContext(ctx)
-
+func ParseFullResourceNameSkipConfig(ctx context.Context, skipCfg map[types.ObjectKind][]types.ObjectName) (map[types.ObjectKind]SkipComponentNames, error) {
 	var (
-		skipEntitiesList = make(map[types.ObjectKind]SkipComponentNames)
+		log = logging.FromContext(ctx)
 
-		entityKind  string
-		entityNames string
+		objKinds = make(map[types.ObjectKind]struct{})
+
+		fullResourceNames = make(map[types.ObjectKind]SkipComponentNames)
 	)
 
-	skipSpec = strings.ReplaceAll(skipSpec, " ", "")
+	for k, names := range skipCfg {
+		k := types.ObjectKind(strings.ToLower(string(k)))
+		objNames := make(SkipComponentNames)
 
-	for _, skipEntityTypeNamesPair := range strings.Split(skipSpec, skipEntityTypesSep) {
-		if !strings.Contains(skipEntityTypeNamesPair, skipEntityTypeNamesSep) {
-			return nil, fmt.Errorf("does not contain valid data in the SKIP variable. The enumeration of the names of entities starts after '%s'", skipEntityTypeNamesSep)
+		if _, ok := objKinds[k]; ok {
+			return nil, fmt.Errorf("kind '%s' specified multiple times", string(k))
 		}
 
-		skipEntityTypeNames := strings.Split(skipEntityTypeNamesPair, skipEntityTypeNamesSep)
+		for _, n := range names {
+			n := types.ObjectName(strings.ToLower(string(n))) //nolint:govet
 
-		entityKind = skipEntityTypeNames[0]
-		entityNames = skipEntityTypeNames[1]
+			if _, ok := objNames[n]; ok {
+				return nil, fmt.Errorf("resource '%s/%s' specified multiple times", string(k), string(n))
+			}
 
-		if skipEntitiesList[types.ObjectKind(entityKind)] == nil {
-			skipEntitiesList[types.ObjectKind(entityKind)] = make(map[types.ObjectName]struct{})
+			objNames[n] = struct{}{}
+
+			log.With(zap.String("kind", string(k)), zap.String("name", string(n))).Infof("resource '%s/%s' added to skip list", string(k), string(n))
 		}
 
-		for _, entityName := range strings.Split(entityNames, skipEntityNamesSep) {
-			log.Infof("%s/%s added to skip list", entityKind, entityName)
-			skipEntitiesList[types.ObjectKind(entityKind)][types.ObjectName(entityName)] = struct{}{}
-		}
+		fullResourceNames[k] = objNames
 	}
 
-	return skipEntitiesList, nil
+	return fullResourceNames, nil
+}
+
+func ParseNameBasedSkipConfig(ctx context.Context, skipCfg []types.ObjectName) (SkipComponentNames, error) {
+	var (
+		log = logging.FromContext(ctx)
+
+		list = make(SkipComponentNames)
+	)
+
+	for _, n := range skipCfg {
+		n := types.ObjectName(strings.ToLower(string(n))) //nolint:govet
+
+		if _, ok := list[n]; ok {
+			return nil, fmt.Errorf("name '%s' specified multiple times", string(n))
+		}
+		list[n] = struct{}{}
+
+		log.With(zap.String("name", string(n))).Infof("name '%s' added to skip list", string(n))
+	}
+
+	return list, nil
 }

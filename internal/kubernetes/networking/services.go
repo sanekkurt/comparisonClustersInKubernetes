@@ -13,12 +13,13 @@ import (
 
 	"k8s-cluster-comparator/internal/config"
 	"k8s-cluster-comparator/internal/kubernetes/metadata"
-	"k8s-cluster-comparator/internal/kubernetes/skipper"
 	"k8s-cluster-comparator/internal/kubernetes/types"
 	"k8s-cluster-comparator/internal/logging"
 )
 
 const (
+	serviceKind = "service"
+
 	objectBatchLimit = 25
 )
 
@@ -67,45 +68,53 @@ func addItemsToServiceList(ctx context.Context, clientSet kubernetes.Interface, 
 	return services, err
 }
 
-// CompareServices compares list of services objects in two given k8s-clusters
-func CompareServices(ctx context.Context, skipEntityList skipper.SkipEntitiesList) (bool, error) {
+type ServicesComparator struct {
+}
+
+func NewServicesComparator(ctx context.Context, namespace string) ServicesComparator {
+	return ServicesComparator{}
+}
+
+// Compare compares list of services objects in two given k8s-clusters
+func (cmp ServicesComparator) Compare(ctx context.Context, namespace string) ([]types.KubeObjectsDifference, error) {
 	var (
-		log = logging.FromContext(ctx).With(zap.String("kind", "service"))
-
-		clientSet1, clientSet2, namespace = config.FromContext(ctx)
-
-		isClustersDiffer bool
+		log = logging.FromContext(ctx).With(zap.String("kind", serviceKind))
+		cfg = config.FromContext(ctx)
 	)
 	ctx = logging.WithLogger(ctx, log)
 
-	services1, err := addItemsToServiceList(ctx, clientSet1, namespace, objectBatchLimit)
+	services1, err := addItemsToServiceList(ctx, cfg.Connections.Cluster1.ClientSet, namespace, objectBatchLimit)
 	if err != nil {
-		return false, fmt.Errorf("cannot obtain services list from 1st cluster: %w", err)
+		return nil, fmt.Errorf("cannot obtain services list from 1st cluster: %w", err)
 	}
 
-	services2, err := addItemsToServiceList(ctx, clientSet2, namespace, objectBatchLimit)
+	services2, err := addItemsToServiceList(ctx, cfg.Connections.Cluster2.ClientSet, namespace, objectBatchLimit)
 	if err != nil {
-		return false, fmt.Errorf("cannot obtain services list from 2st cluster: %w", err)
+		return nil, fmt.Errorf("cannot obtain services list from 2st cluster: %w", err)
 	}
 
-	mapServices1, mapServices2 := prepareServiceMaps(ctx, services1, services2, skipEntityList.GetByKind("secrets"))
+	mapServices1, mapServices2 := prepareServiceMaps(ctx, services1, services2)
 
-	isClustersDiffer = compareServicesSpecs(ctx, mapServices1, mapServices2, services1, services2)
+	_ = compareServicesSpecs(ctx, mapServices1, mapServices2, services1, services2)
 
-	return isClustersDiffer, nil
+	return nil, nil
 }
 
 // prepareServiceMaps add value secrets in map
-func prepareServiceMaps(ctx context.Context, services1, services2 *v12.ServiceList, skipEntities skipper.SkipComponentNames) (map[string]types.IsAlreadyComparedFlag, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
-	log := logging.FromContext(ctx)
+func prepareServiceMaps(ctx context.Context, services1, services2 *v12.ServiceList) (map[string]types.IsAlreadyComparedFlag, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
+	var (
+		log = logging.FromContext(ctx)
+		cfg = config.FromContext(ctx)
 
-	mapServices1 := make(map[string]types.IsAlreadyComparedFlag)
-	mapServices2 := make(map[string]types.IsAlreadyComparedFlag)
-	var indexCheck types.IsAlreadyComparedFlag
+		mapServices1 = make(map[string]types.IsAlreadyComparedFlag)
+		mapServices2 = make(map[string]types.IsAlreadyComparedFlag)
+
+		indexCheck types.IsAlreadyComparedFlag
+	)
 
 	for index, value := range services1.Items {
-		if skipEntities.IsSkippedEntity(value.Name) {
-			log.Debugf("service %s is skipped from comparison due to its name", value.Name)
+		if cfg.Skips.IsSkippedEntity(serviceKind, value.Name) {
+			log.With(zap.String("name", value.Name)).Debugf("service/%s is skipped from comparison", value.Name)
 			continue
 		}
 
@@ -114,8 +123,8 @@ func prepareServiceMaps(ctx context.Context, services1, services2 *v12.ServiceLi
 	}
 
 	for index, value := range services2.Items {
-		if skipEntities.IsSkippedEntity(value.Name) {
-			log.Debugf("service %s is skipped from comparison due to its name", value.Name)
+		if cfg.Skips.IsSkippedEntity(serviceKind, value.Name) {
+			log.With(zap.String("name", value.Name)).Debugf("service/%s is skipped from comparison", value.Name)
 			continue
 		}
 
@@ -172,6 +181,8 @@ func compareServicesSpecs(ctx context.Context, map1, map2 map[string]types.IsAlr
 	channel := make(chan bool, len(map1))
 
 	for name, index1 := range map1 {
+		ctx = logging.WithLogger(ctx, log.With(zap.String("objectName", name)))
+
 		if index2, ok := map2[name]; ok {
 			wg.Add(1)
 
@@ -183,7 +194,7 @@ func compareServicesSpecs(ctx context.Context, map1, map2 map[string]types.IsAlr
 			compareServiceSpecInternals(ctx, wg, channel, name, &services1.Items[index1.Index], &services2.Items[index2.Index]) // тут была горутина
 
 		} else {
-			log.Infof("service '%s' does not exist in 2nd cluster", name)
+			log.With(zap.String("objectName", name)).Warn("service does not exist in 2nd cluster")
 			flag = true
 			channel <- flag
 		}
@@ -201,10 +212,8 @@ func compareServicesSpecs(ctx context.Context, map1, map2 map[string]types.IsAlr
 
 	for name, index := range map2 {
 		if !index.Check {
-
-			log.Infof("service '%s' does not exist in 1st cluster", name)
+			log.With(zap.String("objectName", name)).Warn("service does not exist in 1st cluster")
 			flag = true
-
 		}
 	}
 

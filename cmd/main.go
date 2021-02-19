@@ -48,11 +48,15 @@ func main() {
 			return
 		}
 
+		log.Error(err)
+
 		//ret = 1
 		return
 	}
 
-	_, err = kube.CompareClusters(ctx, cfg)
+	ctx = config.With(ctx, cfg)
+
+	_, err = kube.CompareClusters(ctx)
 	if err != nil {
 		log.Errorf("cannot compare clusters: %s", err.Error())
 

@@ -17,11 +17,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	"k8s-cluster-comparator/internal/kubernetes/skipper"
 	"k8s-cluster-comparator/internal/kubernetes/types"
 )
 
 const (
+	jobKind          = "job"
 	objectBatchLimit = 25
 )
 
@@ -70,53 +70,61 @@ func addItemsToJobList(ctx context.Context, clientSet kubernetes.Interface, name
 	return jobs, err
 }
 
-// CompareJobs compare jobs in different clusters
-func CompareJobs(ctx context.Context, skipEntityList skipper.SkipEntitiesList) (bool, error) {
+type JobsComparator struct {
+}
+
+func NewJobsComparator(ctx context.Context, namespace string) JobsComparator {
+	return JobsComparator{}
+}
+
+// Compare compare Jobs in different clusters
+func (cmp JobsComparator) Compare(ctx context.Context, namespace string) ([]types.KubeObjectsDifference, error) {
 	var (
-		log = logging.FromContext(ctx).With(zap.String("kind", "job"))
-
-		clientSet1, clientSet2, namespace = config.FromContext(ctx)
-
-		isClustersDiffer bool
+		log = logging.FromContext(ctx).With(zap.String("kind", jobKind))
+		cfg = config.FromContext(ctx)
 	)
 	ctx = logging.WithLogger(ctx, log)
 
-	jobs1, err := addItemsToJobList(ctx, clientSet1, namespace, objectBatchLimit)
+	jobs1, err := addItemsToJobList(ctx, cfg.Connections.Cluster1.ClientSet, namespace, objectBatchLimit)
 	if err != nil {
-		return false, fmt.Errorf("cannot obtain jobs list from 1st cluster: %w", err)
+		return nil, fmt.Errorf("cannot obtain jobs list from 1st cluster: %w", err)
 	}
 
-	jobs2, err := addItemsToJobList(ctx, clientSet2, namespace, objectBatchLimit)
+	jobs2, err := addItemsToJobList(ctx, cfg.Connections.Cluster2.ClientSet, namespace, objectBatchLimit)
 	if err != nil {
-		return false, fmt.Errorf("cannot obtain jobs list from 2st cluster: %w", err)
+		return nil, fmt.Errorf("cannot obtain jobs list from 2st cluster: %w", err)
 	}
 
-	mapJobs1, mapJobs2 := prepareJobsMaps(ctx, jobs1, jobs2, skipEntityList.GetByKind("jobs"))
+	mapJobs1, mapJobs2 := prepareJobsMaps(ctx, jobs1, jobs2)
 
-	isClustersDiffer = setInformationAboutJobs(ctx, mapJobs1, mapJobs2, jobs1, jobs2, namespace)
+	_ = setInformationAboutJobs(ctx, mapJobs1, mapJobs2, jobs1, jobs2, namespace)
 
-	return isClustersDiffer, nil
+	return nil, nil
 }
 
 // prepareJobsMaps add value secrets in map
-func prepareJobsMaps(ctx context.Context, jobs1, jobs2 *v12.JobList, skipEntities skipper.SkipComponentNames) (map[string]types.IsAlreadyComparedFlag, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
-	log := logging.FromContext(ctx)
+func prepareJobsMaps(ctx context.Context, jobs1, jobs2 *v12.JobList) (map[string]types.IsAlreadyComparedFlag, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
+	var (
+		log = logging.FromContext(ctx)
+		cfg = config.FromContext(ctx)
 
-	mapJobs1 := make(map[string]types.IsAlreadyComparedFlag)
-	mapJobs2 := make(map[string]types.IsAlreadyComparedFlag)
-	var indexCheck types.IsAlreadyComparedFlag
+		mapJobs1 = make(map[string]types.IsAlreadyComparedFlag)
+		mapJobs2 = make(map[string]types.IsAlreadyComparedFlag)
+
+		indexCheck types.IsAlreadyComparedFlag
+	)
 
 OUTER1:
 	for index, value := range jobs1.Items {
-		if skipEntities.IsSkippedEntity(value.Name) {
-			log.Debugf("job/%s is skipped from comparison due to its name", value.Name)
+		if cfg.Skips.IsSkippedEntity(jobKind, value.Name) {
+			log.With(zap.String("name", value.Name)).Debugf("job/%s is skipped from comparison", value.Name)
 			continue
 		}
 
 		if value.OwnerReferences != nil {
 			for _, owner := range value.OwnerReferences {
 				if owner.Kind == "CronJob" {
-					log.Debugf("job/%s is skipped from comparison due to its owner cronJob", value.Name)
+					log.Debugf("job/%s is skipped from comparison because it is owned by CronJob", value.Name)
 					continue OUTER1
 				}
 			}
@@ -129,15 +137,15 @@ OUTER1:
 
 OUTER2:
 	for index, value := range jobs2.Items {
-		if skipEntities.IsSkippedEntity(value.Name) {
-			log.Debugf("job/%s is skipped from comparison due to its name", value.Name)
+		if cfg.Skips.IsSkippedEntity(jobKind, value.Name) {
+			log.With(zap.String("name", value.Name)).Debugf("job/%s is skipped from comparison", value.Name)
 			continue
 		}
 
 		if value.OwnerReferences != nil {
 			for _, owner := range value.OwnerReferences {
 				if owner.Kind == "CronJob" {
-					log.Debugf("job/%s is skipped from comparison due to its owner cronJob", value.Name)
+					log.Debugf("job/%s is skipped from comparison because it is owned by CronJob", value.Name)
 					continue OUTER2
 				}
 			}
@@ -168,6 +176,8 @@ func setInformationAboutJobs(ctx context.Context, map1, map2 map[string]types.Is
 	channel := make(chan bool, len(map1))
 
 	for name, index1 := range map1 {
+		ctx = logging.WithLogger(ctx, log.With(zap.String("objectName", name)))
+
 		if index2, ok := map2[name]; ok {
 			wg.Add(1)
 
@@ -178,7 +188,7 @@ func setInformationAboutJobs(ctx context.Context, map1, map2 map[string]types.Is
 
 			compareJobSpecs(ctx, wg, channel, name, namespace, &jobs1.Items[index1.Index], &jobs2.Items[index2.Index])
 		} else {
-			log.Infof("job/%s does not exist in 2nd cluster", name)
+			log.With(zap.String("objectName", name)).Warn("job does not exist in 2nd cluster")
 			flag = true
 			channel <- flag
 		}
@@ -196,10 +206,8 @@ func setInformationAboutJobs(ctx context.Context, map1, map2 map[string]types.Is
 
 	for name, index := range map2 {
 		if !index.Check {
-
-			log.Infof("job/%s does not exist in 1st cluster", name)
+			log.With(zap.String("objectName", name)).Warn("job does not exist in 1st cluster")
 			flag = true
-
 		}
 	}
 

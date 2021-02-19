@@ -48,13 +48,13 @@ func ComparePodControllerSpecs(ctx context.Context, wg *sync.WaitGroup, channel 
 
 	if apc1.Replicas != nil || apc2.Replicas != nil {
 		if *apc1.Replicas != *apc2.Replicas {
-			log.Infof("%s/%s: number of replicas is different: %d and %d", kind, name, *apc1.Replicas, *apc2.Replicas)
+			log.Warnf("the number of replicas is different: %d and %d", *apc1.Replicas, *apc2.Replicas)
 			flag = true
 		}
 	}
 
 	if (apc1.Replicas != nil && apc2.Replicas == nil) || (apc2.Replicas != nil && apc1.Replicas == nil) {
-		log.Infof("%s/%s: strange replicas specification difference: %#v and %#v", kind, apc1.Replicas, apc2.Replicas)
+		log.Warnf("strange replicas specification difference: %#v and %#v", apc1.Replicas, apc2.Replicas)
 		flag = true
 	}
 
@@ -102,6 +102,8 @@ func ComparePodControllers(ctx context.Context, c1, c2 *clusterCompareTask, name
 	}
 
 	for name, index1 := range c1.IsAlreadyCheckedFlagsMap {
+		ctx = logging.WithLogger(ctx, log.With(zap.String("objectName", name)))
+
 		select {
 		case <-ctx.Done():
 			return false, ctx.Err()
@@ -121,7 +123,7 @@ func ComparePodControllers(ctx context.Context, c1, c2 *clusterCompareTask, name
 				// TODO: migrate to a goroutine
 				ComparePodControllerSpecs(ctx, wg, channel, name, namespace, c1.Client, c2.Client, &apc1, &apc2)
 			} else {
-				log.Infof("%s/%s presents in 1st cluster but absents in 2nd one", c1.APCList[index1.Index].Metadata.Type.Kind, name)
+				log.With(zap.String("objectName", name)).Warn("object does not exist in 2nd cluster")
 				flag = true
 			}
 
@@ -140,7 +142,7 @@ func ComparePodControllers(ctx context.Context, c1, c2 *clusterCompareTask, name
 
 	for name, index := range c2.IsAlreadyCheckedFlagsMap {
 		if !index.Check {
-			log.Infof("%s/%s presents in 2nd cluster but absents in 1st one", c2.APCList[index.Index].Metadata.Type.Kind, name)
+			log.With(zap.String("objectName", name)).Warn("object does not exist in 1st cluster")
 			flag = true
 		}
 	}
