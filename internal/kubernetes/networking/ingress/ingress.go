@@ -1,33 +1,43 @@
-package networking
+package ingress
 
 import (
 	"context"
 	"fmt"
-
-	"go.uber.org/zap"
-	v1beta12 "k8s.io/api/networking/v1beta1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-
 	"sync"
 
+	"go.uber.org/zap"
 	"k8s-cluster-comparator/internal/config"
+	kubectx "k8s-cluster-comparator/internal/kubernetes/context"
 	"k8s-cluster-comparator/internal/kubernetes/metadata"
 	"k8s-cluster-comparator/internal/kubernetes/types"
 	"k8s-cluster-comparator/internal/logging"
+	v1beta12 "k8s.io/api/networking/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
 	ingressKind = "ingress"
 )
 
-func addItemsToIngressList(ctx context.Context, clientSet kubernetes.Interface, namespace string, limit int64) (*v1beta12.IngressList, error) {
-	log := logging.FromContext(ctx)
+func ingressesRetrieveBatchLimit(ctx context.Context) int64 {
+	cfg := config.FromContext(ctx)
 
-	log.Debugf("addItemsToIngressList started")
-	defer log.Debugf("addItemsToIngressList completed")
+	if limit := cfg.Networking.Ingresses.BatchSize; limit != 0 {
+		return limit
+	}
 
+	if limit := cfg.Common.DefaultBatchSize; limit != 0 {
+		return limit
+	}
+
+	return 25
+}
+
+func fillInComparisonMap(ctx context.Context, namespace string, limit int64) (*v1beta12.IngressList, error) {
 	var (
+		log       = logging.FromContext(ctx)
+		clientSet = kubectx.ClientSetFromContext(ctx)
+
 		batch     *v1beta12.IngressList
 		ingresses = &v1beta12.IngressList{
 			Items: make([]v1beta12.Ingress, 0),
@@ -38,6 +48,9 @@ func addItemsToIngressList(ctx context.Context, clientSet kubernetes.Interface, 
 		err error
 	)
 
+	log.Debugf("fillInComparisonMap started")
+	defer log.Debugf("fillInComparisonMap completed")
+
 	for {
 		batch, err = clientSet.NetworkingV1beta1().Ingresses(namespace).List(metav1.ListOptions{
 			Limit:    limit,
@@ -47,7 +60,7 @@ func addItemsToIngressList(ctx context.Context, clientSet kubernetes.Interface, 
 			return nil, err
 		}
 
-		log.Debugf("addItemsToIngressList: %d objects received", len(batch.Items))
+		log.Debugf("fillInComparisonMap: %d objects received", len(batch.Items))
 
 		ingresses.Items = append(ingresses.Items, batch.Items...)
 
@@ -81,12 +94,18 @@ func (cmd IngressesComparator) Compare(ctx context.Context, namespace string) ([
 	)
 	ctx = logging.WithLogger(ctx, log)
 
-	ingresses1, err := addItemsToIngressList(ctx, cfg.Connections.Cluster1.ClientSet, namespace, objectBatchLimit)
+	if !cfg.Networking.Enabled ||
+		!cfg.Networking.Ingresses.Enabled {
+		log.Infof("'%s' kind skipped from comparison due to configuration", ingressKind)
+		return nil, nil
+	}
+
+	ingresses1, err := fillInComparisonMap(kubectx.WithClientSet(ctx, cfg.Connections.Cluster1.ClientSet), namespace, ingressesRetrieveBatchLimit(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("cannot obtain ingresses list from 1st cluster: %w", err)
 	}
 
-	ingresses2, err := addItemsToIngressList(ctx, cfg.Connections.Cluster2.ClientSet, namespace, objectBatchLimit)
+	ingresses2, err := fillInComparisonMap(kubectx.WithClientSet(ctx, cfg.Connections.Cluster2.ClientSet), namespace, ingressesRetrieveBatchLimit(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("cannot obtain ingresses list from 2st cluster: %w", err)
 	}
@@ -111,7 +130,7 @@ func prepareIngressMaps(ctx context.Context, ingresses1, ingresses2 *v1beta12.In
 	)
 
 	for index, value := range ingresses1.Items {
-		if cfg.Skips.IsSkippedEntity(ingressKind, value.Name) {
+		if cfg.ExcludesIncludes.IsSkippedEntity(ingressKind, value.Name) {
 			log.With(zap.String("name", value.Name)).Debugf("ingress/%s is skipped from comparison", value.Name)
 			continue
 		}
@@ -121,7 +140,7 @@ func prepareIngressMaps(ctx context.Context, ingresses1, ingresses2 *v1beta12.In
 
 	}
 	for index, value := range ingresses2.Items {
-		if cfg.Skips.IsSkippedEntity(ingressKind, value.Name) {
+		if cfg.ExcludesIncludes.IsSkippedEntity(ingressKind, value.Name) {
 			log.With(zap.String("name", value.Name)).Debugf("ingress/%s is skipped from comparison", value.Name)
 			continue
 		}

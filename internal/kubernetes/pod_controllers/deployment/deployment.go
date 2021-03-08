@@ -1,30 +1,42 @@
-package pod_controllers
+package deployment
 
 import (
 	"context"
 	"fmt"
 
 	"go.uber.org/zap"
-	v1 "k8s.io/api/apps/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-
 	"k8s-cluster-comparator/internal/config"
+	kubectx "k8s-cluster-comparator/internal/kubernetes/context"
+	"k8s-cluster-comparator/internal/kubernetes/pod_controllers/common"
 	"k8s-cluster-comparator/internal/kubernetes/types"
 	"k8s-cluster-comparator/internal/logging"
+	v1 "k8s.io/api/apps/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
 	deploymentKind = "deployment"
 )
 
-func addItemsToDeploymentList(ctx context.Context, clientSet kubernetes.Interface, namespace string, limit int64) (*v1.DeploymentList, error) {
-	log := logging.FromContext(ctx)
+func deploymentsRetrieveBatchLimit(ctx context.Context) int64 {
+	cfg := config.FromContext(ctx)
 
-	log.Debugf("addItemsToDeploymentList started")
-	defer log.Debugf("addItemsToDeploymentList completed")
+	if limit := cfg.Workloads.PodControllers.Deployments.BatchSize; limit != 0 {
+		return limit
+	}
 
+	if limit := cfg.Common.DefaultBatchSize; limit != 0 {
+		return limit
+	}
+
+	return 25
+}
+
+func fillInComparisonMap(ctx context.Context, namespace string, limit int64) (*v1.DeploymentList, error) {
 	var (
+		log       = logging.FromContext(ctx)
+		clientSet = kubectx.ClientSetFromContext(ctx)
+
 		batch       *v1.DeploymentList
 		deployments = &v1.DeploymentList{
 			Items: make([]v1.Deployment, 0),
@@ -34,6 +46,9 @@ func addItemsToDeploymentList(ctx context.Context, clientSet kubernetes.Interfac
 
 		err error
 	)
+
+	log.Debugf("fillInComparisonMap started")
+	defer log.Debugf("fillInComparisonMap completed")
 
 forLoop:
 	for {
@@ -49,7 +64,7 @@ forLoop:
 				return nil, err
 			}
 
-			log.Debugf("addItemsToDeploymentList: %d objects received", len(batch.Items))
+			log.Debugf("fillInComparisonMap: %d objects received", len(batch.Items))
 
 			deployments.Items = append(deployments.Items, batch.Items...)
 
@@ -84,12 +99,19 @@ func (cmp DeploymentsComparator) Compare(ctx context.Context, namespace string) 
 
 	ctx = logging.WithLogger(ctx, log)
 
-	deployments1, err := addItemsToDeploymentList(ctx, cfg.Connections.Cluster1.ClientSet, namespace, objectBatchLimit)
+	if !cfg.Workloads.Enabled ||
+		!cfg.Workloads.PodControllers.Enabled ||
+		!cfg.Workloads.PodControllers.Deployments.Enabled {
+		log.Infof("'%s' kind skipped from comparison due to configuration", deploymentKind)
+		return nil, nil
+	}
+
+	deployments1, err := fillInComparisonMap(kubectx.WithClientSet(ctx, cfg.Connections.Cluster1.ClientSet), namespace, deploymentsRetrieveBatchLimit(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("cannot obtain deployments list from 1st cluster: %w", err)
 	}
 
-	deployments2, err := addItemsToDeploymentList(ctx, cfg.Connections.Cluster2.ClientSet, namespace, objectBatchLimit)
+	deployments2, err := fillInComparisonMap(kubectx.WithClientSet(ctx, cfg.Connections.Cluster2.ClientSet), namespace, deploymentsRetrieveBatchLimit(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("cannot obtain deployments list from 2st cluster: %w", err)
 	}
@@ -98,21 +120,21 @@ func (cmp DeploymentsComparator) Compare(ctx context.Context, namespace string) 
 
 	for _, value := range deploymentStatuses1 {
 		if value.Replicas != value.ReadyReplicas {
-			log.Info("Some deployment replicas in 1st cluster are not ready. The comparison might be inaccurate")
+			log.Warn("Some deployment replicas in 1st cluster are not ready. The comparison might be inaccurate")
 		}
 	}
 
 	for _, value := range deploymentStatuses2 {
 		if value.Replicas != value.ReadyReplicas {
-			log.Info("Some deployment replicas in 2nd cluster are not ready. The comparison might be inaccurate")
+			log.Warn("Some deployment replicas in 2nd cluster are not ready. The comparison might be inaccurate")
 		}
 	}
 
-	_, err = ComparePodControllers(ctx, &clusterCompareTask{
+	_, err = common.ComparePodControllers(ctx, &common.ClusterCompareTask{
 		Client:                   cfg.Connections.Cluster1.ClientSet,
 		APCList:                  apc1List,
 		IsAlreadyCheckedFlagsMap: map1,
-	}, &clusterCompareTask{
+	}, &common.ClusterCompareTask{
 		Client:                   cfg.Connections.Cluster2.ClientSet,
 		APCList:                  apc2List,
 		IsAlreadyCheckedFlagsMap: map2,
@@ -122,24 +144,24 @@ func (cmp DeploymentsComparator) Compare(ctx context.Context, namespace string) 
 }
 
 // prepareDeploymentMaps prepare deployment maps for comparison
-func prepareDeploymentMaps(ctx context.Context, obj1, obj2 *v1.DeploymentList) ([]AbstractPodController, []v1.DeploymentStatus, map[string]types.IsAlreadyComparedFlag, []AbstractPodController, []v1.DeploymentStatus, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
+func prepareDeploymentMaps(ctx context.Context, obj1, obj2 *v1.DeploymentList) ([]common.AbstractPodController, []v1.DeploymentStatus, map[string]types.IsAlreadyComparedFlag, []common.AbstractPodController, []v1.DeploymentStatus, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
 	var (
 		log = logging.FromContext(ctx)
 		cfg = config.FromContext(ctx)
 
 		map1                = make(map[string]types.IsAlreadyComparedFlag)
-		apc1List            = make([]AbstractPodController, 0)
+		apc1List            = make([]common.AbstractPodController, 0)
 		deploymentStatuses1 = make([]v1.DeploymentStatus, 0)
 		deploymentStatuses2 = make([]v1.DeploymentStatus, 0)
 
 		map2     = make(map[string]types.IsAlreadyComparedFlag)
-		apc2List = make([]AbstractPodController, 0)
+		apc2List = make([]common.AbstractPodController, 0)
 
 		indexCheck types.IsAlreadyComparedFlag
 	)
 
 	for index, value := range obj1.Items {
-		if cfg.Skips.IsSkippedEntity(deploymentKind, value.Name) {
+		if cfg.ExcludesIncludes.IsSkippedEntity(deploymentKind, value.Name) {
 			log.With(zap.String("name", value.Name)).Debugf("deployment/%s is skipped from comparison", value.Name)
 			continue
 		}
@@ -147,7 +169,7 @@ func prepareDeploymentMaps(ctx context.Context, obj1, obj2 *v1.DeploymentList) (
 		indexCheck.Index = index
 		map1[value.Name] = indexCheck
 
-		apc1List = append(apc1List, AbstractPodController{
+		apc1List = append(apc1List, common.AbstractPodController{
 			Metadata: types.AbstractObjectMetadata{
 				Type: metav1.TypeMeta{
 					Kind:       "deployments",
@@ -167,7 +189,7 @@ func prepareDeploymentMaps(ctx context.Context, obj1, obj2 *v1.DeploymentList) (
 	}
 
 	for index, value := range obj2.Items {
-		if cfg.Skips.IsSkippedEntity(deploymentKind, value.Name) {
+		if cfg.ExcludesIncludes.IsSkippedEntity(deploymentKind, value.Name) {
 			log.With(zap.String("name", value.Name)).Debugf("deployment/%s is skipped from comparison", value.Name)
 			continue
 		}
@@ -175,7 +197,7 @@ func prepareDeploymentMaps(ctx context.Context, obj1, obj2 *v1.DeploymentList) (
 		indexCheck.Index = index
 		map2[value.Name] = indexCheck
 
-		apc2List = append(apc2List, AbstractPodController{
+		apc2List = append(apc2List, common.AbstractPodController{
 			Metadata: types.AbstractObjectMetadata{
 				Type: metav1.TypeMeta{
 					Kind:       "deployments",

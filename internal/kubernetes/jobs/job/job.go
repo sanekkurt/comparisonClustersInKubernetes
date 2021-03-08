@@ -1,19 +1,19 @@
-package jobs
+package job
 
 import (
 	"context"
 	"fmt"
 
 	"go.uber.org/zap"
+	"k8s-cluster-comparator/internal/kubernetes/jobs/common"
 
 	"k8s-cluster-comparator/internal/config"
 	"k8s-cluster-comparator/internal/kubernetes/metadata"
-	"k8s-cluster-comparator/internal/kubernetes/pods"
 	"k8s-cluster-comparator/internal/logging"
 
 	"sync"
 
-	v12 "k8s.io/api/batch/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -21,20 +21,33 @@ import (
 )
 
 const (
-	jobKind          = "job"
-	objectBatchLimit = 25
+	jobKind = "job"
 )
 
-func addItemsToJobList(ctx context.Context, clientSet kubernetes.Interface, namespace string, limit int64) (*v12.JobList, error) {
+func jobsRetrieveBatchLimit(ctx context.Context) int64 {
+	cfg := config.FromContext(ctx)
+
+	if limit := cfg.Tasks.Jobs.BatchSize; limit != 0 {
+		return limit
+	}
+
+	if limit := cfg.Common.DefaultBatchSize; limit != 0 {
+		return limit
+	}
+
+	return 25
+}
+
+func addItemsToJobList(ctx context.Context, clientSet kubernetes.Interface, namespace string, limit int64) (*batchv1.JobList, error) {
 	log := logging.FromContext(ctx)
 
 	log.Debugf("addItemsToJobList started")
 	defer log.Debugf("addItemsToJobList completed")
 
 	var (
-		batch *v12.JobList
-		jobs  = &v12.JobList{
-			Items: make([]v12.Job, 0),
+		batch *batchv1.JobList
+		jobs  = &batchv1.JobList{
+			Items: make([]batchv1.Job, 0),
 		}
 
 		continueToken string
@@ -85,12 +98,19 @@ func (cmp JobsComparator) Compare(ctx context.Context, namespace string) ([]type
 	)
 	ctx = logging.WithLogger(ctx, log)
 
-	jobs1, err := addItemsToJobList(ctx, cfg.Connections.Cluster1.ClientSet, namespace, objectBatchLimit)
+	if !cfg.Workloads.Enabled ||
+		!cfg.Tasks.Enabled ||
+		!cfg.Tasks.Jobs.Enabled {
+		log.Infof("'%s' kind skipped from comparison due to configuration", jobKind)
+		return nil, nil
+	}
+
+	jobs1, err := addItemsToJobList(ctx, cfg.Connections.Cluster1.ClientSet, namespace, jobsRetrieveBatchLimit(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("cannot obtain jobs list from 1st cluster: %w", err)
 	}
 
-	jobs2, err := addItemsToJobList(ctx, cfg.Connections.Cluster2.ClientSet, namespace, objectBatchLimit)
+	jobs2, err := addItemsToJobList(ctx, cfg.Connections.Cluster2.ClientSet, namespace, jobsRetrieveBatchLimit(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("cannot obtain jobs list from 2st cluster: %w", err)
 	}
@@ -103,7 +123,7 @@ func (cmp JobsComparator) Compare(ctx context.Context, namespace string) ([]type
 }
 
 // prepareJobsMaps add value secrets in map
-func prepareJobsMaps(ctx context.Context, jobs1, jobs2 *v12.JobList) (map[string]types.IsAlreadyComparedFlag, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
+func prepareJobsMaps(ctx context.Context, jobs1, jobs2 *batchv1.JobList) (map[string]types.IsAlreadyComparedFlag, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
 	var (
 		log = logging.FromContext(ctx)
 		cfg = config.FromContext(ctx)
@@ -116,7 +136,7 @@ func prepareJobsMaps(ctx context.Context, jobs1, jobs2 *v12.JobList) (map[string
 
 OUTER1:
 	for index, value := range jobs1.Items {
-		if cfg.Skips.IsSkippedEntity(jobKind, value.Name) {
+		if cfg.ExcludesIncludes.IsSkippedEntity(jobKind, value.Name) {
 			log.With(zap.String("name", value.Name)).Debugf("job/%s is skipped from comparison", value.Name)
 			continue
 		}
@@ -137,7 +157,7 @@ OUTER1:
 
 OUTER2:
 	for index, value := range jobs2.Items {
-		if cfg.Skips.IsSkippedEntity(jobKind, value.Name) {
+		if cfg.ExcludesIncludes.IsSkippedEntity(jobKind, value.Name) {
 			log.With(zap.String("name", value.Name)).Debugf("job/%s is skipped from comparison", value.Name)
 			continue
 		}
@@ -161,7 +181,7 @@ OUTER2:
 }
 
 // setInformationAboutJobs set information about jobs
-func setInformationAboutJobs(ctx context.Context, map1, map2 map[string]types.IsAlreadyComparedFlag, jobs1, jobs2 *v12.JobList, namespace string) bool {
+func setInformationAboutJobs(ctx context.Context, map1, map2 map[string]types.IsAlreadyComparedFlag, jobs1, jobs2 *batchv1.JobList, namespace string) bool {
 	var (
 		log  = logging.FromContext(ctx)
 		flag bool
@@ -214,7 +234,7 @@ func setInformationAboutJobs(ctx context.Context, map1, map2 map[string]types.Is
 	return flag
 }
 
-func compareJobSpecs(ctx context.Context, wg *sync.WaitGroup, channel chan bool, name, namespace string, obj1, obj2 *v12.Job) {
+func compareJobSpecs(ctx context.Context, wg *sync.WaitGroup, channel chan bool, name, namespace string, obj1, obj2 *batchv1.Job) {
 	var (
 		log  = logging.FromContext(ctx)
 		flag bool
@@ -230,7 +250,7 @@ func compareJobSpecs(ctx context.Context, wg *sync.WaitGroup, channel chan bool,
 		return
 	}
 
-	bDiff, err := compareJobSpecInternals(ctx, obj1.Spec, obj2.Spec)
+	bDiff, err := common.CompareJobSpecInternals(ctx, obj1.Spec, obj2.Spec)
 	if err != nil || bDiff {
 		log.Warnw(err.Error())
 		flag = true
@@ -238,38 +258,4 @@ func compareJobSpecs(ctx context.Context, wg *sync.WaitGroup, channel chan bool,
 
 	log.Debugf("----- End checking job/%s -----", name)
 	channel <- flag
-}
-
-func compareJobSpecInternals(ctx context.Context, obj1, obj2 v12.JobSpec) (bool, error) {
-	log := logging.FromContext(ctx)
-
-	if obj1.BackoffLimit != nil && obj2.BackoffLimit != nil {
-		if *obj1.BackoffLimit != *obj2.BackoffLimit {
-			log.Warnw("Job backoff limit is different", zap.Int32("backoffLimit1", *obj1.BackoffLimit), zap.Int32("backoffLimit2", *obj2.BackoffLimit))
-			return true, ErrorBackoffLimitDifferent
-		}
-	} else if obj1.BackoffLimit != nil || obj2.BackoffLimit != nil {
-		return true, ErrorBackoffLimitDifferent
-	}
-
-	if obj1.Template.Spec.RestartPolicy != obj2.Template.Spec.RestartPolicy {
-		log.Warnw("Job restartPolicy limit is different", zap.String("restartPolicy1", string(obj1.Template.Spec.RestartPolicy)), zap.String("restartPolicy2", string(obj1.Template.Spec.RestartPolicy)))
-		return true, ErrorRestartPolicyDifferent
-	}
-
-	castJob1ForCompareContainers := types.InformationAboutObject{
-		Template: obj1.Template,
-		Selector: nil,
-	}
-	castJob2ForCompareContainers := types.InformationAboutObject{
-		Template: obj2.Template,
-		Selector: nil,
-	}
-
-	bDiff, err := pods.ComparePodSpecs(ctx, castJob1ForCompareContainers, castJob2ForCompareContainers)
-	if err != nil || bDiff {
-		return bDiff, err
-	}
-
-	return false, nil
 }

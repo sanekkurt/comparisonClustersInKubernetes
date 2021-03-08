@@ -1,30 +1,42 @@
-package pod_controllers
+package statefulset
 
 import (
 	"context"
 	"fmt"
 
 	"go.uber.org/zap"
-	v1 "k8s.io/api/apps/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-
 	"k8s-cluster-comparator/internal/config"
+	kubectx "k8s-cluster-comparator/internal/kubernetes/context"
+	"k8s-cluster-comparator/internal/kubernetes/pod_controllers/common"
 	"k8s-cluster-comparator/internal/kubernetes/types"
 	"k8s-cluster-comparator/internal/logging"
+	v1 "k8s.io/api/apps/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
 	statefulSetKind = "statefulset"
 )
 
-func addItemsToStatefulSetList(ctx context.Context, clientSet kubernetes.Interface, namespace string, limit int64) (*v1.StatefulSetList, error) {
-	log := logging.FromContext(ctx)
+func statefulSetsRetrieveBatchLimit(ctx context.Context) int64 {
+	cfg := config.FromContext(ctx)
 
-	log.Debugf("addItemsToStatefulSetList started")
-	defer log.Debugf("addItemsToStatefulSetList completed")
+	if limit := cfg.Workloads.PodControllers.Deployments.BatchSize; limit != 0 {
+		return limit
+	}
 
+	if limit := cfg.Common.DefaultBatchSize; limit != 0 {
+		return limit
+	}
+
+	return 25
+}
+
+func fillInComparisonMap(ctx context.Context, namespace string, limit int64) (*v1.StatefulSetList, error) {
 	var (
+		log       = logging.FromContext(ctx)
+		clientSet = kubectx.ClientSetFromContext(ctx)
+
 		batch        *v1.StatefulSetList
 		statefulSets = &v1.StatefulSetList{
 			Items: make([]v1.StatefulSet, 0),
@@ -34,6 +46,9 @@ func addItemsToStatefulSetList(ctx context.Context, clientSet kubernetes.Interfa
 
 		err error
 	)
+
+	log.Debugf("fillInComparisonMap started")
+	defer log.Debugf("fillInComparisonMap completed")
 
 forLoop:
 	for {
@@ -49,7 +64,7 @@ forLoop:
 				return nil, err
 			}
 
-			log.Debugf("addItemsToStatefulSetList: %d objects received", len(batch.Items))
+			log.Debugf("fillInComparisonMap: %d objects received", len(batch.Items))
 
 			statefulSets.Items = append(statefulSets.Items, batch.Items...)
 
@@ -84,23 +99,30 @@ func (cmp StatefulSetsComparator) Compare(ctx context.Context, namespace string)
 
 	ctx = logging.WithLogger(ctx, log)
 
-	statefulSet1, err := addItemsToStatefulSetList(ctx, cfg.Connections.Cluster1.ClientSet, namespace, objectBatchLimit)
+	if !cfg.Workloads.Enabled ||
+		!cfg.Workloads.PodControllers.Enabled ||
+		!cfg.Workloads.PodControllers.StatefulSets.Enabled {
+		log.Infof("'%s' kind skipped from comparison due to configuration", statefulSetKind)
+		return nil, nil
+	}
+
+	statefulSet1, err := fillInComparisonMap(kubectx.WithClientSet(ctx, cfg.Connections.Cluster1.ClientSet), namespace, statefulSetsRetrieveBatchLimit(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("cannot obtain statefulsets list from 1st cluster: %w", err)
 	}
 
-	statefulSet2, err := addItemsToStatefulSetList(ctx, cfg.Connections.Cluster2.ClientSet, namespace, objectBatchLimit)
+	statefulSet2, err := fillInComparisonMap(kubectx.WithClientSet(ctx, cfg.Connections.Cluster2.ClientSet), namespace, statefulSetsRetrieveBatchLimit(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("cannot obtain statefulsets list from 2st cluster: %w", err)
 	}
 
 	apc1List, map1, apc2List, map2 := prepareStatefulSetMaps(ctx, statefulSet1, statefulSet2)
 
-	_, err = ComparePodControllers(ctx, &clusterCompareTask{
+	_, err = common.ComparePodControllers(ctx, &common.ClusterCompareTask{
 		Client:                   cfg.Connections.Cluster1.ClientSet,
 		APCList:                  apc1List,
 		IsAlreadyCheckedFlagsMap: map1,
-	}, &clusterCompareTask{
+	}, &common.ClusterCompareTask{
 		Client:                   cfg.Connections.Cluster2.ClientSet,
 		APCList:                  apc2List,
 		IsAlreadyCheckedFlagsMap: map2,
@@ -110,22 +132,22 @@ func (cmp StatefulSetsComparator) Compare(ctx context.Context, namespace string)
 }
 
 // prepareStatefulSetMaps prepares StatefulSet maps for comparison
-func prepareStatefulSetMaps(ctx context.Context, obj1, obj2 *v1.StatefulSetList) ([]AbstractPodController, map[string]types.IsAlreadyComparedFlag, []AbstractPodController, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
+func prepareStatefulSetMaps(ctx context.Context, obj1, obj2 *v1.StatefulSetList) ([]common.AbstractPodController, map[string]types.IsAlreadyComparedFlag, []common.AbstractPodController, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
 	var (
 		log = logging.FromContext(ctx)
 		cfg = config.FromContext(ctx)
 
 		map1     = make(map[string]types.IsAlreadyComparedFlag)
-		apc1List = make([]AbstractPodController, 0)
+		apc1List = make([]common.AbstractPodController, 0)
 
 		map2     = make(map[string]types.IsAlreadyComparedFlag)
-		apc2List = make([]AbstractPodController, 0)
+		apc2List = make([]common.AbstractPodController, 0)
 
 		indexCheck types.IsAlreadyComparedFlag
 	)
 
 	for index, value := range obj1.Items {
-		if cfg.Skips.IsSkippedEntity(statefulSetKind, value.Name) {
+		if cfg.ExcludesIncludes.IsSkippedEntity(statefulSetKind, value.Name) {
 			log.With(zap.String("name", value.Name)).Debugf("statefulset/%s is skipped from comparison", value.Name)
 			continue
 		}
@@ -133,7 +155,7 @@ func prepareStatefulSetMaps(ctx context.Context, obj1, obj2 *v1.StatefulSetList)
 		indexCheck.Index = index
 		map1[value.Name] = indexCheck
 
-		apc1List = append(apc1List, AbstractPodController{
+		apc1List = append(apc1List, common.AbstractPodController{
 			Metadata: types.AbstractObjectMetadata{
 				Type: metav1.TypeMeta{
 					Kind:       "statefulsets",
@@ -151,7 +173,7 @@ func prepareStatefulSetMaps(ctx context.Context, obj1, obj2 *v1.StatefulSetList)
 	}
 
 	for index, value := range obj2.Items {
-		if cfg.Skips.IsSkippedEntity(statefulSetKind, value.Name) {
+		if cfg.ExcludesIncludes.IsSkippedEntity(statefulSetKind, value.Name) {
 			log.With(zap.String("name", value.Name)).Debugf("statefulset/%s is skipped from comparison", value.Name)
 			continue
 		}
@@ -159,7 +181,7 @@ func prepareStatefulSetMaps(ctx context.Context, obj1, obj2 *v1.StatefulSetList)
 		indexCheck.Index = index
 		map2[value.Name] = indexCheck
 
-		apc2List = append(apc2List, AbstractPodController{
+		apc2List = append(apc2List, common.AbstractPodController{
 			Metadata: types.AbstractObjectMetadata{
 				Type: metav1.TypeMeta{
 					Kind:       "statefulsets",

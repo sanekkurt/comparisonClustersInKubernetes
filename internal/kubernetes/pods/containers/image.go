@@ -7,19 +7,16 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 
+	"k8s-cluster-comparator/internal/config"
 	"k8s-cluster-comparator/internal/logging"
 )
 
 var (
-	ErrorContainerDifferentImages        = errors.New("different container images in Pod specs")
+	ErrorContainerDifferentImages = errors.New("different container images in Pod specs")
+
 	ErrorContainerDifferentImageLabels   = errors.New("different container image labels in Pod specs")
 	ErrorContainerDifferentImageTags     = errors.New("different container image tags in Pod specs")
 	ErrorContainerDifferentImagePolicies = errors.New("different container image pullPolicies in Pod specs")
-
-	rollingTagList = []string{
-		"latest",
-		"stable",
-	}
 )
 
 const (
@@ -27,7 +24,10 @@ const (
 )
 
 func compareContainerSpecImages(ctx context.Context, container1, container2 v1.Container) (bool, error) {
-	log := logging.FromContext(ctx)
+	var (
+		log = logging.FromContext(ctx)
+		cfg = config.FromContext(ctx)
+	)
 
 	var (
 		imgParts = make([][]string, 2, 2)
@@ -47,12 +47,14 @@ func compareContainerSpecImages(ctx context.Context, container1, container2 v1.C
 		return true, ErrorContainerDifferentImageTags
 	}
 
-OUTER:
-	for _, tag := range rollingTagList {
-		for idx := range imgParts {
-			if imgParts[idx][1] == tag {
-				log.Infof("cluster #%d: rolling tag '%s' detected, comparison might be inaccurate", idx+1, tag)
-				break OUTER
+	if cfg.Workloads.Containers.RollingTags.WarnOnRollingTag {
+	OUTER:
+		for tag := range cfg.Workloads.Containers.RollingTags.TagsListMap {
+			for idx := range imgParts {
+				if imgParts[idx][1] == tag {
+					log.Infof("cluster #%d: rolling tag '%s' detected, comparison might be inaccurate", idx+1, tag)
+					break OUTER
+				}
 			}
 		}
 	}

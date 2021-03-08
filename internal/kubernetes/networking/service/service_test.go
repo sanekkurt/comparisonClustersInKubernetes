@@ -1,4 +1,4 @@
-package networking
+package service
 
 import (
 	"errors"

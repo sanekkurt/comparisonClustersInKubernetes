@@ -5,6 +5,8 @@ import (
 	"errors"
 	"reflect"
 
+	"k8s-cluster-comparator/internal/kubernetes/kv_maps/configmap"
+	"k8s-cluster-comparator/internal/kubernetes/kv_maps/secret"
 	v12 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -25,7 +27,7 @@ var (
 func getConfigMapKeyRefValue(ctx context.Context, clientSet kubernetes.Interface, namespace string, configMapName, configMapKeyRef string) (string, error) {
 	log := logging.FromContext(ctx)
 
-	configMap, err := kv_maps.GetConfigMapByName(ctx, clientSet, namespace, configMapName)
+	configMap, err := configmap.GetConfigMapByName(ctx, clientSet, namespace, configMapName)
 	if err != nil {
 		return "", err
 	}
@@ -42,7 +44,7 @@ func getConfigMapKeyRefValue(ctx context.Context, clientSet kubernetes.Interface
 func getSecretKeyRefValue(ctx context.Context, clientSet kubernetes.Interface, namespace string, secretName, secretKeyRef string) ([]byte, error) {
 	log := logging.FromContext(ctx)
 
-	secret, err := kv_maps.GetSecretMapByName(ctx, clientSet, namespace, secretName)
+	secret, err := secret.GetSecretMapByName(ctx, clientSet, namespace, secretName)
 	if err != nil {
 		return nil, err
 	}

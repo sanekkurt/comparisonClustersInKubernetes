@@ -1,10 +1,11 @@
-package jobs
+package cronjob
 
 import (
 	"context"
 	"fmt"
 
 	"go.uber.org/zap"
+	"k8s-cluster-comparator/internal/kubernetes/jobs/common"
 
 	"k8s-cluster-comparator/internal/config"
 	"k8s-cluster-comparator/internal/kubernetes/metadata"
@@ -21,6 +22,20 @@ import (
 const (
 	cronJobKind = "cronjob"
 )
+
+func cronJobsRetrieveBatchLimit(ctx context.Context) int64 {
+	cfg := config.FromContext(ctx)
+
+	if limit := cfg.Tasks.CronJobs.BatchSize; limit != 0 {
+		return limit
+	}
+
+	if limit := cfg.Common.DefaultBatchSize; limit != 0 {
+		return limit
+	}
+
+	return 25
+}
 
 func addItemsToCronJobList(ctx context.Context, clientSet kubernetes.Interface, namespace string, limit int64) (*v1beta1.CronJobList, error) {
 	log := logging.FromContext(ctx)
@@ -81,12 +96,19 @@ func (cmp CronJobsComparator) Compare(ctx context.Context, namespace string) ([]
 	)
 	ctx = logging.WithLogger(ctx, log)
 
-	cronJobs1, err := addItemsToCronJobList(ctx, cfg.Connections.Cluster1.ClientSet, namespace, objectBatchLimit)
+	if !cfg.Workloads.Enabled ||
+		!cfg.Tasks.Enabled ||
+		!cfg.Tasks.CronJobs.Enabled {
+		log.Infof("'%s' kind skipped from comparison due to configuration", cronJobKind)
+		return nil, nil
+	}
+
+	cronJobs1, err := addItemsToCronJobList(ctx, cfg.Connections.Cluster1.ClientSet, namespace, cronJobsRetrieveBatchLimit(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("cannot obtain cronJobs list from 1st cluster: %w", err)
 	}
 
-	cronJobs2, err := addItemsToCronJobList(ctx, cfg.Connections.Cluster2.ClientSet, namespace, objectBatchLimit)
+	cronJobs2, err := addItemsToCronJobList(ctx, cfg.Connections.Cluster2.ClientSet, namespace, cronJobsRetrieveBatchLimit(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("cannot obtain cronJobs list from 2st cluster: %w", err)
 	}
@@ -110,7 +132,7 @@ func prepareCronJobsMaps(ctx context.Context, cronJobs1, cronJobs2 *v1beta1.Cron
 	)
 
 	for index, value := range cronJobs1.Items {
-		if cfg.Skips.IsSkippedEntity(cronJobKind, value.Name) {
+		if cfg.ExcludesIncludes.IsSkippedEntity(cronJobKind, value.Name) {
 			log.With(zap.String("name", value.Name)).Debugf("cronjob/%s is skipped from comparison", value.Name)
 			continue
 		}
@@ -121,7 +143,7 @@ func prepareCronJobsMaps(ctx context.Context, cronJobs1, cronJobs2 *v1beta1.Cron
 	}
 
 	for index, value := range cronJobs2.Items {
-		if cfg.Skips.IsSkippedEntity(cronJobKind, value.Name) {
+		if cfg.ExcludesIncludes.IsSkippedEntity(cronJobKind, value.Name) {
 			log.With(zap.String("name", value.Name)).Debugf("cronjob/%s is skipped from comparison", value.Name)
 			continue
 		}
@@ -220,10 +242,10 @@ func compareCronJobSpecInternals(ctx context.Context, obj1, obj2 v1beta1.CronJob
 
 	if obj1.Spec.Schedule != obj2.Spec.Schedule {
 		log.Warnw("CronJob schedule is different", zap.String("schedule1", obj1.Spec.Schedule), zap.String("schedule2", obj2.Spec.Schedule))
-		return true, ErrorScheduleDifferent
+		return true, common.ErrorScheduleDifferent
 	}
 
-	bDiff, err := compareJobSpecInternals(ctx, obj1.Spec.JobTemplate.Spec, obj1.Spec.JobTemplate.Spec)
+	bDiff, err := common.CompareJobSpecInternals(ctx, obj1.Spec.JobTemplate.Spec, obj1.Spec.JobTemplate.Spec)
 
 	return bDiff, err
 }

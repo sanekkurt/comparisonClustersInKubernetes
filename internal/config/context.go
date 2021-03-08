@@ -4,8 +4,10 @@ import (
 	"context"
 )
 
+type configCtxKeyT string
+
 var (
-	configCtxKey struct{}
+	configCtxKey configCtxKeyT = "configCtxKey"
 )
 
 func With(ctx context.Context, cfg *AppConfig) context.Context {

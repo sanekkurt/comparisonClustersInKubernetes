@@ -1,61 +1,48 @@
-package pod_controllers
+package common
 
 import (
 	"context"
-	"sync"
 
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
 
 	"k8s-cluster-comparator/internal/kubernetes/common"
+	"k8s-cluster-comparator/internal/kubernetes/metadata"
+
 	//"k8s-cluster-comparator/internal/kubernetes/metadata"
 	"k8s-cluster-comparator/internal/kubernetes/pods"
 	"k8s-cluster-comparator/internal/kubernetes/types"
 	"k8s-cluster-comparator/internal/logging"
 )
 
-type clusterCompareTask struct {
+type ClusterCompareTask struct {
 	Client                   kubernetes.Interface
 	APCList                  []AbstractPodController
 	IsAlreadyCheckedFlagsMap map[string]types.IsAlreadyComparedFlag
 }
 
-var (
-	switchFatalDifferentTag = true
-)
-
-func ComparePodControllerSpecs(ctx context.Context, wg *sync.WaitGroup, channel chan bool, name, namespace string, c1, c2 kubernetes.Interface, apc1, apc2 *AbstractPodController) {
+func ComparePodControllerSpecs(ctx context.Context, name string, apc1, apc2 *AbstractPodController) {
 	var (
 		log = logging.FromContext(ctx).With(zap.String("objectName", name))
-
-		flag bool
 	)
 	ctx = logging.WithLogger(ctx, log)
 
-	defer func() {
-		channel <- flag
-		wg.Done()
-	}()
-
 	kind := types.ObjectKindWrapper(apc1.Metadata.Type.Kind)
 
-	log.Debugf("----- Start checking %s/%s pod controller spec -----", kind, apc1.Name)
+	if metadata.IsMetadataDiffers(ctx, apc1.Metadata.Meta, apc2.Metadata.Meta) {
+		return
+	}
 
-	//if !metadata.IsMetadataDiffers(ctx, apc1.Metadata.Meta, apc2.Metadata.Meta) {
-	//	channel <- true
-	//	return
-	//}
+	log.Debugf("----- Start checking %s/%s pod controller spec -----", kind, apc1.Name)
 
 	if apc1.Replicas != nil || apc2.Replicas != nil {
 		if *apc1.Replicas != *apc2.Replicas {
 			log.Warnf("the number of replicas is different: %d and %d", *apc1.Replicas, *apc2.Replicas)
-			flag = true
 		}
 	}
 
 	if (apc1.Replicas != nil && apc2.Replicas == nil) || (apc2.Replicas != nil && apc1.Replicas == nil) {
 		log.Warnf("strange replicas specification difference: %#v and %#v", apc1.Replicas, apc2.Replicas)
-		flag = true
 	}
 
 	// fill in the information that will be used for comparison
@@ -73,27 +60,22 @@ func ComparePodControllerSpecs(ctx context.Context, wg *sync.WaitGroup, channel 
 
 	if matchLabelsString1 != matchLabelsString2 {
 		log.Warnf("%s: %s vs %s", ErrorMatchLabelsNotEqual.Error(), matchLabelsString1, matchLabelsString2)
-		flag = true
 	}
 
 	bDiff, err := pods.ComparePodSpecs(ctx, object1, object2)
 	if err != nil || bDiff {
 		log.Warnw(err.Error())
-		flag = true
 	}
 
 	log.Debugf("----- End checking %s/%s -----", kind, name)
 }
 
 // ComparePodControllers compares abstracted pod controller specifications in two k8s clusters
-func ComparePodControllers(ctx context.Context, c1, c2 *clusterCompareTask, namespace string) (bool, error) {
+func ComparePodControllers(ctx context.Context, c1, c2 *ClusterCompareTask, namespace string) (bool, error) {
 	var (
 		log = logging.FromContext(ctx)
 
 		flag bool
-
-		wg      = &sync.WaitGroup{}
-		channel = make(chan bool, len(c1.IsAlreadyCheckedFlagsMap))
 	)
 
 	if len(c1.IsAlreadyCheckedFlagsMap) != len(c2.IsAlreadyCheckedFlagsMap) {
@@ -109,8 +91,6 @@ func ComparePodControllers(ctx context.Context, c1, c2 *clusterCompareTask, name
 			return false, ctx.Err()
 		default:
 			if index2, ok := c2.IsAlreadyCheckedFlagsMap[name]; ok {
-				wg.Add(1)
-
 				index1.Check = true
 				c1.IsAlreadyCheckedFlagsMap[name] = index1
 
@@ -121,22 +101,11 @@ func ComparePodControllers(ctx context.Context, c1, c2 *clusterCompareTask, name
 				apc2 := c2.APCList[index2.Index]
 
 				// TODO: migrate to a goroutine
-				ComparePodControllerSpecs(ctx, wg, channel, name, namespace, c1.Client, c2.Client, &apc1, &apc2)
+				ComparePodControllerSpecs(ctx, name, &apc1, &apc2)
 			} else {
 				log.With(zap.String("objectName", name)).Warn("object does not exist in 2nd cluster")
-				flag = true
 			}
 
-		}
-	}
-
-	wg.Wait()
-
-	close(channel)
-
-	for ch := range channel {
-		if ch {
-			flag = true
 		}
 	}
 

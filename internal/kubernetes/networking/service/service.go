@@ -1,15 +1,15 @@
-package networking
+package service
 
 import (
 	"context"
 	"fmt"
 
+	"sync"
+
 	"go.uber.org/zap"
+	kubectx "k8s-cluster-comparator/internal/kubernetes/context"
 	v12 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-
-	"sync"
 
 	"k8s-cluster-comparator/internal/config"
 	"k8s-cluster-comparator/internal/kubernetes/metadata"
@@ -19,17 +19,27 @@ import (
 
 const (
 	serviceKind = "service"
-
-	objectBatchLimit = 25
 )
 
-func addItemsToServiceList(ctx context.Context, clientSet kubernetes.Interface, namespace string, limit int64) (*v12.ServiceList, error) {
-	log := logging.FromContext(ctx)
+func servicesRetrieveBatchLimit(ctx context.Context) int64 {
+	cfg := config.FromContext(ctx)
 
-	log.Debugf("addItemsToServiceList started")
-	defer log.Debugf("addItemsToServiceList completed")
+	if limit := cfg.Networking.Services.BatchSize; limit != 0 {
+		return limit
+	}
 
+	if limit := cfg.Common.DefaultBatchSize; limit != 0 {
+		return limit
+	}
+
+	return 25
+}
+
+func fillInComparisonMap(ctx context.Context, namespace string, limit int64) (*v12.ServiceList, error) {
 	var (
+		log       = logging.FromContext(ctx)
+		clientSet = kubectx.ClientSetFromContext(ctx)
+
 		batch    *v12.ServiceList
 		services = &v12.ServiceList{
 			Items: make([]v12.Service, 0),
@@ -40,6 +50,9 @@ func addItemsToServiceList(ctx context.Context, clientSet kubernetes.Interface, 
 		err error
 	)
 
+	log.Debugf("fillInComparisonMap started")
+	defer log.Debugf("fillInComparisonMap completed")
+
 	for {
 		batch, err = clientSet.CoreV1().Services(namespace).List(metav1.ListOptions{
 			Limit:    limit,
@@ -49,7 +62,7 @@ func addItemsToServiceList(ctx context.Context, clientSet kubernetes.Interface, 
 			return nil, err
 		}
 
-		log.Debugf("addItemsToServiceList: %d objects received", len(batch.Items))
+		log.Debugf("fillInComparisonMap: %d objects received", len(batch.Items))
 
 		services.Items = append(services.Items, batch.Items...)
 
@@ -83,12 +96,18 @@ func (cmp ServicesComparator) Compare(ctx context.Context, namespace string) ([]
 	)
 	ctx = logging.WithLogger(ctx, log)
 
-	services1, err := addItemsToServiceList(ctx, cfg.Connections.Cluster1.ClientSet, namespace, objectBatchLimit)
+	if !cfg.Networking.Enabled ||
+		!cfg.Networking.Services.Enabled {
+		log.Infof("'%s' kind skipped from comparison due to configuration", serviceKind)
+		return nil, nil
+	}
+
+	services1, err := fillInComparisonMap(kubectx.WithClientSet(ctx, cfg.Connections.Cluster1.ClientSet), namespace, servicesRetrieveBatchLimit(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("cannot obtain services list from 1st cluster: %w", err)
 	}
 
-	services2, err := addItemsToServiceList(ctx, cfg.Connections.Cluster2.ClientSet, namespace, objectBatchLimit)
+	services2, err := fillInComparisonMap(kubectx.WithClientSet(ctx, cfg.Connections.Cluster2.ClientSet), namespace, servicesRetrieveBatchLimit(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("cannot obtain services list from 2st cluster: %w", err)
 	}
@@ -113,7 +132,7 @@ func prepareServiceMaps(ctx context.Context, services1, services2 *v12.ServiceLi
 	)
 
 	for index, value := range services1.Items {
-		if cfg.Skips.IsSkippedEntity(serviceKind, value.Name) {
+		if cfg.ExcludesIncludes.IsSkippedEntity(serviceKind, value.Name) {
 			log.With(zap.String("name", value.Name)).Debugf("service/%s is skipped from comparison", value.Name)
 			continue
 		}
@@ -123,7 +142,7 @@ func prepareServiceMaps(ctx context.Context, services1, services2 *v12.ServiceLi
 	}
 
 	for index, value := range services2.Items {
-		if cfg.Skips.IsSkippedEntity(serviceKind, value.Name) {
+		if cfg.ExcludesIncludes.IsSkippedEntity(serviceKind, value.Name) {
 			log.With(zap.String("name", value.Name)).Debugf("service/%s is skipped from comparison", value.Name)
 			continue
 		}

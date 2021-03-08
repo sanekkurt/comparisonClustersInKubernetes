@@ -7,6 +7,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"k8s-cluster-comparator/internal/consts"
 	"k8s-cluster-comparator/internal/kubernetes/types"
 	"k8s-cluster-comparator/internal/logging"
 )
@@ -16,11 +17,13 @@ type SkipComponentNames map[types.ObjectName]struct{}
 
 // SkipEntitiesList represents map[objectKind][listOfObjectNamesToSkipDuringCompare]
 type SkipEntitiesList struct {
+	WorkMode string
+
 	FullResourceNamesSkip map[types.ObjectKind]SkipComponentNames
 	NameBasedSkip         map[types.ObjectName]struct{}
 }
 
-func (skipCfg SkipEntitiesList) IsSkippedEntity(kind string, name string) bool {
+func (skipCfg SkipEntitiesList) isExcludedEntity(kind string, name string) bool {
 	if _, bToSkip := skipCfg.NameBasedSkip[types.ObjectName(name)]; bToSkip {
 		return true
 	}
@@ -29,6 +32,30 @@ func (skipCfg SkipEntitiesList) IsSkippedEntity(kind string, name string) bool {
 		if _, bToSkip := skipNames[types.ObjectName(name)]; bToSkip {
 			return true
 		}
+	}
+
+	return false
+}
+
+func (skipCfg SkipEntitiesList) isIncludedEntity(kind string, name string) (result bool) {
+	if _, bToCompare := skipCfg.NameBasedSkip[types.ObjectName(name)]; bToCompare {
+		return true
+	}
+
+	if includedNames, ok := skipCfg.FullResourceNamesSkip[types.ObjectKind(kind)]; ok {
+		if _, bToCompare := includedNames[types.ObjectName(name)]; bToCompare {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (skipCfg SkipEntitiesList) IsSkippedEntity(kind string, name string) bool {
+	if skipCfg.WorkMode == consts.EverythingButNotExcludesWorkMode {
+		return skipCfg.isExcludedEntity(kind, name)
+	} else if skipCfg.WorkMode == consts.NothingButIncludesWorkMode {
+		return !skipCfg.isIncludedEntity(kind, name)
 	}
 
 	return false

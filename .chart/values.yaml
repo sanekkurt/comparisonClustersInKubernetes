@@ -45,13 +45,15 @@ tolerations: []
 
 affinity: {}
 
-schedule: "30 0 * * *"
+schedule: "30 23 * * *"
 
 successfulJobsHistoryLimit: 1
 failedJobsHistoryLimit: 3
 
 kubeConfig1: {}
 kubeConfig2: {}
+
+config: |
 
 namespaceNames:
   - default

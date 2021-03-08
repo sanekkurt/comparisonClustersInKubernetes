@@ -28,13 +28,6 @@ spec:
                   {{- toYaml .Values.securityContext | nindent 18 }}
                 image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
                 imagePullPolicy: {{ .Values.image.pullPolicy }}
-                env:
-                  - name: KUBECONFIG1
-                    value: "/configs/KUBECONFIG1.yaml"
-                  - name: KUBECONFIG2
-                    value: "/configs/KUBECONFIG2.yaml"
-                  - name: NAMESPACES
-                    value: {{ .Values.namespaceNames | join "," }}
                 resources:
                   {{- toYaml .Values.resources | nindent 18 }}
                 volumeMounts:

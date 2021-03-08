@@ -8,37 +8,13 @@ import (
 	"k8s-cluster-comparator/internal/kubernetes/types"
 )
 
-type WorkMode struct{}
-
-func (wm WorkMode) UnmarshalYAML(cb func(interface{}) error) error {
-	var (
-		mode string
-
-		allowedModes = map[string]struct{}{
-			"EverythingButNotExceptions": {},
-			"NothingButGivenList":        {},
-		}
-	)
-
-	err := cb(&mode)
-	if err != nil {
-		return err
-	}
-
-	if _, ok := allowedModes[mode]; !ok {
-		return fmt.Errorf("unknown work mode '%s'", mode)
-	}
-
-	return nil
-}
-
-type SkipConfiguration struct {
+type ExcludeIncludeSpec struct {
 	FullResourceNames map[types.ObjectKind][]types.ObjectName `yaml:"fullResourceNames"`
-	NameBasedSkips    []types.ObjectName                      `yaml:"nameBasedSkips"`
+	NameBased         []types.ObjectName                      `yaml:"nameBased"`
 }
 
 // ParseSkipConfig parses information about entities to skip from a environment
-func ParseSkipConfig(ctx context.Context, skipCfg SkipConfiguration) (skipper.SkipEntitiesList, error) {
+func ParseSkipConfig(ctx context.Context, skipCfg ExcludeIncludeSpec) (skipper.SkipEntitiesList, error) {
 	var (
 		err error
 
@@ -52,7 +28,7 @@ func ParseSkipConfig(ctx context.Context, skipCfg SkipConfiguration) (skipper.Sk
 
 	skipEntityList.FullResourceNamesSkip = fullResourceNamesSkips
 
-	nameBasedSkips, err := skipper.ParseNameBasedSkipConfig(ctx, skipCfg.NameBasedSkips)
+	nameBasedSkips, err := skipper.ParseNameBasedSkipConfig(ctx, skipCfg.NameBased)
 	if err != nil {
 		return skipEntityList, fmt.Errorf("invalid name based skip config: %w", err)
 	}

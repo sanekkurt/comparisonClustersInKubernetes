@@ -1,13 +1,14 @@
-package pod_controllers
+package common
 
 import (
 	"errors"
 	"fmt"
+	"os"
+	"testing"
+
 	"k8s-cluster-comparator/internal/interrupt"
 	"k8s-cluster-comparator/internal/logging"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"os"
-	"testing"
 
 	v12 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -1409,25 +1410,25 @@ func TestCompareEnvInContainers(t *testing.T) {
 	}
 
 	initEnvironmentForSecondTest2()
-	err = CompareEnvInContainers(env1, env2, "default","default", false, clusterClientSet1, clusterClientSet2)
+	err = CompareEnvInContainers(env1, env2, "default", "default", false, clusterClientSet1, clusterClientSet2)
 	if !errors.Is(errors.Unwrap(err), ErrorEnvironmentNotEqual) {
 		t.Error("Error expected: 'The environment in containers not equal'. But it was returned: ", err)
 	}
 
 	initEnvironmentForThirdTest2()
-	err = CompareEnvInContainers(env1, env2, "default","default", false, clusterClientSet1, clusterClientSet2)
+	err = CompareEnvInContainers(env1, env2, "default", "default", false, clusterClientSet1, clusterClientSet2)
 	if !errors.Is(errors.Unwrap(err), ErrorEnvironmentNotEqual) {
 		t.Error("Error expected: 'The environment in containers not equal'. But it was returned: ", err)
 	}
 
 	initEnvironmentForFourthTest2()
-	err = CompareEnvInContainers(env1, env2, "default","default", false, clusterClientSet1, clusterClientSet2)
+	err = CompareEnvInContainers(env1, env2, "default", "default", false, clusterClientSet1, clusterClientSet2)
 	if !errors.Is(errors.Unwrap(err), ErrorDifferentValueSecretKey) {
 		t.Error("Error expected: 'The value for the SecretKey is different'. But it was returned: ", err)
 	}
 
 	initEnvironmentForFifthTest2()
-	err = CompareEnvInContainers(env1, env2, "default","default", false, clusterClientSet1, clusterClientSet2)
+	err = CompareEnvInContainers(env1, env2, "default", "default", false, clusterClientSet1, clusterClientSet2)
 	if !errors.Is(errors.Unwrap(err), ErrorDifferentValueConfigMapKey) {
 		t.Error("Error expected: 'The value for the ConfigMapKey is different'. But it was returned: ", err)
 	}
@@ -1488,7 +1489,7 @@ func initEnvironmentForThirdTest3() {
 				Port: intstr.IntOrString{
 					IntVal: 8,
 					StrVal: "",
-					Type: 22,
+					Type:   22,
 				},
 			},
 		},
@@ -1504,7 +1505,7 @@ func initEnvironmentForThirdTest3() {
 				Port: intstr.IntOrString{
 					IntVal: 56,
 					StrVal: "",
-					Type: 1,
+					Type:   1,
 				},
 			},
 		},
@@ -1554,7 +1555,7 @@ func initEnvironmentForFifthTest3() {
 				Host: "host",
 				HTTPHeaders: []v1.HTTPHeader{
 					{
-						Name: "header1",
+						Name:  "header1",
 						Value: "value",
 					},
 				},
@@ -1574,11 +1575,11 @@ func initEnvironmentForFifthTest3() {
 				Host: "host",
 				HTTPHeaders: []v1.HTTPHeader{
 					{
-						Name: "header1",
+						Name:  "header1",
 						Value: "value1",
 					},
 					{
-						Name: "header2",
+						Name:  "header2",
 						Value: "value2",
 					},
 				},
@@ -1600,7 +1601,7 @@ func initEnvironmentForSixthTest3() {
 				Host: "host",
 				HTTPHeaders: []v1.HTTPHeader{
 					{
-						Name: "fakeHeader",
+						Name:  "fakeHeader",
 						Value: "value",
 					},
 				},
@@ -1620,7 +1621,7 @@ func initEnvironmentForSixthTest3() {
 				Host: "host",
 				HTTPHeaders: []v1.HTTPHeader{
 					{
-						Name: "header",
+						Name:  "header",
 						Value: "value",
 					},
 				},
@@ -1642,7 +1643,7 @@ func initEnvironmentForSeventhTest3() {
 				Host: "host",
 				HTTPHeaders: []v1.HTTPHeader{
 					{
-						Name: "header1",
+						Name:  "header1",
 						Value: "fakeValue",
 					},
 				},
@@ -1662,7 +1663,7 @@ func initEnvironmentForSeventhTest3() {
 				Host: "host",
 				HTTPHeaders: []v1.HTTPHeader{
 					{
-						Name: "header1",
+						Name:  "header1",
 						Value: "value1",
 					},
 				},
@@ -1698,7 +1699,7 @@ func initEnvironmentForEighthTest3() {
 				Host: "host",
 				HTTPHeaders: []v1.HTTPHeader{
 					{
-						Name: "header1",
+						Name:  "header1",
 						Value: "value1",
 					},
 				},
@@ -1754,7 +1755,7 @@ func initEnvironmentForTenthTest3() {
 				Port: intstr.IntOrString{
 					IntVal: 8,
 					StrVal: "",
-					Type: 22,
+					Type:   22,
 				},
 			},
 		},
@@ -1774,7 +1775,7 @@ func initEnvironmentForTenthTest3() {
 				Port: intstr.IntOrString{
 					IntVal: 8,
 					StrVal: "",
-					Type: 28,
+					Type:   28,
 				},
 			},
 		},
@@ -2051,8 +2052,8 @@ func initEnvironmentForNineteenthTest3() {
 				Host: "host",
 			},
 			HTTPGet: &v1.HTTPGetAction{
-				Host: "host",
-				Path: "path",
+				Host:   "host",
+				Path:   "path",
 				Scheme: "TCP",
 			},
 		},
@@ -2068,8 +2069,8 @@ func initEnvironmentForNineteenthTest3() {
 				Host: "host",
 			},
 			HTTPGet: &v1.HTTPGetAction{
-				Host: "host",
-				Path: "path",
+				Host:   "host",
+				Path:   "path",
 				Scheme: "HTTP",
 			},
 		},

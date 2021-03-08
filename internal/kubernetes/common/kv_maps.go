@@ -1,6 +1,7 @@
 package common
 
 import (
+	"bytes"
 	"context"
 	"strings"
 
@@ -36,8 +37,8 @@ func AreKVMapsEqual(ctx context.Context, map1, map2 types.KVMap, skipKeys map[st
 			return false
 		}
 
-		if val1 != map2[k] {
-			log.With(zap.String("key", k)).Warn("key values does not equal")
+		if strings.Compare(val1, map2[k]) != 0 {
+			log.With(zap.String("key", k), zap.String("value1", val1), zap.String("value2", map2[k])).Warn("key values do not match")
 			return false
 		}
 
@@ -89,8 +90,8 @@ func AreKVBytesMapsEqual(ctx context.Context, map1, map2 map[string][]byte, skip
 			return false
 		}
 
-		if string(val1) != string(map2[k]) {
-			log.With(zap.String("key", k)).Warn("key values does not equal")
+		if bytes.Compare(val1, map2[k]) != 0 {
+			log.With(zap.String("key", k)).Warn("key values do not match")
 			return false
 		}
 

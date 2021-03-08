@@ -8,10 +8,43 @@ import (
 	"gopkg.in/yaml.v2"
 	"k8s.io/client-go/kubernetes"
 
+	"k8s-cluster-comparator/internal/consts"
 	"k8s-cluster-comparator/internal/kubernetes/skipper"
 	"k8s-cluster-comparator/internal/kubernetes/types"
 	"k8s-cluster-comparator/internal/logging"
+	"k8s-cluster-comparator/internal/utils"
 )
+
+type ConfigurationSection interface {
+	Parse(ctx context.Context) error
+}
+
+type CompareContainersConfiguration struct {
+	RollingTags struct {
+		TagsList    []string            `yaml:"tagsList"`
+		TagsListMap map[string]struct{} `yaml:"-"`
+
+		WarnOnRollingTag bool `yaml:"warnOnRollingTag"`
+	} `yaml:"rollingTags"`
+
+	Env struct {
+		EnvFrom struct {
+			DeepCompareAlways       bool `yaml:"deepCompareAlways"`
+			DeepCompareOnRollingTag bool `yaml:"deepCompareOnRollingTag"`
+		} `yaml:"envFrom"`
+	} `yaml:"env"`
+}
+
+func (cfg *CompareContainersConfiguration) Parse(ctx context.Context) error {
+	var err error
+
+	cfg.RollingTags.TagsListMap, err = utils.StringsListToMap(ctx, cfg.RollingTags.TagsList, false)
+	if err != nil {
+		return fmt.Errorf("cannot parse rolling tags list: %w", err)
+	}
+
+	return nil
+}
 
 type PodsComparisonConfiguration struct {
 	// Prevent comparisons
@@ -21,21 +54,38 @@ type PodsComparisonConfiguration struct {
 type DeploymentsComparisonConfiguration struct {
 	// Prevent comparisons
 	_ [0][]byte `yaml:"_,omitempty"`
+
+	Enabled bool `yaml:"enabled"`
+
+	BatchSize int64 `yaml:"batchSize"`
 }
 
 type StatefulSetsComparisonConfiguration struct {
 	// Prevent comparisons
 	_ [0][]byte `yaml:"_,omitempty"`
+
+	Enabled bool `yaml:"enabled"`
+
+	BatchSize int64 `yaml:"batchSize"`
 }
 
 type DaemonSetsComparisonConfiguration struct {
 	// Prevent comparisons
 	_ [0][]byte `yaml:"_,omitempty"`
+
+	Enabled bool `yaml:"enabled"`
+
+	BatchSize int64 `yaml:"batchSize"`
 }
 
 type PodControllersComparisonConfiguration struct {
 	// Prevent comparisons
 	_ [0][]byte `yaml:"_,omitempty"`
+
+	Enabled bool `yaml:"enabled"`
+
+	CompareImageDigestsAlways       bool `yaml:"compareImageDigestsAlways"`
+	CompareImageDigestsOnRollingTag bool `yaml:"compareImageDigestsOnRollingTag"`
 
 	Deployments  DeploymentsComparisonConfiguration  `yaml:"deployments"`
 	StatefulSets StatefulSetsComparisonConfiguration `yaml:"statefulSets"`
@@ -46,6 +96,10 @@ type WorkloadsComparisonConfiguration struct {
 	// Prevent comparisons
 	_ [0][]byte `yaml:"_,omitempty"`
 
+	Enabled bool `yaml:"enabled"`
+
+	Containers CompareContainersConfiguration `yaml:"containers"`
+
 	Pods           PodsComparisonConfiguration           `yaml:"pods"`
 	PodControllers PodControllersComparisonConfiguration `yaml:"podControllers"`
 }
@@ -53,31 +107,54 @@ type WorkloadsComparisonConfiguration struct {
 type JobsComparisonConfiguration struct {
 	// Prevent comparisons
 	_ [0][]byte `yaml:"_,omitempty"`
+
+	Enabled bool `yaml:"enabled"`
+
+	BatchSize int64 `yaml:"batchSize"`
 }
 
 type CronJobsComparisonConfiguration struct {
 	// Prevent comparisons
 	_ [0][]byte `yaml:"_,omitempty"`
+
+	Enabled bool `yaml:"enabled"`
+
+	BatchSize int64 `yaml:"batchSize"`
 }
 
 type TasksComparisonConfiguration struct {
 	// Prevent comparisons
 	_ [0][]byte `yaml:"_,omitempty"`
+
+	Enabled bool `yaml:"enabled"`
+
+	Jobs     JobsComparisonConfiguration     `yaml:"jobs"`
+	CronJobs CronJobsComparisonConfiguration `yaml:"cronJobs"`
 }
 
 type ServicesComparisonConfiguration struct {
 	// Prevent comparisons
 	_ [0][]byte `yaml:"_,omitempty"`
+
+	Enabled bool `yaml:"enabled"`
+
+	BatchSize int64 `yaml:"batchSize"`
 }
 
 type IngressesComparisonConfiguration struct {
 	// Prevent comparisons
 	_ [0][]byte `yaml:"_,omitempty"`
+
+	Enabled bool `yaml:"enabled"`
+
+	BatchSize int64 `yaml:"batchSize"`
 }
 
 type NetworkingComparisonConfiguration struct {
 	// Prevent comparisons
 	_ [0][]byte `yaml:"_,omitempty"`
+
+	Enabled bool `yaml:"enabled"`
 
 	Services  ServicesComparisonConfiguration  `yaml:"services"`
 	Ingresses IngressesComparisonConfiguration `yaml:"ingresses"`
@@ -85,6 +162,11 @@ type NetworkingComparisonConfiguration struct {
 
 // ClusterConnection represents a k8s-cluster config
 type ClusterConnection struct {
+	// Prevent comparisons
+	_ [0][]byte `yaml:"_,omitempty" json:"_,omitempty"`
+
+	Name string `yaml:"name"`
+
 	KubeConfigFile string `yaml:"kubeConfig"`
 
 	ClientSet    kubernetes.Interface  `yaml:"-"`
@@ -101,13 +183,102 @@ type ConnectionsConfigurations struct {
 	Namespaces []string `yaml:"namespaces,omitempty"`
 }
 
+type MetadataCompareConfiguration struct {
+	// Prevent comparisons
+	_ [0][]byte `yaml:"_,omitempty" json:"_,omitempty"`
+
+	Enabled bool `yaml:"enabled"`
+
+	SkipLabels    []string            `yaml:"skipLabelsList"`
+	SkipLabelsMap map[string]struct{} `yaml:"-"`
+
+	SkipAnnotations    []string            `yaml:"skipAnnotationsList"`
+	SkipAnnotationsMap map[string]struct{} `yaml:"-"`
+}
+
+func (cfg *MetadataCompareConfiguration) Parse(ctx context.Context) error {
+	var err error
+
+	cfg.SkipLabelsMap, err = utils.StringsListToMap(ctx, cfg.SkipLabels, false)
+	if err != nil {
+		return fmt.Errorf("cannot parse skip labels list: %w", err)
+	}
+
+	cfg.SkipAnnotationsMap, err = utils.StringsListToMap(ctx, cfg.SkipAnnotations, false)
+	if err != nil {
+		return fmt.Errorf("cannot parse skip annotations list: %w", err)
+	}
+
+	return nil
+}
+
 type CommonConfiguration struct {
 	// Prevent comparisons
 	_ [0][]byte `yaml:"_,omitempty" json:"_,omitempty"`
 
-	WorkMode WorkMode `yaml:"mode,omitempty"`
+	WorkMode string `yaml:"mode""`
 
-	Skips SkipConfiguration `yaml:"skips" json:"skips"`
+	Excludes ExcludeIncludeSpec `yaml:"excludes"`
+	Includes ExcludeIncludeSpec `yaml:"includes"`
+
+	MetadataCompareConfiguration MetadataCompareConfiguration `yaml:"metadata"`
+
+	DefaultBatchSize int64 `yaml:"defaultBatchSize"`
+}
+
+func (cfg *CommonConfiguration) Parse(ctx context.Context) error {
+	allowedModes := map[string]struct{}{
+		consts.EverythingButNotExcludesWorkMode: {},
+		consts.NothingButIncludesWorkMode:       {},
+	}
+
+	if _, ok := allowedModes[cfg.WorkMode]; !ok {
+		return fmt.Errorf("unknown work mode '%s'", cfg.WorkMode)
+	}
+
+	return nil
+}
+
+type ConfigMapsConfiguration struct {
+	// Prevent comparisons
+	_ [0][]byte `yaml:"_,omitempty" json:"_,omitempty"`
+
+	Enabled bool `yaml:"enabled"`
+
+	BatchSize int64 `yaml:"batchSize"`
+}
+
+type SecretsConfiguration struct {
+	// Prevent comparisons
+	_ [0][]byte `yaml:"_,omitempty" json:"_,omitempty"`
+
+	Enabled bool `yaml:"enabled"`
+
+	BatchSize int64 `yaml:"batchSize"`
+
+	SkipTypes    []string            `yaml:"skipTypesList"`
+	SkipTypesMap map[string]struct{} `yaml:"-"`
+}
+
+func (cfg *SecretsConfiguration) Parse(ctx context.Context) error {
+	var err error
+
+	cfg.SkipTypesMap, err = utils.StringsListToMap(ctx, cfg.SkipTypes, false)
+	if err != nil {
+		return fmt.Errorf("cannot parse skip secret types list: %w", err)
+	}
+
+	return nil
+}
+
+type ConfigsConfiguration struct {
+	// Prevent comparisons
+	_ [0][]byte `yaml:"_,omitempty" json:"_,omitempty"`
+
+	Enabled bool `yaml:"enabled"`
+
+	ConfigMaps ConfigMapsConfiguration `yaml:"configMaps"`
+	Secrets    SecretsConfiguration    `yaml:"secrets"`
 }
 
 // AppConfig is the main application configuration storage
@@ -121,12 +292,14 @@ type AppConfig struct {
 
 	Common CommonConfiguration `yaml:"common" yaml:"common"`
 
+	Configs ConfigsConfiguration `yaml:"configs"`
+
 	Workloads WorkloadsComparisonConfiguration `yaml:"workloads"`
 	Tasks     TasksComparisonConfiguration     `yaml:"tasks"`
 
 	Networking NetworkingComparisonConfiguration `yaml:"networking"`
 
-	Skips skipper.SkipEntitiesList `yaml:"-"`
+	ExcludesIncludes skipper.SkipEntitiesList `yaml:"-"`
 }
 
 func ParseConfig(ctx context.Context, cfgPath string) (*AppConfig, error) {
@@ -152,6 +325,19 @@ func ParseConfig(ctx context.Context, cfgPath string) (*AppConfig, error) {
 	err = dec.Decode(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse config from '%s': %w", cfgPath, err)
+	}
+
+	var extraCfgSections = []ConfigurationSection{
+		&cfg.Common.MetadataCompareConfiguration,
+		&cfg.Configs.Secrets,
+		&cfg.Workloads.Containers,
+	}
+
+	for _, section := range extraCfgSections {
+		err := section.Parse(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("cannot parse '%T' configuration section: %w", section, err)
+		}
 	}
 
 	return cfg, nil
