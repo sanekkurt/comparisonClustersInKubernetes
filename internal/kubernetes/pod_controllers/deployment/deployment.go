@@ -3,217 +3,261 @@ package deployment
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"go.uber.org/zap"
 	"k8s-cluster-comparator/internal/config"
+	"k8s-cluster-comparator/internal/consts"
 	kubectx "k8s-cluster-comparator/internal/kubernetes/context"
-	"k8s-cluster-comparator/internal/kubernetes/pod_controllers/common"
+	pccommon "k8s-cluster-comparator/internal/kubernetes/pod_controllers/common"
 	"k8s-cluster-comparator/internal/kubernetes/types"
 	"k8s-cluster-comparator/internal/logging"
-	v1 "k8s.io/api/apps/v1"
+	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 const (
-	deploymentKind = "deployment"
+	objectKind = "deployment"
 )
 
-func deploymentsRetrieveBatchLimit(ctx context.Context) int64 {
-	cfg := config.FromContext(ctx)
-
-	if limit := cfg.Workloads.PodControllers.Deployments.BatchSize; limit != 0 {
-		return limit
-	}
-
-	if limit := cfg.Common.DefaultBatchSize; limit != 0 {
-		return limit
-	}
-
-	return 25
+type DeploymentsComparator struct {
+	Kind      string
+	Namespace string
+	BatchSize int64
 }
 
-func fillInComparisonMap(ctx context.Context, namespace string, limit int64) (*v1.DeploymentList, error) {
+func NewDeploymentsComparator(ctx context.Context, namespace string) *DeploymentsComparator {
+	return &DeploymentsComparator{
+		Kind:      objectKind,
+		Namespace: namespace,
+		BatchSize: getBatchLimit(ctx),
+	}
+}
+
+func (cmp *DeploymentsComparator) fieldSelectorProvider(ctx context.Context) string {
+	return ""
+}
+
+func (cmp *DeploymentsComparator) labelSelectorProvider(ctx context.Context) string {
+	return ""
+}
+
+func (cmp *DeploymentsComparator) collectIncludedFromCluster(ctx context.Context) (map[string]appsv1.Deployment, error) {
 	var (
 		log       = logging.FromContext(ctx)
+		cfg       = config.FromContext(ctx)
 		clientSet = kubectx.ClientSetFromContext(ctx)
 
-		batch       *v1.DeploymentList
-		deployments = &v1.DeploymentList{
-			Items: make([]v1.Deployment, 0),
+		objects = make(map[string]appsv1.Deployment)
+	)
+
+	log.Debugf("%T: collectIncludedFromCluster started", cmp)
+	defer log.Debugf("%T: collectIncludedFromCluster completed", cmp)
+
+	for name := range cfg.ExcludesIncludes.NameBasedSkip {
+		obj, err := clientSet.AppsV1().Deployments(cmp.Namespace).Get(string(name), metav1.GetOptions{})
+		if err != nil {
+			if errors.IsNotFound(err) {
+				log.With(zap.String("objectName", string(name))).Warnf("%s/%s not found in cluster", cmp.Kind, name)
+				continue
+			}
+			return nil, err
 		}
+		objects[obj.Name] = *obj
+	}
+
+	for name := range cfg.ExcludesIncludes.FullResourceNamesSkip[types.ObjectKind(cmp.Kind)] {
+		obj, err := clientSet.AppsV1().Deployments(cmp.Namespace).Get(string(name), metav1.GetOptions{})
+		if err != nil {
+			if errors.IsNotFound(err) {
+				log.With(zap.String("objectName", string(name))).Warnf("%s/%s not found in cluster", cmp.Kind, name)
+				continue
+			}
+			return nil, err
+		}
+		objects[obj.Name] = *obj
+	}
+
+	return objects, nil
+}
+
+func (cmp *DeploymentsComparator) collectFromClusterWithoutExcludes(ctx context.Context) (map[string]appsv1.Deployment, error) {
+	var (
+		log       = logging.FromContext(ctx)
+		cfg       = config.FromContext(ctx)
+		clientSet = kubectx.ClientSetFromContext(ctx)
+
+		batch   *appsv1.DeploymentList
+		objects = make(map[string]appsv1.Deployment)
 
 		continueToken string
 
 		err error
 	)
 
-	log.Debugf("fillInComparisonMap started")
-	defer log.Debugf("fillInComparisonMap completed")
+	log.Debugf("%T: collectFromClusterWithoutExcludes started", cmp)
+	defer log.Debugf("%T: collectFromClusterWithoutExcludes completed", cmp)
 
-forLoop:
+forOuterLoop:
 	for {
 		select {
 		case <-ctx.Done():
 			return nil, context.Canceled
 		default:
-			batch, err = clientSet.AppsV1().Deployments(namespace).List(metav1.ListOptions{
-				Limit:    limit,
-				Continue: continueToken,
+			batch, err = clientSet.AppsV1().Deployments(cmp.Namespace).List(metav1.ListOptions{
+				Limit:         cmp.BatchSize,
+				FieldSelector: cmp.fieldSelectorProvider(ctx),
+				LabelSelector: cmp.labelSelectorProvider(ctx),
+				Continue:      continueToken,
 			})
 			if err != nil {
 				return nil, err
 			}
 
-			log.Debugf("fillInComparisonMap: %d objects received", len(batch.Items))
+			log.Debugf("%d %ss retrieved", len(batch.Items), cmp.Kind)
 
-			deployments.Items = append(deployments.Items, batch.Items...)
+		forInnerLoop:
+			for _, obj := range batch.Items {
+				if _, ok := objects[obj.Name]; ok {
+					log.With("objectName", obj.Name).Warnf("%s/%s already present in comparison list", cmp.Kind, obj.Name)
+				}
 
-			deployments.TypeMeta = batch.TypeMeta
-			deployments.ListMeta = batch.ListMeta
+				if cfg.ExcludesIncludes.IsSkippedEntity(cmp.Kind, obj.Name) {
+					log.With(zap.String("objectName", obj.Name)).Debugf("%s/%s is skipped from comparison", cmp.Kind, obj.Name)
+					continue forInnerLoop
+				}
+
+				if *obj.Spec.Replicas != obj.Status.ReadyReplicas {
+					log.With(zap.String("objectName", obj.Name)).Warnf("%s/%s is progressing now, comparison might be inaccurate", cmp.Kind, obj.Name)
+				}
+
+				objects[obj.Name] = obj
+			}
 
 			if batch.Continue == "" {
-				break forLoop
+				break forOuterLoop
 			}
 
 			continueToken = batch.Continue
 		}
 	}
 
-	deployments.Continue = ""
-
-	return deployments, err
+	return objects, nil
 }
 
-type DeploymentsComparator struct {
-}
-
-func NewDeploymentsComparator(ctx context.Context, namespace string) DeploymentsComparator {
-	return DeploymentsComparator{}
-}
-
-func (cmp DeploymentsComparator) Compare(ctx context.Context, namespace string) ([]types.KubeObjectsDifference, error) {
+func (cmp *DeploymentsComparator) collectFromCluster(ctx context.Context) (map[string]appsv1.Deployment, error) {
 	var (
-		log = logging.FromContext(ctx).With(zap.String("kind", deploymentKind))
+		log = logging.FromContext(ctx)
 		cfg = config.FromContext(ctx)
 	)
 
+	log.Debugf("%T: collectFromCluster started", cmp)
+	defer log.Debugf("%T: collectFromCluster completed", cmp)
+
+	if cfg.Common.WorkMode == consts.EverythingButNotExcludesWorkMode {
+		return cmp.collectFromClusterWithoutExcludes(ctx)
+	} else {
+		return cmp.collectIncludedFromCluster(ctx)
+	}
+}
+
+// Compare compares list of Deployment objects in two given k8s-clusters
+func (cmp *DeploymentsComparator) Compare(ctx context.Context) ([]types.KubeObjectsDifference, error) {
+	var (
+		log = logging.FromContext(ctx).With(zap.String("kind", cmp.Kind))
+		cfg = config.FromContext(ctx)
+
+		err error
+	)
 	ctx = logging.WithLogger(ctx, log)
 
 	if !cfg.Workloads.Enabled ||
 		!cfg.Workloads.PodControllers.Enabled ||
 		!cfg.Workloads.PodControllers.Deployments.Enabled {
-		log.Infof("'%s' kind skipped from comparison due to configuration", deploymentKind)
+		log.Debugf("'%s' kind skipped from comparison due to configuration", cmp.Kind)
 		return nil, nil
 	}
 
-	deployments1, err := fillInComparisonMap(kubectx.WithClientSet(ctx, cfg.Connections.Cluster1.ClientSet), namespace, deploymentsRetrieveBatchLimit(ctx))
+	objects, err := cmp.collect(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("cannot obtain deployments list from 1st cluster: %w", err)
+		return nil, fmt.Errorf("cannot retrieve objects for comparision: %w", err)
 	}
 
-	deployments2, err := fillInComparisonMap(kubectx.WithClientSet(ctx, cfg.Connections.Cluster2.ClientSet), namespace, deploymentsRetrieveBatchLimit(ctx))
-	if err != nil {
-		return nil, fmt.Errorf("cannot obtain deployments list from 2st cluster: %w", err)
-	}
+	diff := cmp.compare(ctx, objects[0], objects[1])
 
-	apc1List, deploymentStatuses1, map1, apc2List, deploymentStatuses2, map2 := prepareDeploymentMaps(ctx, deployments1, deployments2)
-
-	for _, value := range deploymentStatuses1 {
-		if value.Replicas != value.ReadyReplicas {
-			log.Warn("Some deployment replicas in 1st cluster are not ready. The comparison might be inaccurate")
-		}
-	}
-
-	for _, value := range deploymentStatuses2 {
-		if value.Replicas != value.ReadyReplicas {
-			log.Warn("Some deployment replicas in 2nd cluster are not ready. The comparison might be inaccurate")
-		}
-	}
-
-	_, err = common.ComparePodControllers(ctx, &common.ClusterCompareTask{
-		Client:                   cfg.Connections.Cluster1.ClientSet,
-		APCList:                  apc1List,
-		IsAlreadyCheckedFlagsMap: map1,
-	}, &common.ClusterCompareTask{
-		Client:                   cfg.Connections.Cluster2.ClientSet,
-		APCList:                  apc2List,
-		IsAlreadyCheckedFlagsMap: map2,
-	}, namespace)
-
-	return nil, err
+	return diff, nil
 }
 
-// prepareDeploymentMaps prepare deployment maps for comparison
-func prepareDeploymentMaps(ctx context.Context, obj1, obj2 *v1.DeploymentList) ([]common.AbstractPodController, []v1.DeploymentStatus, map[string]types.IsAlreadyComparedFlag, []common.AbstractPodController, []v1.DeploymentStatus, map[string]types.IsAlreadyComparedFlag) { //nolint:gocritic,unused
+func (cmp *DeploymentsComparator) collect(ctx context.Context) ([]map[string]appsv1.Deployment, error) {
 	var (
 		log = logging.FromContext(ctx)
 		cfg = config.FromContext(ctx)
 
-		map1                = make(map[string]types.IsAlreadyComparedFlag)
-		apc1List            = make([]common.AbstractPodController, 0)
-		deploymentStatuses1 = make([]v1.DeploymentStatus, 0)
-		deploymentStatuses2 = make([]v1.DeploymentStatus, 0)
+		objects = make([]map[string]appsv1.Deployment, 2, 2)
+		wg      = &sync.WaitGroup{}
 
-		map2     = make(map[string]types.IsAlreadyComparedFlag)
-		apc2List = make([]common.AbstractPodController, 0)
-
-		indexCheck types.IsAlreadyComparedFlag
+		err error
 	)
 
-	for index, value := range obj1.Items {
-		if cfg.ExcludesIncludes.IsSkippedEntity(deploymentKind, value.Name) {
-			log.With(zap.String("name", value.Name)).Debugf("deployment/%s is skipped from comparison", value.Name)
-			continue
-		}
+	wg.Add(2)
 
-		indexCheck.Index = index
-		map1[value.Name] = indexCheck
+	for idx, clientSet := range []kubernetes.Interface{
+		cfg.Connections.Cluster1.ClientSet,
+		cfg.Connections.Cluster2.ClientSet,
+	} {
+		go func(idx int, clientSet kubernetes.Interface) {
+			defer wg.Done()
 
-		apc1List = append(apc1List, common.AbstractPodController{
-			Metadata: types.AbstractObjectMetadata{
-				Type: metav1.TypeMeta{
-					Kind:       "deployments",
-					APIVersion: "apps/v1",
-				},
-				Meta: value.ObjectMeta,
-			},
-			Name:             value.Name,
-			Labels:           value.Labels,
-			Annotations:      value.Annotations,
-			Replicas:         value.Spec.Replicas,
-			PodLabelSelector: value.Spec.Selector,
-			PodTemplateSpec:  value.Spec.Template,
-		})
-
-		deploymentStatuses1 = append(deploymentStatuses1, value.Status)
+			objects[idx], err = cmp.collectFromCluster(kubectx.WithClientSet(ctx, clientSet))
+			if err != nil {
+				log.Fatalf("cannot obtain %ss from cluster #%d: %s", cmp.Kind, idx+1, err.Error())
+			}
+		}(idx, clientSet)
 	}
 
-	for index, value := range obj2.Items {
-		if cfg.ExcludesIncludes.IsSkippedEntity(deploymentKind, value.Name) {
-			log.With(zap.String("name", value.Name)).Debugf("deployment/%s is skipped from comparison", value.Name)
-			continue
-		}
+	wg.Wait()
 
-		indexCheck.Index = index
-		map2[value.Name] = indexCheck
+	return objects, nil
+}
 
-		apc2List = append(apc2List, common.AbstractPodController{
-			Metadata: types.AbstractObjectMetadata{
-				Type: metav1.TypeMeta{
-					Kind:       "deployments",
-					APIVersion: "apps/v1",
-				},
-				Meta: value.ObjectMeta,
-			},
-			Name:             value.Name,
-			Labels:           value.Labels,
-			Annotations:      value.Annotations,
-			Replicas:         value.Spec.Replicas,
-			PodLabelSelector: value.Spec.Selector,
-			PodTemplateSpec:  value.Spec.Template,
-		})
-		deploymentStatuses2 = append(deploymentStatuses2, value.Status)
+func (cmp *DeploymentsComparator) compare(ctx context.Context, map1, map2 map[string]appsv1.Deployment) []types.KubeObjectsDifference {
+	var (
+		apcs = make([]map[string]*pccommon.AbstractPodController, 2, 2)
+	)
+
+	for idx, objs := range []map[string]appsv1.Deployment{map1, map2} {
+		apcs[idx] = cmp.prepareAPCMap(ctx, objs)
 	}
 
-	return apc1List, deploymentStatuses1, map1, apc2List, deploymentStatuses2, map2
+	diffs := pccommon.CompareAbstractPodControllerMaps(ctx, cmp.Kind, apcs[0], apcs[1])
+
+	return diffs
+}
+
+func (cmp *DeploymentsComparator) prepareAPCMap(ctx context.Context, objs map[string]appsv1.Deployment) map[string]*pccommon.AbstractPodController {
+	var (
+		apcs = make(map[string]*pccommon.AbstractPodController)
+	)
+
+	for name, obj := range objs {
+		apcs[name] = &pccommon.AbstractPodController{
+			Metadata: types.AbstractObjectMetadata{
+				Type: metav1.TypeMeta{
+					Kind:       cmp.Kind,
+					APIVersion: "apps/v1",
+				},
+				Meta: obj.ObjectMeta,
+			},
+			Name:             obj.Name,
+			Labels:           obj.Labels,
+			Annotations:      obj.Annotations,
+			Replicas:         obj.Spec.Replicas,
+			PodLabelSelector: obj.Spec.Selector,
+			PodTemplateSpec:  obj.Spec.Template,
+		}
+	}
+
+	return apcs
 }

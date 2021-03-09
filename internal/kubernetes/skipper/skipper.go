@@ -87,7 +87,7 @@ func ParseFullResourceNameSkipConfig(ctx context.Context, skipCfg map[types.Obje
 
 			objNames[n] = struct{}{}
 
-			log.With(zap.String("kind", string(k)), zap.String("name", string(n))).Infof("resource '%s/%s' added to skip list", string(k), string(n))
+			log.With(zap.String("kind", string(k)), zap.String("name", string(n))).Debugf("resource '%s/%s' added to skip list", string(k), string(n))
 		}
 
 		fullResourceNames[k] = objNames
@@ -111,7 +111,7 @@ func ParseNameBasedSkipConfig(ctx context.Context, skipCfg []types.ObjectName) (
 		}
 		list[n] = struct{}{}
 
-		log.With(zap.String("name", string(n))).Infof("name '%s' added to skip list", string(n))
+		log.With(zap.String("name", string(n))).Debugf("name '%s' added to skip list", string(n))
 	}
 
 	return list, nil

@@ -21,19 +21,20 @@ type ClusterCompareTask struct {
 	IsAlreadyCheckedFlagsMap map[string]types.IsAlreadyComparedFlag
 }
 
-func ComparePodControllerSpecs(ctx context.Context, name string, apc1, apc2 *AbstractPodController) {
+func ComparePodControllerSpecs(ctx context.Context, name string, apc1, apc2 *AbstractPodController) []types.KubeObjectsDifference {
 	var (
 		log = logging.FromContext(ctx).With(zap.String("objectName", name))
+
+		kind = types.ObjectKindWrapper(apc1.Metadata.Type.Kind)
 	)
 	ctx = logging.WithLogger(ctx, log)
 
-	kind := types.ObjectKindWrapper(apc1.Metadata.Type.Kind)
+	metadata.IsMetadataDiffers(ctx, apc1.Metadata.Meta, apc2.Metadata.Meta)
 
-	if metadata.IsMetadataDiffers(ctx, apc1.Metadata.Meta, apc2.Metadata.Meta) {
-		return
-	}
-
-	log.Debugf("----- Start checking %s/%s pod controller spec -----", kind, apc1.Name)
+	log.Debugf("%s/%s: check started", kind, apc1.Name)
+	defer func() {
+		log.Debugf("%s/%s: check completed", kind, apc1.Name)
+	}()
 
 	if apc1.Replicas != nil || apc2.Replicas != nil {
 		if *apc1.Replicas != *apc2.Replicas {
@@ -67,54 +68,93 @@ func ComparePodControllerSpecs(ctx context.Context, name string, apc1, apc2 *Abs
 		log.Warnw(err.Error())
 	}
 
-	log.Debugf("----- End checking %s/%s -----", kind, name)
+	return nil
 }
 
-// ComparePodControllers compares abstracted pod controller specifications in two k8s clusters
-func ComparePodControllers(ctx context.Context, c1, c2 *ClusterCompareTask, namespace string) (bool, error) {
+//// ComparePodControllers compares abstracted pod controller specifications in two k8s clusters
+//func ComparePodControllers(ctx context.Context, c1, c2 *ClusterCompareTask, namespace string) (bool, error) {
+//	var (
+//		log = logging.FromContext(ctx)
+//
+//		flag bool
+//	)
+//
+//	if len(c1.IsAlreadyCheckedFlagsMap) != len(c2.IsAlreadyCheckedFlagsMap) {
+//		log.Warnw("object counts are different", zap.Int("objectsCount1st", len(c1.IsAlreadyCheckedFlagsMap)), zap.Int("objectsCount2nd", len(c2.IsAlreadyCheckedFlagsMap)))
+//		flag = true
+//	}
+//
+//	for name, index1 := range c1.IsAlreadyCheckedFlagsMap {
+//		ctx = logging.WithLogger(ctx, log.With(zap.String("objectName", name)))
+//
+//		select {
+//		case <-ctx.Done():
+//			return false, ctx.Err()
+//		default:
+//			if index2, ok := c2.IsAlreadyCheckedFlagsMap[name]; ok {
+//				index1.Check = true
+//				c1.IsAlreadyCheckedFlagsMap[name] = index1
+//
+//				index2.Check = true
+//				c2.IsAlreadyCheckedFlagsMap[name] = index2
+//
+//				apc1 := c1.APCList[index1.Index]
+//				apc2 := c2.APCList[index2.Index]
+//
+//				// TODO: migrate to a goroutine
+//				ComparePodControllerSpecs(ctx, name, &apc1, &apc2)
+//			} else {
+//				log.With(zap.String("objectName", name)).Warn("object does not exist in 2nd cluster")
+//			}
+//
+//		}
+//	}
+//
+//	for name, index := range c2.IsAlreadyCheckedFlagsMap {
+//		if !index.Check {
+//			log.With(zap.String("objectName", name)).Warn("object does not exist in 1st cluster")
+//			flag = true
+//		}
+//	}
+//
+//	return flag, nil
+//}
+
+func CompareAbstractPodControllerMaps(ctx context.Context, kind string, apcs1, apcs2 map[string]*AbstractPodController) []types.KubeObjectsDifference {
 	var (
 		log = logging.FromContext(ctx)
 
-		flag bool
+		diffs = make([]types.KubeObjectsDifference, 0)
 	)
 
-	if len(c1.IsAlreadyCheckedFlagsMap) != len(c2.IsAlreadyCheckedFlagsMap) {
-		log.Warnw("object counts are different", zap.Int("objectsCount1st", len(c1.IsAlreadyCheckedFlagsMap)), zap.Int("objectsCount2nd", len(c2.IsAlreadyCheckedFlagsMap)))
-		flag = true
+	if len(apcs1) != len(apcs2) {
+		log.Warnw("object counts are different", zap.Int("objectsCount1st", len(apcs1)), zap.Int("objectsCount2nd", len(apcs2)))
 	}
 
-	for name, index1 := range c1.IsAlreadyCheckedFlagsMap {
+	for name, obj1 := range apcs1 {
 		ctx = logging.WithLogger(ctx, log.With(zap.String("objectName", name)))
 
 		select {
 		case <-ctx.Done():
-			return false, ctx.Err()
+			log.Warnw(context.Canceled.Error())
+			return nil
 		default:
-			if index2, ok := c2.IsAlreadyCheckedFlagsMap[name]; ok {
-				index1.Check = true
-				c1.IsAlreadyCheckedFlagsMap[name] = index1
+			if obj2, ok := apcs2[name]; ok {
+				diff := ComparePodControllerSpecs(ctx, name, obj1, obj2)
 
-				index2.Check = true
-				c2.IsAlreadyCheckedFlagsMap[name] = index2
+				diffs = append(diffs, diff...)
 
-				apc1 := c1.APCList[index1.Index]
-				apc2 := c2.APCList[index2.Index]
-
-				// TODO: migrate to a goroutine
-				ComparePodControllerSpecs(ctx, name, &apc1, &apc2)
+				delete(apcs1, name)
+				delete(apcs2, name)
 			} else {
-				log.With(zap.String("objectName", name)).Warn("object does not exist in 2nd cluster")
+				log.With(zap.String("objectName", name)).Warnf("%s/%s does not exist in 2nd cluster", kind, name)
 			}
-
 		}
 	}
 
-	for name, index := range c2.IsAlreadyCheckedFlagsMap {
-		if !index.Check {
-			log.With(zap.String("objectName", name)).Warn("object does not exist in 1st cluster")
-			flag = true
-		}
+	for name, _ := range apcs2 {
+		log.With(zap.String("objectName", name)).Warnf("%s/%s does not exist in 1st cluster", kind, name)
 	}
 
-	return flag, nil
+	return diffs
 }

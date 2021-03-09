@@ -189,6 +189,8 @@ type MetadataCompareConfiguration struct {
 
 	Enabled bool `yaml:"enabled"`
 
+	DumpDifferentValues bool `yaml:"dumpDifferentValues"`
+
 	SkipLabels    []string            `yaml:"skipLabelsList"`
 	SkipLabelsMap map[string]struct{} `yaml:"-"`
 
@@ -245,6 +247,8 @@ type ConfigMapsConfiguration struct {
 
 	Enabled bool `yaml:"enabled"`
 
+	DumpDifferentValues bool `yaml:"dumpDifferentValues"`
+
 	BatchSize int64 `yaml:"batchSize"`
 }
 
@@ -253,6 +257,8 @@ type SecretsConfiguration struct {
 	_ [0][]byte `yaml:"_,omitempty" json:"_,omitempty"`
 
 	Enabled bool `yaml:"enabled"`
+
+	DumpDifferentValues bool `yaml:"dumpDifferentValues"`
 
 	BatchSize int64 `yaml:"batchSize"`
 

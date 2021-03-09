@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jessevdk/go-flags"
 
@@ -61,7 +62,7 @@ func Parse(ctx context.Context) (*AppConfig, error) {
 		return nil, fmt.Errorf("list of namespaces for comparison can not be empty")
 	}
 
-	log.Infof("Analyzing objects in %s namespace(s)", cfg.Connections.Namespaces)
+	log.Infof("Analyzing objects in [%s] namespace(s)", strings.Join(cfg.Connections.Namespaces, ", "))
 
 	log.Debugw("Filling the skip list...")
 

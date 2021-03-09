@@ -16,8 +16,8 @@ type KubeObjectsDifference struct {
 }
 
 type KubeResourceComparator interface {
-	Compare(context.Context, string) ([]KubeObjectsDifference, error)
-	//
+	Compare(context.Context) ([]KubeObjectsDifference, error)
+
 	//fieldSelectorProvider (context.Context) string
 	//labelSelectorProvider (context.Context) string
 	//

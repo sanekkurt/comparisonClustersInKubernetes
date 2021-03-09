@@ -5,17 +5,12 @@ import (
 	"sync"
 
 	"go.uber.org/zap"
-	"k8s-cluster-comparator/internal/kubernetes/jobs/cronjob"
-	"k8s-cluster-comparator/internal/kubernetes/jobs/job"
+	"k8s-cluster-comparator/internal/config"
 	"k8s-cluster-comparator/internal/kubernetes/kv_maps/configmap"
 	"k8s-cluster-comparator/internal/kubernetes/kv_maps/secret"
-	"k8s-cluster-comparator/internal/kubernetes/networking/ingress"
-	"k8s-cluster-comparator/internal/kubernetes/networking/service"
 	"k8s-cluster-comparator/internal/kubernetes/pod_controllers/daemonset"
 	"k8s-cluster-comparator/internal/kubernetes/pod_controllers/deployment"
 	"k8s-cluster-comparator/internal/kubernetes/pod_controllers/statefulset"
-
-	"k8s-cluster-comparator/internal/config"
 	"k8s-cluster-comparator/internal/kubernetes/types"
 	"k8s-cluster-comparator/internal/logging"
 )
@@ -46,56 +41,56 @@ func CompareClusters(ctx context.Context) ([]types.KubeObjectsDifference, error)
 	)
 
 	for _, namespace := range cfg.Connections.Namespaces {
+		log := log.With(zap.String("namespace", namespace))
+
 		comparators := []types.KubeResourceComparator{
 			deployment.NewDeploymentsComparator(ctx, namespace),
 			statefulset.NewStatefulSetsComparator(ctx, namespace),
 			daemonset.NewDaemonSetsComparator(ctx, namespace),
 
-			job.NewJobsComparator(ctx, namespace),
-			cronjob.NewCronJobsComparator(ctx, namespace),
+			//job.NewJobsComparator(ctx, namespace),
+			//cronjob.NewCronJobsComparator(ctx, namespace),
 
 			configmap.NewConfigMapsComparator(ctx, namespace),
 			secret.NewSecretsComparator(ctx, namespace),
 
-			service.NewServicesComparator(ctx, namespace),
-			ingress.NewIngressesComparator(ctx, namespace),
+			//service.NewServicesComparator(ctx, namespace),
+			//ingress.NewIngressesComparator(ctx, namespace),
 		}
 
 		wg := &sync.WaitGroup{}
 		diffsCh := make(chan []types.KubeObjectsDifference, len(comparators))
 
-		diffsCnt := 0
-
 		for _, cmp := range comparators {
-			cmp := cmp
-
 			select {
 			case <-ctx.Done():
 				break
 			default:
-				log.Infof("%T started", cmp)
+				cmp := cmp
 
 				wg.Add(1)
 
 				go func(wg *sync.WaitGroup) {
 					defer wg.Done()
 
-					diffs, err := cmp.Compare(ctx, namespace)
+					log.Debug("%T started", cmp)
+					defer func() {
+						log.Debug("%T completed", cmp)
+					}()
+
+					diffs, err := cmp.Compare(ctx)
 					if err != nil {
 						log.Errorf("cannot call %T: %s", cmp, err.Error())
 						return
 					}
 
 					diffsCh <- diffs
-					diffsCnt += len(diffs)
 				}(wg)
 			}
 		}
 
 		wg.Wait()
 		close(diffsCh)
-
-		diffs := make([]types.KubeObjectsDifference, 0, diffsCnt)
 
 		for diff := range diffsCh {
 			diffs = append(diffs, diff...)

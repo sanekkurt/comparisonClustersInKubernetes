@@ -13,11 +13,19 @@ import (
 )
 
 func CompareLabels(ctx context.Context, map1, map2 types.KVMap, skipKeys map[string]struct{}) bool {
-	return common.AreKVMapsEqual(ctx, map1, map2, skipKeys)
+	var (
+		cfg = config.FromContext(ctx)
+	)
+
+	return common.AreKVMapsEqual(ctx, map1, map2, skipKeys, cfg.Common.MetadataCompareConfiguration.DumpDifferentValues)
 }
 
 func CompareAnnotations(ctx context.Context, map1, map2 types.KVMap, skipKeys map[string]struct{}) bool {
-	return common.AreKVMapsEqual(ctx, map1, map2, skipKeys)
+	var (
+		cfg = config.FromContext(ctx)
+	)
+
+	return common.AreKVMapsEqual(ctx, map1, map2, skipKeys, cfg.Common.MetadataCompareConfiguration.DumpDifferentValues)
 }
 
 func IsMetadataDiffers(ctx context.Context, meta1, meta2 v1.ObjectMeta) bool {

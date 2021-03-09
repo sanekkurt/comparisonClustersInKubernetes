@@ -44,7 +44,7 @@ func getConfigMapKeyRefValue(ctx context.Context, clientSet kubernetes.Interface
 func getSecretKeyRefValue(ctx context.Context, clientSet kubernetes.Interface, namespace string, secretName, secretKeyRef string) ([]byte, error) {
 	log := logging.FromContext(ctx)
 
-	secret, err := secret.GetSecretMapByName(ctx, clientSet, namespace, secretName)
+	secret, err := secret.GetSecretByName(ctx, clientSet, namespace, secretName)
 	if err != nil {
 		return nil, err
 	}
