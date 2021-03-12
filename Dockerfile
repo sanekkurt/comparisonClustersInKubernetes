@@ -21,16 +21,12 @@ RUN upx -q /app && \
 
 # ---
 
-FROM scratch
+FROM alpine:3.13
 
 WORKDIR /
 
-#RUN adduser -S -D -H -h /srv appuser
-#USER appuser
+RUN apk add --no-cache bash curl ca-certificates
 
-#COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=builder /app /app
-
-EXPOSE 8080
 
 CMD ["/app"]

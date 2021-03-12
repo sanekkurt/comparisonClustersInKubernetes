@@ -1,4 +1,4 @@
-package configmap
+package secret
 
 import (
 	"context"
@@ -20,45 +20,56 @@ import (
 )
 
 const (
-	objectKind = "configmap"
+	objectKind = "secret"
 )
 
+
 type Comparator struct {
-	Kind      string
+	Kind string
 	Namespace string
 	BatchSize int64
 }
 
-func NewConfigMapsComparator(ctx context.Context, namespace string) *Comparator {
+func NewSecretsComparator(ctx context.Context, namespace string) *Comparator {
 	return &Comparator{
 		Kind:      objectKind,
 		Namespace: namespace,
 		BatchSize: getBatchLimit(ctx),
+
 	}
 }
 
 func (cmp *Comparator) fieldSelectorProvider(ctx context.Context) string {
-	return ""
+	var (
+		cfg = config.FromContext(ctx)
+		fieldSelector string
+	)
+
+	for t := range cfg.Configs.Secrets.SkipTypesMap {
+		fieldSelector += fmt.Sprintf("type!=%s,", t)
+	}
+
+	return fieldSelector
 }
 
 func (cmp *Comparator) labelSelectorProvider(ctx context.Context) string {
 	return ""
 }
 
-func (cmp *Comparator) collectIncludedFromCluster(ctx context.Context) (map[string]corev1.ConfigMap, error) {
+func (cmp *Comparator) collectIncludedFromCluster(ctx context.Context) (map[string]corev1.Secret, error) {
 	var (
-		log       = logging.FromContext(ctx)
-		cfg       = config.FromContext(ctx)
+		log = logging.FromContext(ctx)
+		cfg = config.FromContext(ctx)
 		clientSet = kubectx.ClientSetFromContext(ctx)
 
-		objects = make(map[string]corev1.ConfigMap)
+		objects = make(map[string]corev1.Secret)
 	)
 
 	log.Debugf("%T: collectIncludedFromCluster started", cmp)
 	defer log.Debugf("%T: collectIncludedFromCluster completed", cmp)
 
 	for name := range cfg.ExcludesIncludes.NameBasedSkip {
-		obj, err := clientSet.CoreV1().ConfigMaps(cmp.Namespace).Get(string(name), metav1.GetOptions{})
+		obj, err := clientSet.CoreV1().Secrets(cmp.Namespace).Get(string(name), metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
 				log.With(zap.String("objectName", string(name))).Warnf("%s/%s not found in cluster", cmp.Kind, name)
@@ -70,7 +81,7 @@ func (cmp *Comparator) collectIncludedFromCluster(ctx context.Context) (map[stri
 	}
 
 	for name := range cfg.ExcludesIncludes.FullResourceNamesSkip[types.ObjectKind(cmp.Kind)] {
-		obj, err := clientSet.CoreV1().ConfigMaps(cmp.Namespace).Get(string(name), metav1.GetOptions{})
+		obj, err := clientSet.CoreV1().Secrets(cmp.Namespace).Get(string(name), metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
 				log.With(zap.String("objectName", string(name))).Warnf("%s/%s not found in cluster", cmp.Kind, name)
@@ -84,14 +95,14 @@ func (cmp *Comparator) collectIncludedFromCluster(ctx context.Context) (map[stri
 	return objects, nil
 }
 
-func (cmp *Comparator) collectFromClusterWithoutExcludes(ctx context.Context) (map[string]corev1.ConfigMap, error) {
+func (cmp *Comparator) collectFromClusterWithoutExcludes(ctx context.Context) (map[string]corev1.Secret, error) {
 	var (
-		log       = logging.FromContext(ctx)
-		cfg       = config.FromContext(ctx)
+		log = logging.FromContext(ctx)
+		cfg = config.FromContext(ctx)
 		clientSet = kubectx.ClientSetFromContext(ctx)
 
-		batch   *corev1.ConfigMapList
-		objects = make(map[string]corev1.ConfigMap)
+		batch   *corev1.SecretList
+		objects = make(map[string]corev1.Secret)
 
 		continueToken string
 
@@ -101,17 +112,18 @@ func (cmp *Comparator) collectFromClusterWithoutExcludes(ctx context.Context) (m
 	log.Debugf("%T: collectFromClusterWithoutExcludes started", cmp)
 	defer log.Debugf("%T: collectFromClusterWithoutExcludes completed", cmp)
 
+
 forOuterLoop:
 	for {
 		select {
 		case <-ctx.Done():
 			return nil, context.Canceled
 		default:
-			batch, err = clientSet.CoreV1().ConfigMaps(cmp.Namespace).List(metav1.ListOptions{
-				Limit:         cmp.BatchSize,
+			batch, err = clientSet.CoreV1().Secrets(cmp.Namespace).List(metav1.ListOptions{
+				Limit:    cmp.BatchSize,
 				FieldSelector: cmp.fieldSelectorProvider(ctx),
 				LabelSelector: cmp.labelSelectorProvider(ctx),
-				Continue:      continueToken,
+				Continue: continueToken,
 			})
 			if err != nil {
 				return nil, err
@@ -144,7 +156,7 @@ forOuterLoop:
 	return objects, nil
 }
 
-func (cmp *Comparator) collectFromCluster(ctx context.Context) (map[string]corev1.ConfigMap, error) {
+func (cmp *Comparator) collectFromCluster(ctx context.Context) (map[string]corev1.Secret, error) {
 	var (
 		log = logging.FromContext(ctx)
 		cfg = config.FromContext(ctx)
@@ -160,7 +172,7 @@ func (cmp *Comparator) collectFromCluster(ctx context.Context) (map[string]corev
 	}
 }
 
-// Compare compares list of configmap objects in two given k8s-clusters
+// Compare compares list of Secret objects in two given k8s-clusters
 func (cmp *Comparator) Compare(ctx context.Context) ([]types.KubeObjectsDifference, error) {
 	var (
 		log = logging.FromContext(ctx).With(zap.String("kind", cmp.Kind))
@@ -171,7 +183,7 @@ func (cmp *Comparator) Compare(ctx context.Context) ([]types.KubeObjectsDifferen
 	ctx = logging.WithLogger(ctx, log)
 
 	if !cfg.Configs.Enabled ||
-		!cfg.Configs.ConfigMaps.Enabled {
+		!cfg.Configs.Secrets.Enabled {
 		log.Debugf("'%s' kind skipped from comparison due to configuration", cmp.Kind)
 		return nil, nil
 	}
@@ -186,13 +198,13 @@ func (cmp *Comparator) Compare(ctx context.Context) ([]types.KubeObjectsDifferen
 	return diff, nil
 }
 
-func (cmp *Comparator) collect(ctx context.Context) ([]map[string]corev1.ConfigMap, error) {
+func  (cmp *Comparator) collect(ctx context.Context) ([]map[string]corev1.Secret, error) {
 	var (
 		log = logging.FromContext(ctx)
 		cfg = config.FromContext(ctx)
 
-		objects = make([]map[string]corev1.ConfigMap, 2, 2)
-		wg      = &sync.WaitGroup{}
+		objects = make([]map[string]corev1.Secret, 2, 2)
+		wg = &sync.WaitGroup{}
 
 		err error
 	)
@@ -218,26 +230,7 @@ func (cmp *Comparator) collect(ctx context.Context) ([]map[string]corev1.ConfigM
 	return objects, nil
 }
 
-func compareConfigMapSpecs(ctx context.Context, name string, cm1, cm2 *corev1.ConfigMap) []types.KubeObjectsDifference {
-	var (
-		log = logging.FromContext(ctx).With(zap.String("objectName", name))
-		cfg = config.FromContext(ctx)
-	)
-
-	ctx = logging.WithLogger(ctx, log)
-
-	log.Debugf("configmap/%s compare started", name)
-	defer func() {
-		log.Debugf("configmap/%s compare completed", name)
-	}()
-
-	metadata.IsMetadataDiffers(ctx, cm1.ObjectMeta, cm2.ObjectMeta)
-	common.AreKVMapsEqual(ctx, cm1.Data, cm2.Data, nil, cfg.Configs.ConfigMaps.DumpDifferentValues)
-
-	return nil
-}
-
-func (cmp *Comparator) compare(ctx context.Context, map1, map2 map[string]corev1.ConfigMap) []types.KubeObjectsDifference {
+func (cmp *Comparator) compare(ctx context.Context, map1, map2 map[string]corev1.Secret) []types.KubeObjectsDifference {
 	var (
 		log = logging.FromContext(ctx)
 
@@ -257,7 +250,7 @@ func (cmp *Comparator) compare(ctx context.Context, map1, map2 map[string]corev1
 			return nil
 		default:
 			if obj2, ok := map2[name]; ok {
-				diff := compareConfigMapSpecs(ctx, name, &obj1, &obj2)
+				diff := compareSecretSpecs(ctx, name, &obj1, &obj2)
 
 				diffs = append(diffs, diff...)
 
@@ -274,4 +267,23 @@ func (cmp *Comparator) compare(ctx context.Context, map1, map2 map[string]corev1
 	}
 
 	return diffs
+}
+
+func compareSecretSpecs(ctx context.Context, name string, cm1, cm2 *corev1.Secret) []types.KubeObjectsDifference {
+	var (
+		log = logging.FromContext(ctx).With(zap.String("objectName", name))
+		cfg = config.FromContext(ctx)
+	)
+
+	ctx = logging.WithLogger(ctx, log)
+
+	log.Debugf("Secret/%s compare started", name)
+	defer func() {
+		log.Debugf("Secret/%s compare completed", name)
+	}()
+
+	metadata.IsMetadataDiffers(ctx, cm1.ObjectMeta, cm2.ObjectMeta)
+	common.AreKVBytesMapsEqual(ctx, cm1.Data, cm2.Data, nil, cfg.Configs.Secrets.DumpDifferentValues)
+
+	return nil
 }

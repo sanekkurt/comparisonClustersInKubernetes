@@ -22,29 +22,29 @@ const (
 	objectKind = "daemonset"
 )
 
-type DaemonSetsComparator struct {
+type Comparator struct {
 	Kind      string
 	Namespace string
 	BatchSize int64
 }
 
-func NewDaemonSetsComparator(ctx context.Context, namespace string) *DaemonSetsComparator {
-	return &DaemonSetsComparator{
+func NewDaemonSetsComparator(ctx context.Context, namespace string) *Comparator {
+	return &Comparator{
 		Kind:      objectKind,
 		Namespace: namespace,
 		BatchSize: getBatchLimit(ctx),
 	}
 }
 
-func (cmp *DaemonSetsComparator) fieldSelectorProvider(ctx context.Context) string {
+func (cmp *Comparator) fieldSelectorProvider(ctx context.Context) string {
 	return ""
 }
 
-func (cmp *DaemonSetsComparator) labelSelectorProvider(ctx context.Context) string {
+func (cmp *Comparator) labelSelectorProvider(ctx context.Context) string {
 	return ""
 }
 
-func (cmp *DaemonSetsComparator) collectIncludedFromCluster(ctx context.Context) (map[string]appsv1.DaemonSet, error) {
+func (cmp *Comparator) collectIncludedFromCluster(ctx context.Context) (map[string]appsv1.DaemonSet, error) {
 	var (
 		log       = logging.FromContext(ctx)
 		cfg       = config.FromContext(ctx)
@@ -83,7 +83,7 @@ func (cmp *DaemonSetsComparator) collectIncludedFromCluster(ctx context.Context)
 	return objects, nil
 }
 
-func (cmp *DaemonSetsComparator) collectFromClusterWithoutExcludes(ctx context.Context) (map[string]appsv1.DaemonSet, error) {
+func (cmp *Comparator) collectFromClusterWithoutExcludes(ctx context.Context) (map[string]appsv1.DaemonSet, error) {
 	var (
 		log       = logging.FromContext(ctx)
 		cfg       = config.FromContext(ctx)
@@ -143,7 +143,7 @@ forOuterLoop:
 	return objects, nil
 }
 
-func (cmp *DaemonSetsComparator) collectFromCluster(ctx context.Context) (map[string]appsv1.DaemonSet, error) {
+func (cmp *Comparator) collectFromCluster(ctx context.Context) (map[string]appsv1.DaemonSet, error) {
 	var (
 		log = logging.FromContext(ctx)
 		cfg = config.FromContext(ctx)
@@ -160,7 +160,7 @@ func (cmp *DaemonSetsComparator) collectFromCluster(ctx context.Context) (map[st
 }
 
 // Compare compares list of DaemonSet objects in two given k8s-clusters
-func (cmp *DaemonSetsComparator) Compare(ctx context.Context) ([]types.KubeObjectsDifference, error) {
+func (cmp *Comparator) Compare(ctx context.Context) ([]types.KubeObjectsDifference, error) {
 	var (
 		log = logging.FromContext(ctx).With(zap.String("kind", cmp.Kind))
 		cfg = config.FromContext(ctx)
@@ -181,12 +181,15 @@ func (cmp *DaemonSetsComparator) Compare(ctx context.Context) ([]types.KubeObjec
 		return nil, fmt.Errorf("cannot retrieve objects for comparision: %w", err)
 	}
 
-	diff := cmp.compare(ctx, objects[0], objects[1])
+	diff, err := cmp.compare(ctx, objects[0], objects[1])
+	if err != nil {
+		return nil, err
+	}
 
 	return diff, nil
 }
 
-func (cmp *DaemonSetsComparator) collect(ctx context.Context) ([]map[string]appsv1.DaemonSet, error) {
+func (cmp *Comparator) collect(ctx context.Context) ([]map[string]appsv1.DaemonSet, error) {
 	var (
 		log = logging.FromContext(ctx)
 		cfg = config.FromContext(ctx)
@@ -218,7 +221,7 @@ func (cmp *DaemonSetsComparator) collect(ctx context.Context) ([]map[string]apps
 	return objects, nil
 }
 
-func (cmp *DaemonSetsComparator) compare(ctx context.Context, map1, map2 map[string]appsv1.DaemonSet) []types.KubeObjectsDifference {
+func (cmp *Comparator) compare(ctx context.Context, map1, map2 map[string]appsv1.DaemonSet) ([]types.KubeObjectsDifference, error) {
 	var (
 		apcs = make([]map[string]*pccommon.AbstractPodController, 2, 2)
 	)
@@ -227,12 +230,15 @@ func (cmp *DaemonSetsComparator) compare(ctx context.Context, map1, map2 map[str
 		apcs[idx] = cmp.prepareAPCMap(ctx, objs)
 	}
 
-	diffs := pccommon.CompareAbstractPodControllerMaps(ctx, cmp.Kind, apcs[0], apcs[1])
+	diffs, err := pccommon.CompareAbstractPodControllerMaps(ctx, cmp.Kind, apcs[0], apcs[1])
+	if err != nil {
+		return nil, err
+	}
 
-	return diffs
+	return diffs, nil
 }
 
-func (cmp *DaemonSetsComparator) prepareAPCMap(ctx context.Context, objs map[string]appsv1.DaemonSet) map[string]*pccommon.AbstractPodController {
+func (cmp *Comparator) prepareAPCMap(ctx context.Context, objs map[string]appsv1.DaemonSet) map[string]*pccommon.AbstractPodController {
 	var (
 		apcs = make(map[string]*pccommon.AbstractPodController)
 	)

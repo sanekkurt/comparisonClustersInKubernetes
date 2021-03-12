@@ -22,29 +22,29 @@ const (
 	objectKind = "deployment"
 )
 
-type DeploymentsComparator struct {
+type Comparator struct {
 	Kind      string
 	Namespace string
 	BatchSize int64
 }
 
-func NewDeploymentsComparator(ctx context.Context, namespace string) *DeploymentsComparator {
-	return &DeploymentsComparator{
+func NewDeploymentsComparator(ctx context.Context, namespace string) *Comparator {
+	return &Comparator{
 		Kind:      objectKind,
 		Namespace: namespace,
 		BatchSize: getBatchLimit(ctx),
 	}
 }
 
-func (cmp *DeploymentsComparator) fieldSelectorProvider(ctx context.Context) string {
+func (cmp *Comparator) fieldSelectorProvider(ctx context.Context) string {
 	return ""
 }
 
-func (cmp *DeploymentsComparator) labelSelectorProvider(ctx context.Context) string {
+func (cmp *Comparator) labelSelectorProvider(ctx context.Context) string {
 	return ""
 }
 
-func (cmp *DeploymentsComparator) collectIncludedFromCluster(ctx context.Context) (map[string]appsv1.Deployment, error) {
+func (cmp *Comparator) collectIncludedFromCluster(ctx context.Context) (map[string]appsv1.Deployment, error) {
 	var (
 		log       = logging.FromContext(ctx)
 		cfg       = config.FromContext(ctx)
@@ -83,7 +83,7 @@ func (cmp *DeploymentsComparator) collectIncludedFromCluster(ctx context.Context
 	return objects, nil
 }
 
-func (cmp *DeploymentsComparator) collectFromClusterWithoutExcludes(ctx context.Context) (map[string]appsv1.Deployment, error) {
+func (cmp *Comparator) collectFromClusterWithoutExcludes(ctx context.Context) (map[string]appsv1.Deployment, error) {
 	var (
 		log       = logging.FromContext(ctx)
 		cfg       = config.FromContext(ctx)
@@ -147,7 +147,7 @@ forOuterLoop:
 	return objects, nil
 }
 
-func (cmp *DeploymentsComparator) collectFromCluster(ctx context.Context) (map[string]appsv1.Deployment, error) {
+func (cmp *Comparator) collectFromCluster(ctx context.Context) (map[string]appsv1.Deployment, error) {
 	var (
 		log = logging.FromContext(ctx)
 		cfg = config.FromContext(ctx)
@@ -164,7 +164,7 @@ func (cmp *DeploymentsComparator) collectFromCluster(ctx context.Context) (map[s
 }
 
 // Compare compares list of Deployment objects in two given k8s-clusters
-func (cmp *DeploymentsComparator) Compare(ctx context.Context) ([]types.KubeObjectsDifference, error) {
+func (cmp *Comparator) Compare(ctx context.Context) ([]types.KubeObjectsDifference, error) {
 	var (
 		log = logging.FromContext(ctx).With(zap.String("kind", cmp.Kind))
 		cfg = config.FromContext(ctx)
@@ -185,12 +185,15 @@ func (cmp *DeploymentsComparator) Compare(ctx context.Context) ([]types.KubeObje
 		return nil, fmt.Errorf("cannot retrieve objects for comparision: %w", err)
 	}
 
-	diff := cmp.compare(ctx, objects[0], objects[1])
+	diff, err := cmp.compare(ctx, objects[0], objects[1])
+	if err != nil {
+		return nil, err
+	}
 
 	return diff, nil
 }
 
-func (cmp *DeploymentsComparator) collect(ctx context.Context) ([]map[string]appsv1.Deployment, error) {
+func (cmp *Comparator) collect(ctx context.Context) ([]map[string]appsv1.Deployment, error) {
 	var (
 		log = logging.FromContext(ctx)
 		cfg = config.FromContext(ctx)
@@ -222,7 +225,7 @@ func (cmp *DeploymentsComparator) collect(ctx context.Context) ([]map[string]app
 	return objects, nil
 }
 
-func (cmp *DeploymentsComparator) compare(ctx context.Context, map1, map2 map[string]appsv1.Deployment) []types.KubeObjectsDifference {
+func (cmp *Comparator) compare(ctx context.Context, map1, map2 map[string]appsv1.Deployment) ([]types.KubeObjectsDifference, error) {
 	var (
 		apcs = make([]map[string]*pccommon.AbstractPodController, 2, 2)
 	)
@@ -231,12 +234,15 @@ func (cmp *DeploymentsComparator) compare(ctx context.Context, map1, map2 map[st
 		apcs[idx] = cmp.prepareAPCMap(ctx, objs)
 	}
 
-	diffs := pccommon.CompareAbstractPodControllerMaps(ctx, cmp.Kind, apcs[0], apcs[1])
+	diffs, err := pccommon.CompareAbstractPodControllerMaps(ctx, cmp.Kind, apcs[0], apcs[1])
+	if err != nil {
+		return nil, err
+	}
 
-	return diffs
+	return diffs, nil
 }
 
-func (cmp *DeploymentsComparator) prepareAPCMap(ctx context.Context, objs map[string]appsv1.Deployment) map[string]*pccommon.AbstractPodController {
+func (cmp *Comparator) prepareAPCMap(ctx context.Context, objs map[string]appsv1.Deployment) map[string]*pccommon.AbstractPodController {
 	var (
 		apcs = make(map[string]*pccommon.AbstractPodController)
 	)

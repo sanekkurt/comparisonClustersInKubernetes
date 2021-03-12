@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 
+	"k8s-cluster-comparator/internal/kubernetes/pods/containers/env"
+	"k8s-cluster-comparator/internal/kubernetes/pods/containers/healthcheck"
+	"k8s-cluster-comparator/internal/kubernetes/types"
 	v1 "k8s.io/api/core/v1"
 
 	"k8s-cluster-comparator/internal/logging"
@@ -13,44 +16,40 @@ var (
 	ErrorContainerDifferentNames = errors.New("different container names in Pod specs")
 )
 
-func CompareContainerSpecs(ctx context.Context, container1, container2 v1.Container) (bool, error) {
+func CompareContainerSpecs(ctx context.Context, container1, container2 v1.Container) ([]types.KubeObjectsDifference, error) {
 	var (
 		log = logging.FromContext(ctx)
+
+		diffs = make([]types.KubeObjectsDifference, 0)
 	)
 
 	if container1.Name != container2.Name {
 		log.Warnf("%s: %s vs %s", ErrorContainerDifferentNames.Error(), container1.Name, container2.Name)
-		return true, ErrorContainerDifferentNames
 	}
 
 	bDiff, err := compareContainerSpecImages(ctx, container1, container2)
-	if err != nil || bDiff {
-		return bDiff, err
-	}
-
-	bDiff, err = compareContainerEnvVars(ctx, container1.Env, container2.Env)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
-	if bDiff {
-		return true, err
+	diffs = append(diffs, bDiff...)
+
+	bDiff, err = env.Compare(ctx, container1.Env, container2.Env)
+	if err != nil {
+		return nil, err
 	}
+	diffs = append(diffs, bDiff...)
 
 	bDiff, err = compareContainerExecParams(ctx, container1, container2)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
-	if bDiff {
-		return true, err
-	}
+	diffs = append(diffs, bDiff...)
 
-	bDiff, err = compareContainerHealthCheckParams(ctx, container1, container2)
+	bDiff, err = healthcheck.Compare(ctx, container1, container2)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
-	if bDiff {
-		return true, err
-	}
+	diffs = append(diffs, bDiff...)
 
-	return false, nil
+	return diffs, nil
 }

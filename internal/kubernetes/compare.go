@@ -73,9 +73,9 @@ func CompareClusters(ctx context.Context) ([]types.KubeObjectsDifference, error)
 				go func(wg *sync.WaitGroup) {
 					defer wg.Done()
 
-					log.Debug("%T started", cmp)
+					log.Debugf("%T started", cmp)
 					defer func() {
-						log.Debug("%T completed", cmp)
+						log.Debugf("%T completed", cmp)
 					}()
 
 					diffs, err := cmp.Compare(ctx)

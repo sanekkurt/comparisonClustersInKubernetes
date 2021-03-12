@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 
+	"k8s-cluster-comparator/internal/kubernetes/types"
 	v1 "k8s.io/api/core/v1"
 
 	"k8s-cluster-comparator/internal/config"
@@ -23,7 +24,7 @@ const (
 	containerImageLabelTagSep = ":"
 )
 
-func compareContainerSpecImages(ctx context.Context, container1, container2 v1.Container) (bool, error) {
+func compareContainerSpecImages(ctx context.Context, container1, container2 v1.Container) ([]types.KubeObjectsDifference, error) {
 	var (
 		log = logging.FromContext(ctx)
 		cfg = config.FromContext(ctx)
@@ -37,14 +38,19 @@ func compareContainerSpecImages(ctx context.Context, container1, container2 v1.C
 		imgParts[imgId] = strings.Split(container.Image, containerImageLabelTagSep)
 	}
 
+	for _, mirrorCfg := range cfg.Workloads.Containers.Image.Mirrors {
+		if bMatched := strings.HasPrefix(imgParts[1][0], mirrorCfg.To); bMatched {
+			log.Infof("using image mirror %s for image %s", mirrorCfg.To, imgParts[0][0])
+			imgParts[1][0] = strings.Replace(imgParts[1][0], mirrorCfg.To, mirrorCfg.From, 1)
+		}
+	}
+
 	if imgParts[0][0] != imgParts[1][0] {
 		log.Warnf("%s: %s vs %s", ErrorContainerDifferentImageLabels.Error(), imgParts[0][0], imgParts[1][0])
-		return true, ErrorContainerDifferentImageLabels
 	}
 
 	if imgParts[0][1] != imgParts[1][1] {
 		log.Warnf("%s: %s vs %s", ErrorContainerDifferentImageTags.Error(), imgParts[0][1], imgParts[1][1])
-		return true, ErrorContainerDifferentImageTags
 	}
 
 	if cfg.Workloads.Containers.RollingTags.WarnOnRollingTag {
@@ -61,8 +67,7 @@ func compareContainerSpecImages(ctx context.Context, container1, container2 v1.C
 
 	if container1.ImagePullPolicy != container2.ImagePullPolicy {
 		log.Warnf("%s: %s vs %s", ErrorContainerDifferentImagePolicies.Error(), container1.ImagePullPolicy, container2.ImagePullPolicy)
-		return true, ErrorContainerDifferentImagePolicies
 	}
 
-	return false, nil
+	return nil, nil
 }

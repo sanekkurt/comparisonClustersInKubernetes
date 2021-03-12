@@ -1,6 +1,8 @@
-secret
-build
-/.idea
+/.idea/
 app
 *.env
-gobs/
+config*.yaml
+/build/
+/gobs/
+.chart/
+/secret/

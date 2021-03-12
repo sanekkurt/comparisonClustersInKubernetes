@@ -111,10 +111,16 @@ import (
 //}
 
 // ComparePodSpecs compares pod templates of two abstract pod controllers
-func ComparePodSpecs(ctx context.Context, spec1, spec2 types.InformationAboutObject) (bool, error) {
-	log := logging.FromContext(ctx)
+func ComparePodSpecs(ctx context.Context, spec1, spec2 types.InformationAboutObject) ([]types.KubeObjectsDifference, error) {
+	var (
+		log = logging.FromContext(ctx)
+		diffs = make([]types.KubeObjectsDifference, 0)
+	)
 
-	log.Debugf("ComparePodSpecs: start checking containers. Names template: %s, %s", spec1.Template.Name, spec2.Template.Name)
+	log.Debugf("ComparePodSpecs (pod/%s, pod/%s): started", spec1.Template.Name, spec2.Template.Name)
+	defer func() {
+		log.Debug("ComparePodSpecs: completed")
+	}()
 
 	var (
 		containersPod1 = spec1.Template.Spec.Containers
@@ -122,7 +128,8 @@ func ComparePodSpecs(ctx context.Context, spec1, spec2 types.InformationAboutObj
 	)
 
 	if len(containersPod1) != len(containersPod2) {
-		return true, ErrorDiffersTemplatesNumber
+		log.Warnf("%s: %d vs %d", ErrorDiffersTemplatesNumber.Error(), len(containersPod1), len(containersPod2))
+		return nil, nil
 	}
 
 	//pods1, err := common.GetPodsListOnMatchLabels(ctx, spec1.Selector.MatchLabels, namespace, clientSet1)
@@ -137,19 +144,18 @@ func ComparePodSpecs(ctx context.Context, spec1, spec2 types.InformationAboutObj
 	for podTemplate1ContainerIdx := range containersPod1 {
 		select {
 		case <-ctx.Done():
-			return false, ctx.Err()
+			return nil, ctx.Err()
 		default:
-			log = log.With(zap.String("containerName", containersPod1[podTemplate1ContainerIdx].Name))
-			ctx = logging.WithLogger(ctx, log)
+			log := log.With(zap.String("containerName", containersPod1[podTemplate1ContainerIdx].Name))
+			ctx := logging.WithLogger(ctx, log)
 
-			bDiff, err := containers.CompareContainerSpecs(ctx, containersPod1[podTemplate1ContainerIdx], containersPod2[podTemplate1ContainerIdx])
-			if err != nil || bDiff {
-				return bDiff, err
+			diff, err := containers.CompareContainerSpecs(ctx, containersPod1[podTemplate1ContainerIdx], containersPod2[podTemplate1ContainerIdx])
+			if err != nil {
+				return nil, err
 			}
+			diffs = append(diffs, diff...)
 		}
 	}
 
-	log.Debug("Stop checking containers")
-
-	return false, nil
+	return diffs, nil
 }

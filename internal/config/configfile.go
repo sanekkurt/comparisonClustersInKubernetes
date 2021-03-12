@@ -33,6 +33,13 @@ type CompareContainersConfiguration struct {
 			DeepCompareOnRollingTag bool `yaml:"deepCompareOnRollingTag"`
 		} `yaml:"envFrom"`
 	} `yaml:"env"`
+
+	Image struct {
+		Mirrors []struct {
+			From string `yaml:"from"`
+			To string `yaml:"to"`
+		} `yaml:"mirrors"`
+	} `yaml:"image""`
 }
 
 func (cfg *CompareContainersConfiguration) Parse(ctx context.Context) error {

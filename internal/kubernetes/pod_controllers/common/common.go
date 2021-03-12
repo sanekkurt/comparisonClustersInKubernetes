@@ -2,11 +2,12 @@ package common
 
 import (
 	"context"
+	"fmt"
 
 	"go.uber.org/zap"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	"k8s-cluster-comparator/internal/kubernetes/common"
 	"k8s-cluster-comparator/internal/kubernetes/metadata"
 
 	//"k8s-cluster-comparator/internal/kubernetes/metadata"
@@ -21,7 +22,7 @@ type ClusterCompareTask struct {
 	IsAlreadyCheckedFlagsMap map[string]types.IsAlreadyComparedFlag
 }
 
-func ComparePodControllerSpecs(ctx context.Context, name string, apc1, apc2 *AbstractPodController) []types.KubeObjectsDifference {
+func ComparePodControllerSpecs(ctx context.Context, name string, apc1, apc2 *AbstractPodController) ([]types.KubeObjectsDifference, error) {
 	var (
 		log = logging.FromContext(ctx).With(zap.String("objectName", name))
 
@@ -47,28 +48,36 @@ func ComparePodControllerSpecs(ctx context.Context, name string, apc1, apc2 *Abs
 	}
 
 	// fill in the information that will be used for comparison
-	object1 := types.InformationAboutObject{
+	objects := []types.InformationAboutObject{{
 		Template: apc1.PodTemplateSpec,
 		Selector: apc1.PodLabelSelector,
-	}
-	object2 := types.InformationAboutObject{
+	}, {
 		Template: apc2.PodTemplateSpec,
 		Selector: apc2.PodLabelSelector,
+	}}
+
+	matchLabelsString := make([]string, 2, 2)
+	var err error
+
+	for idx, obj := range objects {
+		matchLabels, err := metav1.LabelSelectorAsSelector(obj.Selector)
+		if err != nil {
+			return nil, fmt.Errorf("cannot convert PodSelector to LabelSelector: %w", err)
+		}
+
+		matchLabelsString[idx] = matchLabels.String()
 	}
 
-	matchLabelsString1 := common.ConvertMatchLabelsToString(ctx, object1.Selector.MatchLabels)
-	matchLabelsString2 := common.ConvertMatchLabelsToString(ctx, object1.Selector.MatchLabels)
-
-	if matchLabelsString1 != matchLabelsString2 {
-		log.Warnf("%s: %s vs %s", ErrorMatchLabelsNotEqual.Error(), matchLabelsString1, matchLabelsString2)
+	if matchLabelsString[0] != matchLabelsString[1] {
+		log.Warnf("%s: %s vs %s", ErrorMatchLabelsNotEqual.Error(), matchLabelsString[0], matchLabelsString[1])
 	}
 
-	bDiff, err := pods.ComparePodSpecs(ctx, object1, object2)
-	if err != nil || bDiff {
-		log.Warnw(err.Error())
+	diff, err := pods.ComparePodSpecs(ctx, objects[0], objects[1])
+	if err != nil {
+		return nil, fmt.Errorf("cannot compare Pod Specs: %w", err)
 	}
 
-	return nil
+	return diff, nil
 }
 
 //// ComparePodControllers compares abstracted pod controller specifications in two k8s clusters
@@ -120,7 +129,7 @@ func ComparePodControllerSpecs(ctx context.Context, name string, apc1, apc2 *Abs
 //	return flag, nil
 //}
 
-func CompareAbstractPodControllerMaps(ctx context.Context, kind string, apcs1, apcs2 map[string]*AbstractPodController) []types.KubeObjectsDifference {
+func CompareAbstractPodControllerMaps(ctx context.Context, kind string, apcs1, apcs2 map[string]*AbstractPodController) ([]types.KubeObjectsDifference, error) {
 	var (
 		log = logging.FromContext(ctx)
 
@@ -136,11 +145,13 @@ func CompareAbstractPodControllerMaps(ctx context.Context, kind string, apcs1, a
 
 		select {
 		case <-ctx.Done():
-			log.Warnw(context.Canceled.Error())
-			return nil
+			return nil, ctx.Err()
 		default:
 			if obj2, ok := apcs2[name]; ok {
-				diff := ComparePodControllerSpecs(ctx, name, obj1, obj2)
+				diff, err := ComparePodControllerSpecs(ctx, name, obj1, obj2)
+				if err != nil {
+					return nil, err
+				}
 
 				diffs = append(diffs, diff...)
 
@@ -156,5 +167,5 @@ func CompareAbstractPodControllerMaps(ctx context.Context, kind string, apcs1, a
 		log.With(zap.String("objectName", name)).Warnf("%s/%s does not exist in 1st cluster", kind, name)
 	}
 
-	return diffs
+	return diffs, nil
 }

@@ -2,17 +2,35 @@ package types
 
 import (
 	"context"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sync"
 )
 
 type KubeObjectsDifference struct {
-	ObjectType metav1.TypeMeta
-	ObjectMeta metav1.ObjectMeta
+	Msg string
+	Final bool
+}
 
-	Error error
+type KubeObjectsDiffsStorage struct {
+	m sync.RWMutex
+	Diffs []KubeObjectsDifference
+}
 
-	Critical bool
+func NewKubeObjectsDiffsStorage () *KubeObjectsDiffsStorage {
+	return &KubeObjectsDiffsStorage{
+		Diffs: make([]KubeObjectsDifference, 0),
+	}
+}
+
+func (s *KubeObjectsDiffsStorage) Add(msg string, final bool) bool {
+	s.m.Lock()
+	defer s.m.Unlock()
+
+	s.Diffs = append(s.Diffs, KubeObjectsDifference{
+		Msg:   msg,
+		Final: final,
+	})
+
+	return final == true
 }
 
 type KubeResourceComparator interface {
