@@ -1,4 +1,4 @@
-package deployment
+package ingress
 
 import (
 	"context"
@@ -7,13 +7,13 @@ import (
 )
 
 const (
-	defaultDeploymentBatchLimit = 25
+	defaultIngressBatchLimit = 25
 )
 
 func getBatchLimit(ctx context.Context) int64 {
 	cfg := config.FromContext(ctx)
 
-	if limit := cfg.Workloads.PodControllers.Deployments.BatchSize; limit != 0 {
+	if limit := cfg.Networking.Ingresses.BatchSize; limit != 0 {
 		return limit
 	}
 
@@ -21,5 +21,5 @@ func getBatchLimit(ctx context.Context) int64 {
 		return limit
 	}
 
-	return defaultDeploymentBatchLimit
+	return defaultIngressBatchLimit
 }

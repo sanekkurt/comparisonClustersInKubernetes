@@ -2,6 +2,8 @@ package kubernetes
 
 import (
 	"context"
+	"k8s-cluster-comparator/internal/kubernetes/networking/ingress"
+	"k8s-cluster-comparator/internal/kubernetes/networking/service"
 	"sync"
 
 	"go.uber.org/zap"
@@ -54,8 +56,8 @@ func CompareClusters(ctx context.Context) ([]types.KubeObjectsDifference, error)
 			configmap.NewConfigMapsComparator(ctx, namespace),
 			secret.NewSecretsComparator(ctx, namespace),
 
-			//service.NewServicesComparator(ctx, namespace),
-			//ingress.NewIngressesComparator(ctx, namespace),
+			service.NewServicesComparator(ctx, namespace),
+			ingress.NewIngressesComparator(ctx, namespace),
 		}
 
 		wg := &sync.WaitGroup{}
