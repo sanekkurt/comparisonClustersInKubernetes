@@ -507,7 +507,7 @@ func compareSpecInIngresses(ctx context.Context, ingress1, ingress2 v1beta12.Ing
 
 			if len(ingress1.Spec.TLS) != len(ingress2.Spec.TLS) {
 				//return fmt.Errorf("%w. Name ingress: '%s'. In first ingress - %d TLS. In second ingress - %d TLS", ErrorTLSCountDifferent, ingress1.Name, len(ingress1.Spec.TLS), len(ingress2.Spec.TLS))
-				log.Warnf("%w. Name ingress: '%s'. In first ingress - %d TLS. In second ingress - %d TLS", ErrorTLSCountDifferent, ingress1.Name, len(ingress1.Spec.TLS), len(ingress2.Spec.TLS))
+				log.With(zap.String("objectName", ingress1.Name)).Warnf("%s. %d vs %d", ErrorTLSCountDifferent.Error(), len(ingress1.Spec.TLS), len(ingress2.Spec.TLS))
 				return nil
 			}
 
@@ -515,34 +515,34 @@ func compareSpecInIngresses(ctx context.Context, ingress1, ingress2 v1beta12.Ing
 
 				if value.SecretName != ingress2.Spec.TLS[index].SecretName {
 					//return fmt.Errorf("%w. Name ingress: '%s'. First ingress: '%s'. Second ingress: '%s'", ErrorSecretNameInTLSDifferent, ingress1.Name, value.SecretName, ingress2.Spec.TLS[index].SecretName)
-					log.Warnf("%w. Name ingress: '%s'. First ingress: '%s'. Second ingress: '%s'", ErrorSecretNameInTLSDifferent, ingress1.Name, value.SecretName, ingress2.Spec.TLS[index].SecretName)
+					log.With(zap.String("objectName", ingress1.Name)).Warnf("%s. %s vs %s", ErrorSecretNameInTLSDifferent.Error(), value.SecretName, ingress2.Spec.TLS[index].SecretName)
 					return nil
 				}
 
 				if value.Hosts != nil && ingress2.Spec.TLS[index].Hosts != nil {
 					if len(value.Hosts) != len(ingress2.Spec.TLS[index].Hosts) {
 						//return fmt.Errorf("%w. Name ingress: '%s'. In first ingress - %d hosts. In second ingress - %d hosts", ErrorHostsCountDifferent, ingress1.Name, len(value.Hosts), len(ingress2.Spec.TLS[index].Hosts))
-						log.Warnf("%w. Name ingress: '%s'. In first ingress - %d hosts. In second ingress - %d hosts", ErrorHostsCountDifferent, ingress1.Name, len(value.Hosts), len(ingress2.Spec.TLS[index].Hosts))
+						log.With(zap.String("objectName", ingress1.Name)).Warnf("%s. %d vs %d", ErrorHostsCountDifferent.Error(), len(value.Hosts), len(ingress2.Spec.TLS[index].Hosts))
 						return nil
 					}
 
 					for i := 0; i < len(value.Hosts); i++ {
 						if value.Hosts[i] != ingress2.Spec.TLS[index].Hosts[i] {
 							//return fmt.Errorf("%w. Name ingress: '%s'. Name host in first ingress - '%s'. Name host in second ingress - '%s'", ErrorNameHostDifferent, ingress1.Name, value.Hosts[i], ingress2.Spec.TLS[index].Hosts[i])
-							log.Warnf("%w. Name ingress: '%s'. Name host in first ingress - '%s'. Name host in second ingress - '%s'", ErrorNameHostDifferent, ingress1.Name, value.Hosts[i], ingress2.Spec.TLS[index].Hosts[i])
+							log.With(zap.String("objectName", ingress1.Name)).Warnf("%s. %s vs %s", ErrorNameHostDifferent.Error(), value.Hosts[i], ingress2.Spec.TLS[index].Hosts[i])
 							return nil
 						}
 					}
 
 				} else if value.Hosts != nil || ingress2.Spec.TLS[index].Hosts != nil {
 					//return fmt.Errorf("%w", ErrorHostsInIngressesDifferent)
-					log.Warnf("%w", ErrorHostsInIngressesDifferent)
+					log.With(zap.String("objectName", ingress1.Name)).Warnf("%s", ErrorHostsInIngressesDifferent.Error())
 					return nil
 				}
 			}
 		} else if ingress1.Spec.TLS != nil || ingress2.Spec.TLS != nil {
 			//return fmt.Errorf("%w", ErrorTLSInIngressesDifferent)
-			log.Warnf("%w", ErrorTLSInIngressesDifferent)
+			log.With(zap.String("objectName", ingress1.Name)).Warnf("%s", ErrorTLSInIngressesDifferent.Error())
 			return nil
 		}
 
@@ -553,21 +553,21 @@ func compareSpecInIngresses(ctx context.Context, ingress1, ingress2 v1beta12.Ing
 			}
 		} else if ingress1.Spec.Backend != nil || ingress2.Spec.Backend != nil {
 			//return fmt.Errorf("%w", ErrorBackendInIngressesDifferent)
-			log.Warnf("%w", ErrorBackendInIngressesDifferent)
+			log.With(zap.String("objectName", ingress1.Name)).Warnf("%s", ErrorBackendInIngressesDifferent.Error())
 			return nil
 		}
 
 		if ingress1.Spec.Rules != nil && ingress2.Spec.Rules != nil {
 			if len(ingress1.Spec.Rules) != len(ingress2.Spec.Rules) {
 				//return fmt.Errorf("%w. Name ingress: '%s'. In first ingress - '%d' rules. In second ingress - '%d' rules", ErrorRulesCountDifferent, ingress1.Name, len(ingress1.Spec.Rules), len(ingress2.Spec.Rules))
-				log.Warnf("%w. Name ingress: '%s'. In first ingress - '%d' rules. In second ingress - '%d' rules", ErrorRulesCountDifferent, ingress1.Name, len(ingress1.Spec.Rules), len(ingress2.Spec.Rules))
+				log.With(zap.String("objectName", ingress1.Name)).Warnf("%s. %d vs %d", ErrorRulesCountDifferent.Error(), len(ingress1.Spec.Rules), len(ingress2.Spec.Rules))
 				return nil
 			}
 
 			for index, value := range ingress1.Spec.Rules {
 				if value.Host != ingress2.Spec.Rules[index].Host {
 					//return fmt.Errorf("%w. Name ingress: '%s'. Name host in first ingress - '%s'. Name host in second ingress - '%s'", ErrorHostNameInRuleDifferent, ingress1.Name, value.Host, ingress2.Spec.Rules[index].Host)
-					log.Warnf("%w. Name ingress: '%s'. Name host in first ingress - '%s'. Name host in second ingress - '%s'", ErrorHostNameInRuleDifferent, ingress1.Name, value.Host, ingress2.Spec.Rules[index].Host)
+					log.With(zap.String("objectName", ingress1.Name)).Warnf("%s. %s vs %s", ErrorHostNameInRuleDifferent.Error(), value.Host, ingress2.Spec.Rules[index].Host)
 					return nil
 				}
 
@@ -578,7 +578,7 @@ func compareSpecInIngresses(ctx context.Context, ingress1, ingress2 v1beta12.Ing
 					}
 				} else if value.HTTP != nil || ingress2.Spec.Rules[index].HTTP != nil {
 					//return fmt.Errorf("%w", ErrorHTTPInIngressesDifferent)
-					log.Warnf("%w", ErrorHTTPInIngressesDifferent)
+					log.With(zap.String("objectName", ingress1.Name)).Warnf("%s", ErrorHTTPInIngressesDifferent.Error())
 					return nil
 				}
 
@@ -589,14 +589,14 @@ func compareSpecInIngresses(ctx context.Context, ingress1, ingress2 v1beta12.Ing
 					}
 				} else if value.IngressRuleValue.HTTP != nil || ingress2.Spec.Rules[index].IngressRuleValue.HTTP != nil {
 					//return fmt.Errorf("%w", ErrorHTTPInIngressesDifferent)
-					log.Warnf("%w", ErrorHTTPInIngressesDifferent)
+					log.With(zap.String("objectName", ingress1.Name)).Warnf("%s", ErrorHTTPInIngressesDifferent.Error())
 					return nil
 				}
 
 			}
 		} else if ingress1.Spec.Rules != nil || ingress2.Spec.Rules != nil {
 			//return fmt.Errorf("%w", ErrorRulesInIngressesDifferent)
-			log.Warnf("%w", ErrorRulesInIngressesDifferent)
+			log.With(zap.String("objectName", ingress1.Name)).Warnf("%s", ErrorRulesInIngressesDifferent.Error())
 			return nil
 		}
 
@@ -617,13 +617,13 @@ func compareIngressesBackend(ctx context.Context, backend1, backend2 v1beta12.In
 	default:
 		if backend1.ServiceName != backend2.ServiceName {
 			//return fmt.Errorf("%w. Name ingress: '%s'. Service name in first ingress: '%s'. Service name in second ingress: '%s'", ErrorServiceNameInBackendDifferent, name, backend1.ServiceName, backend2.ServiceName)
-			log.Warnf("%w. Name ingress: '%s'. Service name in first ingress: '%s'. Service name in second ingress: '%s'", ErrorServiceNameInBackendDifferent, name, backend1.ServiceName, backend2.ServiceName)
+			log.With(zap.String("objectName", name)).Warnf("%s. %s vs %s", ErrorServiceNameInBackendDifferent.Error(), backend1.ServiceName, backend2.ServiceName)
 			return nil
 		}
 
 		if backend1.ServicePort.Type != backend2.ServicePort.Type || backend1.ServicePort.IntVal != backend2.ServicePort.IntVal || backend1.ServicePort.StrVal != backend2.ServicePort.StrVal {
 			//return fmt.Errorf("%w. Name ingress: '%s'", ErrorBackendServicePortDifferent, name)
-			log.Warnf("%w. Name ingress: '%s'", ErrorBackendServicePortDifferent, name)
+			log.With(zap.String("objectName", name)).Warnf("%s", ErrorBackendServicePortDifferent.Error())
 			return nil
 		}
 		return nil
@@ -638,14 +638,14 @@ func compareIngressesHTTP(ctx context.Context, http1, http2 v1beta12.HTTPIngress
 	)
 	if len(http1.Paths) != len(http2.Paths) {
 		//return fmt.Errorf("%w. Name ingress: '%s'. In first ingress - '%d' paths. In second ingress - '%d' paths", ErrorPathsCountDifferent, name, len(http1.Paths), len(http2.Paths))
-		log.Warnf("%w. Name ingress: '%s'. In first ingress - '%d' paths. In second ingress - '%d' paths", ErrorPathsCountDifferent, name, len(http1.Paths), len(http2.Paths))
+		log.With(zap.String("objectName", name)).Warnf("%s. %d vs %d", ErrorPathsCountDifferent.Error(), len(http1.Paths), len(http2.Paths))
 		return nil
 	}
 
 	for i := 0; i < len(http1.Paths); i++ {
 		if http1.Paths[i].Path != http2.Paths[i].Path {
 			//return fmt.Errorf("%w. Name ingress: '%s'. Name path in first ingress - '%s'. Name path in second ingress - '%s'", ErrorPathValueDifferent, name, http1.Paths[i].Path, http2.Paths[i].Path)
-			log.Warnf("%w. Name ingress: '%s'. Name path in first ingress - '%s'. Name path in second ingress - '%s'", ErrorPathValueDifferent, name, http1.Paths[i].Path, http2.Paths[i].Path)
+			log.With(zap.String("objectName", name)).Warnf("%s. %s vs %s", ErrorPathValueDifferent.Error(), http1.Paths[i].Path, http2.Paths[i].Path)
 			return nil
 		}
 
