@@ -2,6 +2,8 @@ package kubernetes
 
 import (
 	"context"
+	"k8s-cluster-comparator/internal/kubernetes/jobs/cronjob"
+	"k8s-cluster-comparator/internal/kubernetes/jobs/job"
 	"k8s-cluster-comparator/internal/kubernetes/networking/ingress"
 	"k8s-cluster-comparator/internal/kubernetes/networking/service"
 	"sync"
@@ -50,8 +52,8 @@ func CompareClusters(ctx context.Context) ([]types.KubeObjectsDifference, error)
 			statefulset.NewStatefulSetsComparator(ctx, namespace),
 			daemonset.NewDaemonSetsComparator(ctx, namespace),
 
-			//job.NewJobsComparator(ctx, namespace),
-			//cronjob.NewCronJobsComparator(ctx, namespace),
+			job.NewJobsComparator(ctx, namespace),
+			cronjob.NewCronJobsComparator(ctx, namespace),
 
 			configmap.NewConfigMapsComparator(ctx, namespace),
 			secret.NewSecretsComparator(ctx, namespace),

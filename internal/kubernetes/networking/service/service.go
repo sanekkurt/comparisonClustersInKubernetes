@@ -434,7 +434,7 @@ func fillInComparisonMap(ctx context.Context, namespace string, limit int64) (*v
 //compareServicesSpecs set information about services
 func compareServicesSpecs(ctx context.Context, name string, svc1, svc2 *v12.Service) []types.KubeObjectsDifference {
 	var (
-		log = logging.FromContext(ctx).With(zap.String("objectName", name))
+		log = logging.FromContext(ctx)
 	)
 
 	ctx = logging.WithLogger(ctx, log)
@@ -445,7 +445,10 @@ func compareServicesSpecs(ctx context.Context, name string, svc1, svc2 *v12.Serv
 	}()
 
 	metadata.IsMetadataDiffers(ctx, svc1.ObjectMeta, svc2.ObjectMeta)
-	compareSpecInServices(ctx, *svc1, *svc2)
+	err := compareSpecInServices(ctx, *svc1, *svc2)
+	if err != nil {
+		log.Warnf(err.Error())
+	}
 
 	return nil
 }
