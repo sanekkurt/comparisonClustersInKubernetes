@@ -2,10 +2,11 @@ package ingress
 
 import (
 	"context"
-	"fmt"
 	"go.uber.org/zap"
 	"k8s-cluster-comparator/internal/config"
 	"k8s-cluster-comparator/internal/consts"
+	v1 "k8s.io/api/networking/v1"
+
 	kubectx "k8s-cluster-comparator/internal/kubernetes/context"
 	"k8s-cluster-comparator/internal/kubernetes/metadata"
 	"k8s-cluster-comparator/internal/kubernetes/types"
@@ -263,20 +264,20 @@ func (cmp *Comparator) labelSelectorProvider(ctx context.Context) string {
 	return ""
 }
 
-func (cmp *Comparator) collectIncludedFromCluster(ctx context.Context) (map[string]v1beta12.Ingress, error) {
+func (cmp *Comparator) collectIncludedFromClusterV1Beta1(ctx context.Context) (map[string]v1beta12.Ingress, error) {
 	var (
 		log       = logging.FromContext(ctx)
 		cfg       = config.FromContext(ctx)
 		clientSet = kubectx.ClientSetFromContext(ctx)
 
-		objects = make(map[string]v1beta12.Ingress)
+		objectsV1beta1 = make(map[string]v1beta12.Ingress)
 	)
 
 	log.Debugf("%T: collectIncludedFromCluster started", cmp)
 	defer log.Debugf("%T: collectIncludedFromCluster completed", cmp)
 
 	for name := range cfg.ExcludesIncludes.NameBasedSkip {
-		obj, err := clientSet.NetworkingV1beta1().Ingresses(cmp.Namespace).Get(string(name), metav1.GetOptions{})
+		objV1beta1, err := clientSet.NetworkingV1beta1().Ingresses(cmp.Namespace).Get(ctx, string(name), metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
 				log.With(zap.String("objectName", string(name))).Warnf("%s/%s not found in cluster", cmp.Kind, name)
@@ -284,11 +285,11 @@ func (cmp *Comparator) collectIncludedFromCluster(ctx context.Context) (map[stri
 			}
 			return nil, err
 		}
-		objects[obj.Name] = *obj
+		objectsV1beta1[objV1beta1.Name] = *objV1beta1
 	}
 
 	for name := range cfg.ExcludesIncludes.FullResourceNamesSkip[types.ObjectKind(cmp.Kind)] {
-		obj, err := clientSet.NetworkingV1beta1().Ingresses(cmp.Namespace).Get(string(name), metav1.GetOptions{})
+		obj, err := clientSet.NetworkingV1beta1().Ingresses(cmp.Namespace).Get(ctx, string(name), metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
 				log.With(zap.String("objectName", string(name))).Warnf("%s/%s not found in cluster", cmp.Kind, name)
@@ -296,20 +297,20 @@ func (cmp *Comparator) collectIncludedFromCluster(ctx context.Context) (map[stri
 			}
 			return nil, err
 		}
-		objects[obj.Name] = *obj
+		objectsV1beta1[obj.Name] = *obj
 	}
 
-	return objects, nil
+	return objectsV1beta1, nil
 }
 
-func (cmp *Comparator) collectFromClusterWithoutExcludes(ctx context.Context) (map[string]v1beta12.Ingress, error) {
+func (cmp *Comparator) collectFromClusterWithoutExcludesV1Beta1(ctx context.Context) (map[string]v1beta12.Ingress, error) {
 	var (
 		log       = logging.FromContext(ctx)
 		cfg       = config.FromContext(ctx)
 		clientSet = kubectx.ClientSetFromContext(ctx)
 
-		batch   *v1beta12.IngressList
-		objects = make(map[string]v1beta12.Ingress)
+		batchV1Beta1   *v1beta12.IngressList
+		objectsV1Beta1 = make(map[string]v1beta12.Ingress)
 
 		continueToken string
 
@@ -325,7 +326,7 @@ forOuterLoop:
 		case <-ctx.Done():
 			return nil, context.Canceled
 		default:
-			batch, err = clientSet.NetworkingV1beta1().Ingresses(cmp.Namespace).List(metav1.ListOptions{
+			batchV1Beta1, err = clientSet.NetworkingV1beta1().Ingresses(cmp.Namespace).List(ctx, metav1.ListOptions{
 				Limit:         cmp.BatchSize,
 				FieldSelector: cmp.fieldSelectorProvider(ctx),
 				LabelSelector: cmp.labelSelectorProvider(ctx),
@@ -335,34 +336,36 @@ forOuterLoop:
 				return nil, err
 			}
 
-			log.Debugf("%d %ss retrieved", len(batch.Items), cmp.Kind)
+			log.Debugf("%d %ss retrieved", len(batchV1Beta1.Items), cmp.Kind)
 
-		forInnerLoop:
-			for _, obj := range batch.Items {
-				if _, ok := objects[obj.Name]; ok {
+		forInnerLoopV1Beta1:
+			for _, obj := range batchV1Beta1.Items {
+				if _, ok := objectsV1Beta1[obj.Name]; ok {
 					log.With("objectName", obj.Name).Warnf("%s/%s already present in comparison list", cmp.Kind, obj.Name)
 				}
 
 				if cfg.ExcludesIncludes.IsSkippedEntity(cmp.Kind, obj.Name) {
 					log.With(zap.String("objectName", obj.Name)).Debugf("%s/%s is skipped from comparison", cmp.Kind, obj.Name)
-					continue forInnerLoop
+					continue forInnerLoopV1Beta1
 				}
 
-				objects[obj.Name] = obj
+				objectsV1Beta1[obj.Name] = obj
 			}
 
-			if batch.Continue == "" {
+			if batchV1Beta1.Continue == "" {
 				break forOuterLoop
 			}
 
-			continueToken = batch.Continue
+			continueToken = batchV1Beta1.Continue
+
 		}
+
 	}
 
-	return objects, nil
+	return objectsV1Beta1, nil
 }
 
-func (cmp *Comparator) collectFromCluster(ctx context.Context) (map[string]v1beta12.Ingress, error) {
+func (cmp *Comparator) collectFromClusterV1Beta1(ctx context.Context) (map[string]v1beta12.Ingress, error) {
 	var (
 		log = logging.FromContext(ctx)
 		cfg = config.FromContext(ctx)
@@ -372,17 +375,138 @@ func (cmp *Comparator) collectFromCluster(ctx context.Context) (map[string]v1bet
 	defer log.Debugf("%T: collectFromCluster completed", cmp)
 
 	if cfg.Common.WorkMode == consts.EverythingButNotExcludesWorkMode {
-		return cmp.collectFromClusterWithoutExcludes(ctx)
+		return cmp.collectFromClusterWithoutExcludesV1Beta1(ctx)
 	} else {
-		return cmp.collectIncludedFromCluster(ctx)
+		return cmp.collectIncludedFromClusterV1Beta1(ctx)
 	}
+	//return cmp.collectIncludedFromClusterV1Beta1(ctx)
+}
+
+func (cmp *Comparator) collectIncludedFromClusterV1(ctx context.Context) (map[string]v1.Ingress, error) {
+	var (
+		log       = logging.FromContext(ctx)
+		cfg       = config.FromContext(ctx)
+		clientSet = kubectx.ClientSetFromContext(ctx)
+
+		objectsV1 = make(map[string]v1.Ingress)
+	)
+
+	log.Debugf("%T: collectIncludedFromCluster started", cmp)
+	defer log.Debugf("%T: collectIncludedFromCluster completed", cmp)
+
+	for name := range cfg.ExcludesIncludes.NameBasedSkip {
+		objV1, err := clientSet.NetworkingV1().Ingresses(cmp.Namespace).Get(ctx, string(name), metav1.GetOptions{})
+		if err != nil {
+			if errors.IsNotFound(err) {
+				log.With(zap.String("objectName", string(name))).Warnf("%s/%s not found in cluster", cmp.Kind, name)
+				continue
+			}
+			return nil, err
+		}
+		objectsV1[objV1.Name] = *objV1
+	}
+
+	for name := range cfg.ExcludesIncludes.FullResourceNamesSkip[types.ObjectKind(cmp.Kind)] {
+		obj, err := clientSet.NetworkingV1().Ingresses(cmp.Namespace).Get(ctx, string(name), metav1.GetOptions{})
+		if err != nil {
+			if errors.IsNotFound(err) {
+				log.With(zap.String("objectName", string(name))).Warnf("%s/%s not found in cluster", cmp.Kind, name)
+				continue
+			}
+			return nil, err
+		}
+		objectsV1[obj.Name] = *obj
+	}
+
+	return objectsV1, nil
+}
+
+func (cmp *Comparator) collectFromClusterWithoutExcludesV1(ctx context.Context) (map[string]v1.Ingress, error) {
+	var (
+		log       = logging.FromContext(ctx)
+		cfg       = config.FromContext(ctx)
+		clientSet = kubectx.ClientSetFromContext(ctx)
+
+		batchV1   *v1.IngressList
+		objectsV1 = make(map[string]v1.Ingress)
+
+		continueToken string
+
+		err error
+	)
+
+	log.Debugf("%T: collectFromClusterWithoutExcludes started", cmp)
+	defer log.Debugf("%T: collectFromClusterWithoutExcludes completed", cmp)
+
+forOuterLoop:
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, context.Canceled
+		default:
+			batchV1, err = clientSet.NetworkingV1().Ingresses(cmp.Namespace).List(ctx, metav1.ListOptions{
+				Limit:         cmp.BatchSize,
+				FieldSelector: cmp.fieldSelectorProvider(ctx),
+				LabelSelector: cmp.labelSelectorProvider(ctx),
+				Continue:      continueToken,
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			log.Debugf("%d %s retrieved", len(batchV1.Items), cmp.Kind)
+
+		forInnerLoopV1Beta1:
+			for _, obj := range batchV1.Items {
+				if _, ok := objectsV1[obj.Name]; ok {
+					log.With("objectName", obj.Name).Warnf("%s/%s already present in comparison list", cmp.Kind, obj.Name)
+				}
+
+				if cfg.ExcludesIncludes.IsSkippedEntity(cmp.Kind, obj.Name) {
+					log.With(zap.String("objectName", obj.Name)).Debugf("%s/%s is skipped from comparison", cmp.Kind, obj.Name)
+					continue forInnerLoopV1Beta1
+				}
+
+				objectsV1[obj.Name] = obj
+			}
+
+			if batchV1.Continue == "" {
+				break forOuterLoop
+			}
+
+			continueToken = batchV1.Continue
+
+		}
+
+	}
+
+	return objectsV1, nil
+}
+
+func (cmp *Comparator) collectFromClusterV1(ctx context.Context) (map[string]v1.Ingress, error) {
+	var (
+		log = logging.FromContext(ctx)
+		cfg = config.FromContext(ctx)
+	)
+
+	log.Debugf("%T: collectFromCluster started", cmp)
+	defer log.Debugf("%T: collectFromCluster completed", cmp)
+
+	if cfg.Common.WorkMode == consts.EverythingButNotExcludesWorkMode {
+		return cmp.collectFromClusterWithoutExcludesV1(ctx)
+	} else {
+		return cmp.collectIncludedFromClusterV1(ctx)
+	}
+
 }
 
 // Compare compares list of services objects in two given k8s-clusters
 func (cmp *Comparator) Compare(ctx context.Context) ([]types.KubeObjectsDifference, error) {
 	var (
-		log = logging.FromContext(ctx).With(zap.String("kind", cmp.Kind))
-		cfg = config.FromContext(ctx)
+		log          = logging.FromContext(ctx).With(zap.String("kind", cmp.Kind))
+		cfg          = config.FromContext(ctx)
+		resourceName = "ingresses"
+		resourceKind = "Ingress"
 	)
 	ctx = logging.WithLogger(ctx, log)
 
@@ -392,19 +516,71 @@ func (cmp *Comparator) Compare(ctx context.Context) ([]types.KubeObjectsDifferen
 		return nil, nil
 	}
 
-	objects, err := cmp.collect(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("cannot retrieve objects for comparision: %w", err)
+	if checkServerResourcesForGroupVersion(cfg.Connections.Cluster1.ClientSet, "networking.k8s.io/v1beta1", resourceName, resourceKind) {
+
+		objectsV1Beta1, err := cmp.collectV1Beta1(ctx)
+
+		if err != nil {
+			log.With(zap.String("apiVersion", "v1Beta1")).Errorf("cannot retrieve objects for comparision: %s", err.Error())
+		} else {
+
+			objectsV1Map1, objectsV1Map2 := ingressesV1Beta1ToV1(ctx, objectsV1Beta1[0], objectsV1Beta1[1])
+
+			func(ctx context.Context) {
+				var (
+					log = logging.FromContext(ctx).With(zap.String("apiVersion", "v1Beta1"))
+				)
+
+				ctx = logging.WithLogger(ctx, log)
+				cmp.compare(ctx, objectsV1Map1, objectsV1Map2)
+			}(ctx)
+
+		}
+	} else {
+		log.With(zap.String("apiVersion", "v1Beta1")).Warnf("%s", ErrorApiV1Beta1NotSupported.Error())
 	}
 
-	diff := cmp.compare(ctx, objects[0], objects[1])
+	if checkServerResourcesForGroupVersion(cfg.Connections.Cluster1.ClientSet, "networking.k8s.io/v1", resourceName, resourceKind) {
+		objectsV1, err := cmp.collectV1(ctx)
 
-	return diff, nil
+		if err != nil {
+			log.With(zap.String("apiVersion", "v1")).Errorf("cannot retrieve objects for comparision: %s", err.Error())
+		} else {
+
+			func(ctx context.Context) {
+				var (
+					log = logging.FromContext(ctx).With(zap.String("apiVersion", "v1"))
+				)
+
+				ctx = logging.WithLogger(ctx, log)
+				cmp.compare(ctx, objectsV1[0], objectsV1[0])
+			}(ctx)
+
+		}
+	} else {
+		log.With(zap.String("apiVersion", "v1")).Warnf("%s", ErrorApiV1NotSupported.Error())
+	}
+
+	return nil, nil
 }
 
-func (cmp *Comparator) collect(ctx context.Context) ([]map[string]v1beta12.Ingress, error) {
+func checkServerResourcesForGroupVersion(clientSet kubernetes.Interface, groupVersion, resourceName, resourceKind string) bool {
+	resourceList, _ := clientSet.Discovery().ServerResourcesForGroupVersion(groupVersion)
+	if resourceList != nil {
+		if resourceList.APIResources != nil {
+			for _, resource := range resourceList.APIResources {
+				if resource.Name == resourceName && resource.Kind == resourceKind {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+func (cmp *Comparator) collectV1Beta1(ctx context.Context) ([]map[string]v1beta12.Ingress, error) {
 	var (
-		log = logging.FromContext(ctx)
+		log = logging.FromContext(ctx).With(zap.String("apiVersion", "v1Beta1"))
 		cfg = config.FromContext(ctx)
 
 		objects = make([]map[string]v1beta12.Ingress, 2, 2)
@@ -422,9 +598,10 @@ func (cmp *Comparator) collect(ctx context.Context) ([]map[string]v1beta12.Ingre
 		go func(idx int, clientSet kubernetes.Interface) {
 			defer wg.Done()
 
-			objects[idx], err = cmp.collectFromCluster(kubectx.WithClientSet(ctx, clientSet))
+			objects[idx], err = cmp.collectFromClusterV1Beta1(kubectx.WithClientSet(ctx, clientSet))
 			if err != nil {
-				log.Fatalf("cannot obtain %ss from cluster #%d: %s", cmp.Kind, idx+1, err.Error())
+				log.Errorf("cannot obtain %s from cluster #%d: %s", cmp.Kind, idx+1, err.Error())
+
 			}
 		}(idx, clientSet)
 	}
@@ -434,7 +611,39 @@ func (cmp *Comparator) collect(ctx context.Context) ([]map[string]v1beta12.Ingre
 	return objects, nil
 }
 
-func (cmp *Comparator) compare(ctx context.Context, map1, map2 map[string]v1beta12.Ingress) []types.KubeObjectsDifference {
+func (cmp *Comparator) collectV1(ctx context.Context) ([]map[string]v1.Ingress, error) {
+	var (
+		log = logging.FromContext(ctx).With(zap.String("apiVersion", "v1Beta1"))
+		cfg = config.FromContext(ctx)
+
+		objects = make([]map[string]v1.Ingress, 2, 2)
+		wg      = &sync.WaitGroup{}
+
+		err error
+	)
+
+	wg.Add(2)
+
+	for idx, clientSet := range []kubernetes.Interface{
+		cfg.Connections.Cluster1.ClientSet,
+		cfg.Connections.Cluster2.ClientSet,
+	} {
+		go func(idx int, clientSet kubernetes.Interface) {
+			defer wg.Done()
+
+			objects[idx], err = cmp.collectFromClusterV1(kubectx.WithClientSet(ctx, clientSet))
+			if err != nil {
+				log.Errorf("cannot obtain %s from cluster #%d: %s", cmp.Kind, idx+1, err.Error())
+			}
+		}(idx, clientSet)
+	}
+
+	wg.Wait()
+
+	return objects, err
+}
+
+func (cmp *Comparator) compare(ctx context.Context, map1, map2 map[string]v1.Ingress) []types.KubeObjectsDifference {
 	var (
 		log = logging.FromContext(ctx)
 
@@ -473,8 +682,106 @@ func (cmp *Comparator) compare(ctx context.Context, map1, map2 map[string]v1beta
 	return diffs
 }
 
+func ingressesV1Beta1ToV1(ctx context.Context, ing1, ing2 map[string]v1beta12.Ingress) (map[string]v1.Ingress, map[string]v1.Ingress) {
+	var (
+		log     = logging.FromContext(ctx)
+		newMap1 = make(map[string]v1.Ingress, len(ing1))
+		newMap2 = make(map[string]v1.Ingress, len(ing2))
+	)
+
+	select {
+	case <-ctx.Done():
+		log.Warnw(context.Canceled.Error())
+		return nil, nil
+	default:
+		for key, value := range ing1 {
+			newMap1[key] = convertV1Beta1toV1(ctx, value)
+		}
+
+		for key, value := range ing2 {
+			newMap2[key] = convertV1Beta1toV1(ctx, value)
+		}
+
+		return newMap1, newMap2
+	}
+
+}
+
+func convertV1Beta1toV1(ctx context.Context, V1Beta1 v1beta12.Ingress) v1.Ingress {
+	var (
+		log       = logging.FromContext(ctx)
+		v1Ingress v1.Ingress
+	)
+
+	select {
+	case <-ctx.Done():
+		log.Warnw(context.Canceled.Error())
+		return v1Ingress
+	default:
+		v1Ingress.TypeMeta = V1Beta1.TypeMeta
+		v1Ingress.ObjectMeta = V1Beta1.ObjectMeta
+		v1Ingress.Status = v1.IngressStatus(V1Beta1.Status)
+		if V1Beta1.Spec.Backend != nil {
+			v1Ingress.Spec.DefaultBackend.Resource = V1Beta1.Spec.Backend.Resource
+			v1Ingress.Spec.DefaultBackend.Service.Port.Name = V1Beta1.Spec.Backend.ServicePort.StrVal
+			v1Ingress.Spec.DefaultBackend.Service.Port.Number = V1Beta1.Spec.Backend.ServicePort.IntVal
+			v1Ingress.Spec.DefaultBackend.Service.Name = V1Beta1.Spec.Backend.ServiceName
+		}
+
+		if V1Beta1.Spec.IngressClassName != nil {
+			v1Ingress.Spec.IngressClassName = V1Beta1.Spec.IngressClassName
+		}
+
+		v1Ingress.Spec.Rules = make([]v1.IngressRule, len(V1Beta1.Spec.Rules))
+		for i, rule := range V1Beta1.Spec.Rules {
+			v1Ingress.Spec.Rules[i].Host = rule.Host
+			if rule.IngressRuleValue.HTTP != nil {
+				v1Ingress.Spec.Rules[i].IngressRuleValue.HTTP = &v1.HTTPIngressRuleValue{Paths: make([]v1.HTTPIngressPath, len(rule.IngressRuleValue.HTTP.Paths))}
+				for ii, path := range rule.IngressRuleValue.HTTP.Paths {
+					v1Ingress.Spec.Rules[i].IngressRuleValue.HTTP.Paths[ii].Path = path.Path
+					if path.PathType != nil {
+						v1Ingress.Spec.Rules[i].IngressRuleValue.HTTP.Paths[ii].PathType = (*v1.PathType)(path.PathType)
+					}
+					v1Ingress.Spec.Rules[i].IngressRuleValue.HTTP.Paths[ii].Backend.Service = &v1.IngressServiceBackend{
+						Name: path.Backend.ServiceName,
+						Port: v1.ServiceBackendPort{
+							Name:   path.Backend.ServicePort.StrVal,
+							Number: path.Backend.ServicePort.IntVal,
+						},
+					}
+					//v1Ingress.Spec.Rules[i].IngressRuleValue.HTTP.Paths[ii].Backend.Service.Name = path.Backend.ServiceName
+					//v1Ingress.Spec.Rules[i].IngressRuleValue.HTTP.Paths[ii].Backend.Service.Port.Name = path.Backend.ServicePort.StrVal
+					//v1Ingress.Spec.Rules[i].IngressRuleValue.HTTP.Paths[ii].Backend.Service.Port.Number = path.Backend.ServicePort.IntVal
+					if path.Backend.Resource != nil {
+						v1Ingress.Spec.Rules[i].IngressRuleValue.HTTP.Paths[ii].Backend.Resource = path.Backend.Resource
+					}
+
+				}
+			}
+
+		}
+
+		if V1Beta1.Spec.TLS != nil {
+			v1Ingress.Spec.TLS = make([]v1.IngressTLS, len(V1Beta1.Spec.TLS))
+
+			for i, tls := range V1Beta1.Spec.TLS {
+				v1Ingress.Spec.TLS[i].SecretName = tls.SecretName
+				if tls.Hosts != nil {
+					v1Ingress.Spec.TLS[i].Hosts = make([]string, len(tls.Hosts))
+					for ii, host := range tls.Hosts {
+						v1Ingress.Spec.TLS[i].Hosts[ii] = host
+					}
+				}
+			}
+		}
+
+		return v1Ingress
+	}
+
+}
+
 //compareIngressesSpecs set information about services
-func compareIngressesSpecs(ctx context.Context, name string, ing1, ing2 *v1beta12.Ingress) []types.KubeObjectsDifference {
+func compareIngressesSpecs(ctx context.Context, name string, ing1, ing2 *v1.Ingress) []types.KubeObjectsDifference {
 	var (
 		log = logging.FromContext(ctx)
 	)
@@ -496,7 +803,7 @@ func compareIngressesSpecs(ctx context.Context, name string, ing1, ing2 *v1beta1
 }
 
 // compareSpecInIngresses compare spec in the ingresses
-func compareSpecInIngresses(ctx context.Context, ingress1, ingress2 v1beta12.Ingress) error { //nolint
+func compareSpecInIngresses(ctx context.Context, ingress1, ingress2 v1.Ingress) error { //nolint
 	var (
 		log = logging.FromContext(ctx)
 	)
@@ -549,12 +856,12 @@ func compareSpecInIngresses(ctx context.Context, ingress1, ingress2 v1beta12.Ing
 			return nil
 		}
 
-		if ingress1.Spec.Backend != nil && ingress2.Spec.Backend != nil {
-			err := compareIngressesBackend(ctx, *ingress1.Spec.Backend, *ingress2.Spec.Backend, ingress1.Name)
+		if ingress1.Spec.DefaultBackend != nil && ingress2.Spec.DefaultBackend != nil {
+			err := compareIngressesBackend(ctx, *ingress1.Spec.DefaultBackend, *ingress2.Spec.DefaultBackend, ingress1.Name)
 			if err != nil {
 				return err
 			}
-		} else if ingress1.Spec.Backend != nil || ingress2.Spec.Backend != nil {
+		} else if ingress1.Spec.DefaultBackend != nil || ingress2.Spec.DefaultBackend != nil {
 			//return fmt.Errorf("%w", ErrorBackendInIngressesDifferent)
 			log.Warnf("%s", ErrorBackendInIngressesDifferent.Error())
 			return nil
@@ -608,7 +915,7 @@ func compareSpecInIngresses(ctx context.Context, ingress1, ingress2 v1beta12.Ing
 }
 
 // compareIngressesBackend compare backend in ingresses
-func compareIngressesBackend(ctx context.Context, backend1, backend2 v1beta12.IngressBackend, name string) error {
+func compareIngressesBackend(ctx context.Context, backend1, backend2 v1.IngressBackend, name string) error {
 	var (
 		log = logging.FromContext(ctx)
 	)
@@ -618,24 +925,51 @@ func compareIngressesBackend(ctx context.Context, backend1, backend2 v1beta12.In
 		log.Warnw(context.Canceled.Error())
 		return nil
 	default:
-		if backend1.ServiceName != backend2.ServiceName {
-			//return fmt.Errorf("%w. Name ingress: '%s'. Service name in first ingress: '%s'. Service name in second ingress: '%s'", ErrorServiceNameInBackendDifferent, name, backend1.ServiceName, backend2.ServiceName)
-			log.Warnf("%s. %s vs %s", ErrorServiceNameInBackendDifferent.Error(), backend1.ServiceName, backend2.ServiceName)
+
+		if backend1.Service != nil && backend2.Service != nil {
+			if backend1.Service.Name != backend2.Service.Name {
+				log.Warnf("%s. %s vs %s", ErrorServiceNameInBackendDifferent.Error(), backend1.Service.Name, backend2.Service.Name)
+				return nil
+			}
+			if backend1.Service.Port != backend2.Service.Port {
+				log.Warnf("%s", ErrorBackendServicePortDifferent.Error())
+				return nil
+			}
+		} else if backend1.Service != nil || backend2.Service != nil {
+			log.Warnf("%s", ErrorBackendServiceIsMissing.Error())
 			return nil
 		}
 
-		if backend1.ServicePort.Type != backend2.ServicePort.Type || backend1.ServicePort.IntVal != backend2.ServicePort.IntVal || backend1.ServicePort.StrVal != backend2.ServicePort.StrVal {
-			//return fmt.Errorf("%w. Name ingress: '%s'", ErrorBackendServicePortDifferent, name)
-			log.Warnf("%s", ErrorBackendServicePortDifferent.Error())
-			return nil
+		if backend1.Resource != nil && backend2.Resource != nil {
+			if backend1.Resource.APIGroup != nil && backend2.Resource.APIGroup != nil {
+				if *backend1.Resource.APIGroup != *backend2.Resource.APIGroup {
+					log.Warnf("%s. %s vs %s", ErrorBackendResourceApiGroup.Error(), *backend1.Resource.APIGroup, *backend2.Resource.APIGroup)
+					return nil
+				}
+			} else if backend1.Resource.APIGroup != nil || backend2.Resource.APIGroup != nil {
+				log.Warnf("%s", ErrorBackendResourceApiGroupIsMissing.Error())
+				return nil
+			}
+
+			if backend1.Resource.Name != backend2.Resource.Name {
+				log.Warnf("%s. %s vs %s", ErrorBackendResourceName.Error(), backend1.Resource.Name, backend2.Resource.Name)
+				return nil
+			}
+
+			if backend1.Resource.Kind != backend2.Resource.Kind {
+				log.Warnf("%s. %s vs %s", ErrorBackendResourceKind.Error(), backend1.Resource.Name, backend2.Resource.Name)
+				return nil
+			}
+
 		}
+
 		return nil
 	}
 
 }
 
 // compareIngressesHTTP compare http in ingresses
-func compareIngressesHTTP(ctx context.Context, http1, http2 v1beta12.HTTPIngressRuleValue, name string) error {
+func compareIngressesHTTP(ctx context.Context, http1, http2 v1.HTTPIngressRuleValue, name string) error {
 	var (
 		log = logging.FromContext(ctx)
 	)

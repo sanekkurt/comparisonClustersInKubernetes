@@ -73,7 +73,7 @@ func (cmp *Comparator) collectIncludedFromCluster(ctx context.Context) (map[stri
 	defer log.Debugf("%T: collectIncludedFromCluster completed", cmp)
 
 	for name := range cfg.ExcludesIncludes.NameBasedSkip {
-		obj, err := clientSet.CoreV1().Services(cmp.Namespace).Get(string(name), metav1.GetOptions{})
+		obj, err := clientSet.CoreV1().Services(cmp.Namespace).Get(ctx, string(name), metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
 				log.With(zap.String("objectName", string(name))).Warnf("%s/%s not found in cluster", cmp.Kind, name)
@@ -85,7 +85,7 @@ func (cmp *Comparator) collectIncludedFromCluster(ctx context.Context) (map[stri
 	}
 
 	for name := range cfg.ExcludesIncludes.FullResourceNamesSkip[types.ObjectKind(cmp.Kind)] {
-		obj, err := clientSet.CoreV1().Services(cmp.Namespace).Get(string(name), metav1.GetOptions{})
+		obj, err := clientSet.CoreV1().Services(cmp.Namespace).Get(ctx, string(name), metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
 				log.With(zap.String("objectName", string(name))).Warnf("%s/%s not found in cluster", cmp.Kind, name)
@@ -122,7 +122,7 @@ forOuterLoop:
 		case <-ctx.Done():
 			return nil, context.Canceled
 		default:
-			batch, err = clientSet.CoreV1().Services(cmp.Namespace).List(metav1.ListOptions{
+			batch, err = clientSet.CoreV1().Services(cmp.Namespace).List(ctx, metav1.ListOptions{
 				Limit:         cmp.BatchSize,
 				FieldSelector: cmp.fieldSelectorProvider(ctx),
 				LabelSelector: cmp.labelSelectorProvider(ctx),
@@ -312,7 +312,7 @@ func fillInComparisonMap(ctx context.Context, namespace string, limit int64) (*v
 	defer log.Debugf("fillInComparisonMap completed")
 
 	for {
-		batch, err = clientSet.CoreV1().Services(namespace).List(metav1.ListOptions{
+		batch, err = clientSet.CoreV1().Services(namespace).List(ctx, metav1.ListOptions{
 			Limit:    limit,
 			Continue: continueToken,
 		})
@@ -493,28 +493,28 @@ func compareSpecInServices(ctx context.Context, service1, service2 v12.Service) 
 		return nil
 	default:
 		if len(service1.Spec.Ports) != len(service2.Spec.Ports) {
-			log.With(zap.String("objectName", service1.Name)).Warnf("%s. %d vs %d", ErrorPortsCountDifferent.Error(), len(service1.Spec.Ports), len(service2.Spec.Ports))
+			log.Warnf("%s. %d vs %d", ErrorPortsCountDifferent.Error(), len(service1.Spec.Ports), len(service2.Spec.Ports))
 			return nil
 		}
 
 		for index, value := range service1.Spec.Ports {
 			if value != service2.Spec.Ports[index] {
 				//return fmt.Errorf("%w. Name service: '%s'. First service: %s-%d-%s. Second service: %s-%d-%s", ErrorPortInServicesDifferent, service1.Name, value.Name, value.Port, value.Protocol, service2.Spec.Ports[index].Name, service2.Spec.Ports[index].Port, service2.Spec.Ports[index].Protocol)
-				log.With(zap.String("objectName", service1.Name)).Warnf("%s. %s-%d-%s vs %s-%d-%s", ErrorPortInServicesDifferent.Error(), value.Name, value.Port, value.Protocol, service2.Spec.Ports[index].Name, service2.Spec.Ports[index].Port, service2.Spec.Ports[index].Protocol)
+				log.Warnf("%s. %s-%d-%s vs %s-%d-%s", ErrorPortInServicesDifferent.Error(), value.Name, value.Port, value.Protocol, service2.Spec.Ports[index].Name, service2.Spec.Ports[index].Port, service2.Spec.Ports[index].Protocol)
 				return nil
 			}
 		}
 
 		if len(service1.Spec.Selector) != len(service2.Spec.Selector) {
 			//return fmt.Errorf("%w. Name service: '%s'. In first service - %d selectors, in second service - '%d' selectors", ErrorSelectorsCountDifferent, service1.Name, len(service1.Spec.Selector), len(service2.Spec.Selector))
-			log.With(zap.String("objectName", service1.Name)).Warnf("%s. %d vs %d", ErrorSelectorsCountDifferent.Error(), len(service1.Spec.Selector), len(service2.Spec.Selector))
+			log.Warnf("%s. %d vs %d", ErrorSelectorsCountDifferent.Error(), len(service1.Spec.Selector), len(service2.Spec.Selector))
 			return nil
 		}
 
 		for key, value := range service1.Spec.Selector {
 			if service2.Spec.Selector[key] != value {
 				//return fmt.Errorf("%w. Name service: '%s'. First service: %s-%s. Second service: %s-%s", ErrorSelectorInServicesDifferent, service1.Name, key, value, key, service2.Spec.Selector[key])
-				log.With(zap.String("objectName", service1.Name)).Warnf("%s. %s-%s vs %s-%s", ErrorSelectorInServicesDifferent.Error(), key, value, key, service2.Spec.Selector[key])
+				log.Warnf("%s. %s-%s vs %s-%s", ErrorSelectorInServicesDifferent.Error(), key, value, key, service2.Spec.Selector[key])
 				return nil
 
 			}
@@ -522,7 +522,7 @@ func compareSpecInServices(ctx context.Context, service1, service2 v12.Service) 
 
 		if service1.Spec.Type != service2.Spec.Type {
 			//return fmt.Errorf("%w. Name service: '%s'. First service type: %s. Second service type: %s", ErrorTypeInServicesDifferent, service1.Name, service1.Spec.Type, service2.Spec.Type)
-			log.With(zap.String("objectName", service1.Name)).Warnf("%s. %s vs %s", ErrorTypeInServicesDifferent.Error(), service1.Spec.Type, service2.Spec.Type)
+			log.Warnf("%s. %s vs %s", ErrorTypeInServicesDifferent.Error(), service1.Spec.Type, service2.Spec.Type)
 		}
 		return nil
 	}

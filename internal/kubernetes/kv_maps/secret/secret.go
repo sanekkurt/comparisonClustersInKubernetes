@@ -23,9 +23,8 @@ const (
 	objectKind = "secret"
 )
 
-
 type Comparator struct {
-	Kind string
+	Kind      string
 	Namespace string
 	BatchSize int64
 }
@@ -35,13 +34,12 @@ func NewSecretsComparator(ctx context.Context, namespace string) *Comparator {
 		Kind:      objectKind,
 		Namespace: namespace,
 		BatchSize: getBatchLimit(ctx),
-
 	}
 }
 
 func (cmp *Comparator) fieldSelectorProvider(ctx context.Context) string {
 	var (
-		cfg = config.FromContext(ctx)
+		cfg           = config.FromContext(ctx)
 		fieldSelector string
 	)
 
@@ -58,8 +56,8 @@ func (cmp *Comparator) labelSelectorProvider(ctx context.Context) string {
 
 func (cmp *Comparator) collectIncludedFromCluster(ctx context.Context) (map[string]corev1.Secret, error) {
 	var (
-		log = logging.FromContext(ctx)
-		cfg = config.FromContext(ctx)
+		log       = logging.FromContext(ctx)
+		cfg       = config.FromContext(ctx)
 		clientSet = kubectx.ClientSetFromContext(ctx)
 
 		objects = make(map[string]corev1.Secret)
@@ -69,7 +67,7 @@ func (cmp *Comparator) collectIncludedFromCluster(ctx context.Context) (map[stri
 	defer log.Debugf("%T: collectIncludedFromCluster completed", cmp)
 
 	for name := range cfg.ExcludesIncludes.NameBasedSkip {
-		obj, err := clientSet.CoreV1().Secrets(cmp.Namespace).Get(string(name), metav1.GetOptions{})
+		obj, err := clientSet.CoreV1().Secrets(cmp.Namespace).Get(ctx, string(name), metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
 				log.With(zap.String("objectName", string(name))).Warnf("%s/%s not found in cluster", cmp.Kind, name)
@@ -81,7 +79,7 @@ func (cmp *Comparator) collectIncludedFromCluster(ctx context.Context) (map[stri
 	}
 
 	for name := range cfg.ExcludesIncludes.FullResourceNamesSkip[types.ObjectKind(cmp.Kind)] {
-		obj, err := clientSet.CoreV1().Secrets(cmp.Namespace).Get(string(name), metav1.GetOptions{})
+		obj, err := clientSet.CoreV1().Secrets(cmp.Namespace).Get(ctx, string(name), metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
 				log.With(zap.String("objectName", string(name))).Warnf("%s/%s not found in cluster", cmp.Kind, name)
@@ -97,8 +95,8 @@ func (cmp *Comparator) collectIncludedFromCluster(ctx context.Context) (map[stri
 
 func (cmp *Comparator) collectFromClusterWithoutExcludes(ctx context.Context) (map[string]corev1.Secret, error) {
 	var (
-		log = logging.FromContext(ctx)
-		cfg = config.FromContext(ctx)
+		log       = logging.FromContext(ctx)
+		cfg       = config.FromContext(ctx)
 		clientSet = kubectx.ClientSetFromContext(ctx)
 
 		batch   *corev1.SecretList
@@ -112,18 +110,17 @@ func (cmp *Comparator) collectFromClusterWithoutExcludes(ctx context.Context) (m
 	log.Debugf("%T: collectFromClusterWithoutExcludes started", cmp)
 	defer log.Debugf("%T: collectFromClusterWithoutExcludes completed", cmp)
 
-
 forOuterLoop:
 	for {
 		select {
 		case <-ctx.Done():
 			return nil, context.Canceled
 		default:
-			batch, err = clientSet.CoreV1().Secrets(cmp.Namespace).List(metav1.ListOptions{
-				Limit:    cmp.BatchSize,
+			batch, err = clientSet.CoreV1().Secrets(cmp.Namespace).List(ctx, metav1.ListOptions{
+				Limit:         cmp.BatchSize,
 				FieldSelector: cmp.fieldSelectorProvider(ctx),
 				LabelSelector: cmp.labelSelectorProvider(ctx),
-				Continue: continueToken,
+				Continue:      continueToken,
 			})
 			if err != nil {
 				return nil, err
@@ -198,13 +195,13 @@ func (cmp *Comparator) Compare(ctx context.Context) ([]types.KubeObjectsDifferen
 	return diff, nil
 }
 
-func  (cmp *Comparator) collect(ctx context.Context) ([]map[string]corev1.Secret, error) {
+func (cmp *Comparator) collect(ctx context.Context) ([]map[string]corev1.Secret, error) {
 	var (
 		log = logging.FromContext(ctx)
 		cfg = config.FromContext(ctx)
 
 		objects = make([]map[string]corev1.Secret, 2, 2)
-		wg = &sync.WaitGroup{}
+		wg      = &sync.WaitGroup{}
 
 		err error
 	)
