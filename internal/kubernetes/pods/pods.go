@@ -2,8 +2,9 @@ package pods
 
 import (
 	"context"
-
 	"go.uber.org/zap"
+	"k8s-cluster-comparator/internal/kubernetes/pods/nodeSelectors"
+	"k8s-cluster-comparator/internal/kubernetes/pods/volumes"
 
 	"k8s-cluster-comparator/internal/kubernetes/pods/containers"
 	"k8s-cluster-comparator/internal/kubernetes/types"
@@ -113,7 +114,7 @@ import (
 // ComparePodSpecs compares pod templates of two abstract pod controllers
 func ComparePodSpecs(ctx context.Context, spec1, spec2 types.InformationAboutObject) ([]types.KubeObjectsDifference, error) {
 	var (
-		log = logging.FromContext(ctx)
+		log   = logging.FromContext(ctx)
 		diffs = make([]types.KubeObjectsDifference, 0)
 	)
 
@@ -123,12 +124,16 @@ func ComparePodSpecs(ctx context.Context, spec1, spec2 types.InformationAboutObj
 	}()
 
 	var (
-		containersPod1 = spec1.Template.Spec.Containers
-		containersPod2 = spec2.Template.Spec.Containers
+		containersPod1   = spec1.Template.Spec.Containers
+		containersPod2   = spec2.Template.Spec.Containers
+		nodeSelectorPod1 = spec1.Template.Spec.NodeSelector
+		nodeSelectorPod2 = spec2.Template.Spec.NodeSelector
+		volumesPod1      = spec1.Template.Spec.Volumes
+		volumesPod2      = spec2.Template.Spec.Volumes
 	)
 
 	if len(containersPod1) != len(containersPod2) {
-		log.Warnf("%s: %d vs %d", ErrorDiffersTemplatesNumber.Error(), len(containersPod1), len(containersPod2))
+		log.Warnf("%s: %d vs %d", ErrorDiffersContainersNumberInTemplates.Error(), len(containersPod1), len(containersPod2))
 		return nil, nil
 	}
 
@@ -150,6 +155,48 @@ func ComparePodSpecs(ctx context.Context, spec1, spec2 types.InformationAboutObj
 			ctx := logging.WithLogger(ctx, log)
 
 			diff, err := containers.CompareContainerSpecs(ctx, containersPod1[podTemplate1ContainerIdx], containersPod2[podTemplate1ContainerIdx])
+			if err != nil {
+				return nil, err
+			}
+			diffs = append(diffs, diff...)
+		}
+	}
+
+	if nodeSelectorPod1 != nil && nodeSelectorPod2 != nil {
+
+		if len(nodeSelectorPod1) != len(nodeSelectorPod2) {
+			log.Warnf("%s", ErrorDiffersNodeSelectorsNumberInTemplates.Error())
+			return nil, nil
+		}
+
+	} else if nodeSelectorPod1 != nil || nodeSelectorPod2 != nil {
+
+		log.Warnf("%s", ErrorPodMissingNodeSelectors.Error())
+		return nil, nil
+
+	} else {
+		nodeSelectors.CompareNodeSelectors(ctx, nodeSelectorPod1, nodeSelectorPod2)
+	}
+
+	if volumesPod1 != nil && volumesPod2 != nil {
+		if len(volumesPod1) != len(volumesPod2) {
+			log.Warnf("%s", ErrorDiffersVolumesNumberInTemplates.Error())
+			return nil, nil
+		}
+	} else if volumesPod1 != nil && volumesPod2 != nil {
+		log.Warnf("%s", ErrorPodMissingVolumes.Error())
+		return nil, nil
+	}
+
+	for podTemplate1VolumeIdx := range volumesPod1 {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+			log := log.With(zap.String("volumeName", volumesPod1[podTemplate1VolumeIdx].Name))
+			ctx := logging.WithLogger(ctx, log)
+
+			diff, err := volumes.CompareVolumes(ctx, volumesPod1[podTemplate1VolumeIdx], volumesPod2[podTemplate1VolumeIdx])
 			if err != nil {
 				return nil, err
 			}
