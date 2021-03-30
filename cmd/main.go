@@ -7,6 +7,7 @@ import (
 	"k8s-cluster-comparator/internal/config"
 	"k8s-cluster-comparator/internal/interrupt"
 	kube "k8s-cluster-comparator/internal/kubernetes"
+	"k8s-cluster-comparator/internal/kubernetes/discovery"
 	"k8s-cluster-comparator/internal/logging"
 )
 
@@ -49,12 +50,10 @@ func main() {
 
 	ctx = config.With(ctx, cfg)
 
-	versionApiServerCluster1, _ := cfg.Connections.Cluster1.ClientSet.Discovery().ServerVersion()
-	versionApiServerCluster2, _ := cfg.Connections.Cluster2.ClientSet.Discovery().ServerVersion()
-	if *versionApiServerCluster1 == *versionApiServerCluster2 {
-		log.Infof("discovered kube-apiserver version(s): %s", *versionApiServerCluster1)
-	} else {
-		log.Infof("discovered kube-apiserver version(s): %s vs %s", *versionApiServerCluster1, *versionApiServerCluster2)
+	err = discovery.DetectKubeVersions(ctx)
+	if err != nil {
+		log.Error(err)
+		return
 	}
 
 	_, err = kube.CompareClusters(ctx)

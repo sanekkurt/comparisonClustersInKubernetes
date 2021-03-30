@@ -8,6 +8,8 @@ import (
 	"k8s-cluster-comparator/internal/kubernetes/diff"
 	"k8s-cluster-comparator/internal/kubernetes/kv_maps/configmap"
 	"k8s-cluster-comparator/internal/kubernetes/kv_maps/secret"
+	"k8s-cluster-comparator/internal/kubernetes/networking/ingress"
+	"k8s-cluster-comparator/internal/kubernetes/networking/service"
 	"k8s-cluster-comparator/internal/kubernetes/pod_controllers/daemonset"
 	"k8s-cluster-comparator/internal/kubernetes/pod_controllers/deployment"
 	"k8s-cluster-comparator/internal/kubernetes/pod_controllers/statefulset"
@@ -58,8 +60,8 @@ func CompareClusters(ctx context.Context) (*diff.DiffsStorage, error) {
 			configmap.NewComparator(ctx, namespace),
 			secret.NewComparator(ctx, namespace),
 
-			service.NewServicesComparator(ctx, namespace),
-			ingress.NewIngressesComparator(ctx, namespace),
+			service.NewComparator(ctx, namespace),
+			ingress.NewComparator(ctx, namespace),
 		}
 
 		wg := &sync.WaitGroup{}

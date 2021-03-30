@@ -3,7 +3,9 @@ package service
 import (
 	"context"
 	"fmt"
+
 	"k8s-cluster-comparator/internal/consts"
+	"k8s-cluster-comparator/internal/kubernetes/diff"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/kubernetes"
@@ -32,7 +34,7 @@ type Comparator struct {
 	BatchSize int64
 }
 
-func NewServicesComparator(ctx context.Context, namespace string) *Comparator {
+func NewComparator(ctx context.Context, namespace string) *Comparator {
 	return &Comparator{
 		Kind:      objectKind,
 		Namespace: namespace,
@@ -40,11 +42,11 @@ func NewServicesComparator(ctx context.Context, namespace string) *Comparator {
 	}
 }
 
-func (cmp *Comparator) fieldSelectorProvider(ctx context.Context) string {
+func (cmp *Comparator) FieldSelectorProvider(ctx context.Context) string {
 	return ""
 }
 
-func (cmp *Comparator) labelSelectorProvider(ctx context.Context) string {
+func (cmp *Comparator) LabelSelectorProvider(ctx context.Context) string {
 	return ""
 }
 
@@ -126,8 +128,8 @@ forOuterLoop:
 		default:
 			batch, err = clientSet.CoreV1().Services(cmp.Namespace).List(ctx, metav1.ListOptions{
 				Limit:         cmp.BatchSize,
-				FieldSelector: cmp.fieldSelectorProvider(ctx),
-				LabelSelector: cmp.labelSelectorProvider(ctx),
+				FieldSelector: cmp.FieldSelectorProvider(ctx),
+				LabelSelector: cmp.LabelSelectorProvider(ctx),
 				Continue:      continueToken,
 			})
 			if err != nil {
@@ -180,12 +182,12 @@ func (cmp *Comparator) collectFromCluster(ctx context.Context) (map[string]v12.S
 //type ServicesComparator struct {
 //}
 //
-//func NewServicesComparator(ctx context.Context, namespace string) ServicesComparator {
+//func NewComparator(ctx context.Context, namespace string) ServicesComparator {
 //	return ServicesComparator{}
 //}
 
 // Compare compares list of services objects in two given k8s-clusters
-func (cmp *Comparator) Compare(ctx context.Context) ([]types.KubeObjectsDifference, error) {
+func (cmp *Comparator) Compare(ctx context.Context) (*diff.DiffsStorage, error) {
 	var (
 		log = logging.FromContext(ctx).With(zap.String("kind", cmp.Kind))
 		cfg = config.FromContext(ctx)
@@ -203,9 +205,9 @@ func (cmp *Comparator) Compare(ctx context.Context) ([]types.KubeObjectsDifferen
 		return nil, fmt.Errorf("cannot retrieve objects for comparision: %w", err)
 	}
 
-	diff := cmp.compare(ctx, objects[0], objects[1])
+	_ = cmp.compare(ctx, objects[0], objects[1])
 
-	return diff, nil
+	return nil, nil
 
 	//services1, err := fillInComparisonMap(kubectx.WithClientSet(ctx, cfg.Connections.Cluster1.ClientSet), namespace, servicesRetrieveBatchLimit(ctx))
 	//if err != nil {

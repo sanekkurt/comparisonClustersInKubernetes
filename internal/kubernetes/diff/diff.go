@@ -14,23 +14,14 @@ type Object struct {
 type ObjectsDiff struct {
 	Object Object
 
-	Msg string
+	Msg   string
 	Final bool
 }
 
 type DiffsBatch []ObjectsDiff
 
-
-func XXX(){
-	b := make(DiffsBatch, 0, 10)
-
-	b = append(b, ObjectsDiff{})
-	...
-	b = append(b, ObjectsDiff{{}})
-}
-
 type DiffsStorage struct {
-	m sync.RWMutex
+	m       sync.RWMutex
 	Batches []DiffsBatch
 }
 
@@ -44,7 +35,7 @@ func (s *DiffsStorage) NewBatch() *DiffsBatch {
 	batch := make(DiffsBatch, 0)
 	s.Batches = append(s.Batches, batch)
 
-	return &s.Batches[len(s.Batches) - 1]
+	return &s.Batches[len(s.Batches)-1]
 }
 
 func (s *DiffsStorage) Add(objType *metav1.TypeMeta, objMeta *metav1.ObjectMeta, msg string, final bool) bool {
@@ -62,8 +53,6 @@ func (s *DiffsStorage) Add(objType *metav1.TypeMeta, objMeta *metav1.ObjectMeta,
 
 	s.m.Lock()
 	defer s.m.Unlock()
-
-	s.Diffs = append(s.Diffs, diff)
 
 	return final == true
 }

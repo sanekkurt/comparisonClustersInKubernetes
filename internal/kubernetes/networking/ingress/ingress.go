@@ -2,17 +2,20 @@ package ingress
 
 import (
 	"context"
+
 	"k8s-cluster-comparator/internal/config"
 	"k8s-cluster-comparator/internal/consts"
+	"k8s-cluster-comparator/internal/kubernetes/diff"
 
 	"go.uber.org/zap"
 	v1 "k8s.io/api/networking/v1"
+
+	"sync"
 
 	kubectx "k8s-cluster-comparator/internal/kubernetes/context"
 	"k8s-cluster-comparator/internal/kubernetes/metadata"
 	"k8s-cluster-comparator/internal/kubernetes/types"
 	"k8s-cluster-comparator/internal/logging"
-	"sync"
 
 	v1beta12 "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -250,7 +253,7 @@ type Comparator struct {
 	BatchSize int64
 }
 
-func NewIngressesComparator(ctx context.Context, namespace string) *Comparator {
+func NewComparator(ctx context.Context, namespace string) *Comparator {
 	return &Comparator{
 		Kind:      objectKind,
 		Namespace: namespace,
@@ -258,11 +261,11 @@ func NewIngressesComparator(ctx context.Context, namespace string) *Comparator {
 	}
 }
 
-func (cmp *Comparator) fieldSelectorProvider(ctx context.Context) string {
+func (cmp *Comparator) FieldSelectorProvider(ctx context.Context) string {
 	return ""
 }
 
-func (cmp *Comparator) labelSelectorProvider(ctx context.Context) string {
+func (cmp *Comparator) LabelSelectorProvider(ctx context.Context) string {
 	return ""
 }
 
@@ -330,8 +333,8 @@ forOuterLoop:
 		default:
 			batchV1Beta1, err = clientSet.NetworkingV1beta1().Ingresses(cmp.Namespace).List(ctx, metav1.ListOptions{
 				Limit:         cmp.BatchSize,
-				FieldSelector: cmp.fieldSelectorProvider(ctx),
-				LabelSelector: cmp.labelSelectorProvider(ctx),
+				FieldSelector: cmp.FieldSelectorProvider(ctx),
+				LabelSelector: cmp.LabelSelectorProvider(ctx),
 				Continue:      continueToken,
 			})
 			if err != nil {
@@ -448,8 +451,8 @@ forOuterLoop:
 		default:
 			batchV1, err = clientSet.NetworkingV1().Ingresses(cmp.Namespace).List(ctx, metav1.ListOptions{
 				Limit:         cmp.BatchSize,
-				FieldSelector: cmp.fieldSelectorProvider(ctx),
-				LabelSelector: cmp.labelSelectorProvider(ctx),
+				FieldSelector: cmp.FieldSelectorProvider(ctx),
+				LabelSelector: cmp.LabelSelectorProvider(ctx),
 				Continue:      continueToken,
 			})
 			if err != nil {
@@ -503,7 +506,7 @@ func (cmp *Comparator) collectFromClusterV1(ctx context.Context) (map[string]v1.
 }
 
 // Compare compares list of services objects in two given k8s-clusters
-func (cmp *Comparator) Compare(ctx context.Context) ([]types.KubeObjectsDifference, error) {
+func (cmp *Comparator) Compare(ctx context.Context) (*diff.DiffsStorage, error) {
 	var (
 		log          = logging.FromContext(ctx).With(zap.String("kind", cmp.Kind))
 		cfg          = config.FromContext(ctx)
