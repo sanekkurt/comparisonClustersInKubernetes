@@ -2,15 +2,7 @@ package kubernetes
 
 import (
 	"context"
-	"k8s-cluster-comparator/internal/kubernetes/jobs/cronjob"
-	"k8s-cluster-comparator/internal/kubernetes/jobs/job"
-	"k8s-cluster-comparator/internal/kubernetes/kv_maps/configmap"
-	"k8s-cluster-comparator/internal/kubernetes/kv_maps/secret"
-	"k8s-cluster-comparator/internal/kubernetes/networking/ingress"
-	"k8s-cluster-comparator/internal/kubernetes/networking/service"
-	"k8s-cluster-comparator/internal/kubernetes/pod_controllers/daemonset"
 	"k8s-cluster-comparator/internal/kubernetes/pod_controllers/deployment"
-	"k8s-cluster-comparator/internal/kubernetes/pod_controllers/statefulset"
 	"sync"
 
 	"go.uber.org/zap"
@@ -49,17 +41,17 @@ func CompareClusters(ctx context.Context) ([]types.KubeObjectsDifference, error)
 
 		comparators := []types.KubeResourceComparator{
 			deployment.NewDeploymentsComparator(ctx, namespace),
-			statefulset.NewStatefulSetsComparator(ctx, namespace),
-			daemonset.NewDaemonSetsComparator(ctx, namespace),
-
-			job.NewJobsComparator(ctx, namespace),
-			cronjob.NewCronJobsComparator(ctx, namespace),
-
-			configmap.NewConfigMapsComparator(ctx, namespace),
-			secret.NewSecretsComparator(ctx, namespace),
-
-			service.NewServicesComparator(ctx, namespace),
-			ingress.NewIngressesComparator(ctx, namespace),
+			//statefulset.NewStatefulSetsComparator(ctx, namespace),
+			//daemonset.NewDaemonSetsComparator(ctx, namespace),
+			//
+			//job.NewJobsComparator(ctx, namespace),
+			//cronjob.NewCronJobsComparator(ctx, namespace),
+			//
+			//configmap.NewConfigMapsComparator(ctx, namespace),
+			//secret.NewSecretsComparator(ctx, namespace),
+			//
+			//service.NewServicesComparator(ctx, namespace),
+			//ingress.NewIngressesComparator(ctx, namespace),
 		}
 
 		wg := &sync.WaitGroup{}

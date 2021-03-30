@@ -37,7 +37,7 @@ type CompareContainersConfiguration struct {
 	Image struct {
 		Mirrors []struct {
 			From string `yaml:"from"`
-			To string `yaml:"to"`
+			To   string `yaml:"to"`
 		} `yaml:"mirrors"`
 	} `yaml:"image""`
 }
@@ -65,6 +65,8 @@ type DeploymentsComparisonConfiguration struct {
 	Enabled bool `yaml:"enabled"`
 
 	BatchSize int64 `yaml:"batchSize"`
+
+	DiscardDeploymentsUpdatedLaterTime int64 `yaml:"discardDeploymentsUpdatedLaterTime"`
 }
 
 type StatefulSetsComparisonConfiguration struct {
@@ -233,6 +235,8 @@ type CommonConfiguration struct {
 	MetadataCompareConfiguration MetadataCompareConfiguration `yaml:"metadata"`
 
 	DefaultBatchSize int64 `yaml:"defaultBatchSize"`
+
+	CheckingCreationTimestampDeploymentsLimit bool `yaml:"checkingCreationTimestampDeploymentsLimit"`
 }
 
 func (cfg *CommonConfiguration) Parse(ctx context.Context) error {
