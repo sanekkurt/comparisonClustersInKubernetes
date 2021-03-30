@@ -2,21 +2,16 @@ package containers
 
 import (
 	"context"
-	"errors"
-
 	"k8s-cluster-comparator/internal/kubernetes/pods/containers/env"
 	"k8s-cluster-comparator/internal/kubernetes/pods/containers/healthcheck"
 	"k8s-cluster-comparator/internal/kubernetes/types"
+
 	v1 "k8s.io/api/core/v1"
 
 	"k8s-cluster-comparator/internal/logging"
 )
 
-var (
-	ErrorContainerDifferentNames = errors.New("different container names in Pod specs")
-)
-
-func CompareContainerSpecs(ctx context.Context, container1, container2 v1.Container) ([]types.ObjectsDiff, error) {
+func CompareContainerSpecs(ctx context.Context, container1, container2 v1.Container) ([]types.KubeObjectsDifference, error) {
 	var (
 		log = logging.FromContext(ctx)
 

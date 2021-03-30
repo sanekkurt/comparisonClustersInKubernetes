@@ -7,6 +7,7 @@ import (
 	"k8s-cluster-comparator/internal/kubernetes/kv_maps/configmap"
 	"k8s-cluster-comparator/internal/kubernetes/kv_maps/secret"
 	"k8s-cluster-comparator/internal/kubernetes/types"
+
 	v12 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -111,7 +112,7 @@ func compareEnvVarValueFroms(ctx context.Context, env1, env2 v12.EnvVar) ([]type
 
 func compareEnvVarValueSources(ctx context.Context, env1, env2 v12.EnvVar) ([]types.ObjectsDiff, error) {
 	var (
-		log = logging.FromContext(ctx)
+		log   = logging.FromContext(ctx)
 		diffs = make([]types.ObjectsDiff, 0)
 	)
 
@@ -120,8 +121,8 @@ func compareEnvVarValueSources(ctx context.Context, env1, env2 v12.EnvVar) ([]ty
 	}
 
 	if env1.ValueFrom != nil && env2.ValueFrom != nil {
-		diff, err := compareEnvVarValueFroms(ctx, env1, env2)
-		if err != nil  {
+		_, err := compareEnvVarValueFroms(ctx, env1, env2)
+		if err != nil {
 			return nil, err
 		}
 
@@ -233,18 +234,13 @@ func Compare(ctx context.Context, env1, env2 []v12.EnvVar) ([]types.ObjectsDiff,
 	}
 
 	for pod1EnvIdx := range env1 {
-		if pod1EnvIdx > len(env2) - 1 {
+		if pod1EnvIdx > len(env2)-1 {
 			log.Warnf("CompareEnvVars: there are only %d envVars in 2nd cluster", len(env2))
 			break
 		}
-
-		err := compareEnvVars(ctx, pod1EnvIdx, env1[pod1EnvIdx], env2[pod1EnvIdx])
+		diff, err := compareEnvVars(ctx, pod1EnvIdx, env1[pod1EnvIdx], env2[pod1EnvIdx])
 		if err != nil {
 			return nil, err
-		}
-
-		if batch.IsFinal() {
-			break
 		}
 
 		diffs = append(diffs, diff...)
@@ -252,7 +248,7 @@ func Compare(ctx context.Context, env1, env2 []v12.EnvVar) ([]types.ObjectsDiff,
 
 	if len(env2) > len(env1) {
 		for idx := 1 + (len(env2) - len(env1)); idx < len(env2); idx++ {
-			log.Warnf("env variable #%d '%s' does not exist in 1st cluster", idx + 1, env2[idx].Name)
+			log.Warnf("env variable #%d '%s' does not exist in 1st cluster", idx+1, env2[idx].Name)
 		}
 	}
 

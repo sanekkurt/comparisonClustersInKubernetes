@@ -6,6 +6,10 @@ import (
 	"k8s-cluster-comparator/internal/config"
 )
 
+const (
+	defaultCronJobBatchLimit = 25
+)
+
 func getBatchLimit(ctx context.Context) int64 {
 	cfg := config.FromContext(ctx)
 
@@ -17,5 +21,5 @@ func getBatchLimit(ctx context.Context) int64 {
 		return limit
 	}
 
-	return 25
+	return defaultCronJobBatchLimit
 }

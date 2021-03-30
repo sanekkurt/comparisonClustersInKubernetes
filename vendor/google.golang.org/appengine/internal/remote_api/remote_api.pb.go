@@ -31,7 +31,7 @@ const (
 	RpcError_FEATURE_DISABLED    RpcError_ErrorCode = 7
 	RpcError_BAD_REQUEST         RpcError_ErrorCode = 8
 	RpcError_RESPONSE_TOO_LARGE  RpcError_ErrorCode = 9
-	RpcError_Canceled           RpcError_ErrorCode = 10
+	RpcError_CANCELLED           RpcError_ErrorCode = 10
 	RpcError_REPLAY_ERROR        RpcError_ErrorCode = 11
 	RpcError_DEADLINE_EXCEEDED   RpcError_ErrorCode = 12
 )
@@ -47,7 +47,7 @@ var RpcError_ErrorCode_name = map[int32]string{
 	7:  "FEATURE_DISABLED",
 	8:  "BAD_REQUEST",
 	9:  "RESPONSE_TOO_LARGE",
-	10: "Canceled",
+	10: "CANCELLED",
 	11: "REPLAY_ERROR",
 	12: "DEADLINE_EXCEEDED",
 }
@@ -62,7 +62,7 @@ var RpcError_ErrorCode_value = map[string]int32{
 	"FEATURE_DISABLED":    7,
 	"BAD_REQUEST":         8,
 	"RESPONSE_TOO_LARGE":  9,
-	"Canceled":           10,
+	"CANCELLED":           10,
 	"REPLAY_ERROR":        11,
 	"DEADLINE_EXCEEDED":   12,
 }

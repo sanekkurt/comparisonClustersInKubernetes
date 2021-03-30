@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"sync"
 
-	"go.uber.org/zap"
 	"k8s-cluster-comparator/internal/config"
 	"k8s-cluster-comparator/internal/consts"
 	"k8s-cluster-comparator/internal/kubernetes/common"
@@ -14,6 +13,8 @@ import (
 	"k8s-cluster-comparator/internal/kubernetes/metadata"
 	"k8s-cluster-comparator/internal/kubernetes/types"
 	"k8s-cluster-comparator/internal/logging"
+
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,9 +25,8 @@ const (
 	objectKind = "secret"
 )
 
-
 type Comparator struct {
-	Kind string
+	Kind      string
 	Namespace string
 	BatchSize int64
 }
@@ -36,13 +36,12 @@ func NewComparator(ctx context.Context, namespace string) *Comparator {
 		Kind:      objectKind,
 		Namespace: namespace,
 		BatchSize: getBatchLimit(ctx),
-
 	}
 }
 
 func (cmp *Comparator) FieldSelectorProvider(ctx context.Context) string {
 	var (
-		cfg = config.FromContext(ctx)
+		cfg           = config.FromContext(ctx)
 		fieldSelector string
 	)
 
@@ -59,8 +58,8 @@ func (cmp *Comparator) LabelSelectorProvider(ctx context.Context) string {
 
 func (cmp *Comparator) collectIncludedFromCluster(ctx context.Context) (map[string]corev1.Secret, error) {
 	var (
-		log = logging.FromContext(ctx)
-		cfg = config.FromContext(ctx)
+		log       = logging.FromContext(ctx)
+		cfg       = config.FromContext(ctx)
 		clientSet = kubectx.ClientSetFromContext(ctx)
 
 		objects = make(map[string]corev1.Secret)
@@ -70,7 +69,7 @@ func (cmp *Comparator) collectIncludedFromCluster(ctx context.Context) (map[stri
 	defer log.Debugf("%T: collectIncludedFromCluster completed", cmp)
 
 	for name := range cfg.ExcludesIncludes.NameBasedSkip {
-		obj, err := clientSet.CoreV1().Secrets(cmp.Namespace).Get(string(name), metav1.GetOptions{})
+		obj, err := clientSet.CoreV1().Secrets(cmp.Namespace).Get(ctx, string(name), metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
 				log.With(zap.String("objectName", string(name))).Warnf("%s/%s not found in cluster", cmp.Kind, name)
@@ -82,7 +81,7 @@ func (cmp *Comparator) collectIncludedFromCluster(ctx context.Context) (map[stri
 	}
 
 	for name := range cfg.ExcludesIncludes.FullResourceNamesSkip[types.ObjectKind(cmp.Kind)] {
-		obj, err := clientSet.CoreV1().Secrets(cmp.Namespace).Get(string(name), metav1.GetOptions{})
+		obj, err := clientSet.CoreV1().Secrets(cmp.Namespace).Get(ctx, string(name), metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
 				log.With(zap.String("objectName", string(name))).Warnf("%s/%s not found in cluster", cmp.Kind, name)
@@ -98,8 +97,8 @@ func (cmp *Comparator) collectIncludedFromCluster(ctx context.Context) (map[stri
 
 func (cmp *Comparator) collectFromClusterWithoutExcludes(ctx context.Context) (map[string]corev1.Secret, error) {
 	var (
-		log = logging.FromContext(ctx)
-		cfg = config.FromContext(ctx)
+		log       = logging.FromContext(ctx)
+		cfg       = config.FromContext(ctx)
 		clientSet = kubectx.ClientSetFromContext(ctx)
 
 		batch   *corev1.SecretList
@@ -113,7 +112,6 @@ func (cmp *Comparator) collectFromClusterWithoutExcludes(ctx context.Context) (m
 	log.Debugf("%T: collectFromClusterWithoutExcludes started", cmp)
 	defer log.Debugf("%T: collectFromClusterWithoutExcludes completed", cmp)
 
-
 forOuterLoop:
 	for {
 		select {
@@ -121,10 +119,10 @@ forOuterLoop:
 			return nil, context.Canceled
 		default:
 			batch, err = clientSet.CoreV1().Secrets(cmp.Namespace).List(metav1.ListOptions{
-				Limit:    cmp.BatchSize,
+				Limit:         cmp.BatchSize,
 				FieldSelector: cmp.FieldSelectorProvider(ctx),
 				LabelSelector: cmp.LabelSelectorProvider(ctx),
-				Continue: continueToken,
+				Continue:      continueToken,
 			})
 			if err != nil {
 				return nil, err
@@ -199,13 +197,13 @@ func (cmp *Comparator) Compare(ctx context.Context) (*diff.DiffsStorage, error) 
 	return diff, nil
 }
 
-func  (cmp *Comparator) collect(ctx context.Context) ([]map[string]corev1.Secret, error) {
+func (cmp *Comparator) collect(ctx context.Context) ([]map[string]corev1.Secret, error) {
 	var (
 		log = logging.FromContext(ctx)
 		cfg = config.FromContext(ctx)
 
 		objects = make([]map[string]corev1.Secret, 2, 2)
-		wg = &sync.WaitGroup{}
+		wg      = &sync.WaitGroup{}
 
 		err error
 	)

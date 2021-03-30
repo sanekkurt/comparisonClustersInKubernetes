@@ -4,7 +4,6 @@ import (
 	"context"
 	"sync"
 
-	"go.uber.org/zap"
 	"k8s-cluster-comparator/internal/config"
 	"k8s-cluster-comparator/internal/kubernetes/diff"
 	"k8s-cluster-comparator/internal/kubernetes/kv_maps/configmap"
@@ -16,6 +15,8 @@ import (
 	"k8s-cluster-comparator/internal/kubernetes/tasks/job"
 	"k8s-cluster-comparator/internal/kubernetes/types"
 	"k8s-cluster-comparator/internal/logging"
+
+	"go.uber.org/zap"
 )
 
 type ResStr struct {
@@ -57,8 +58,8 @@ func CompareClusters(ctx context.Context) (*diff.DiffsStorage, error) {
 			configmap.NewComparator(ctx, namespace),
 			secret.NewComparator(ctx, namespace),
 
-			//service.NewServicesComparator(ctx, namespace),
-			//ingress.NewIngressesComparator(ctx, namespace),
+			service.NewServicesComparator(ctx, namespace),
+			ingress.NewIngressesComparator(ctx, namespace),
 		}
 
 		wg := &sync.WaitGroup{}

@@ -59,7 +59,7 @@ func (cmp *Comparator) collectIncludedFromCluster(ctx context.Context) (map[stri
 	defer log.Debugf("%T: collectIncludedFromCluster completed", cmp)
 
 	for name := range cfg.ExcludesIncludes.NameBasedSkip {
-		obj, err := clientSet.CoreV1().ConfigMaps(cmp.Namespace).Get(string(name), metav1.GetOptions{})
+		obj, err := clientSet.CoreV1().ConfigMaps(cmp.Namespace).Get(ctx, string(name), metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
 				log.With(zap.String("objectName", string(name))).Warnf("%s/%s not found in cluster", cmp.Kind, name)
@@ -71,7 +71,7 @@ func (cmp *Comparator) collectIncludedFromCluster(ctx context.Context) (map[stri
 	}
 
 	for name := range cfg.ExcludesIncludes.FullResourceNamesSkip[types.ObjectKind(cmp.Kind)] {
-		obj, err := clientSet.CoreV1().ConfigMaps(cmp.Namespace).Get(string(name), metav1.GetOptions{})
+		obj, err := clientSet.CoreV1().ConfigMaps(cmp.Namespace).Get(ctx, string(name), metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
 				log.With(zap.String("objectName", string(name))).Warnf("%s/%s not found in cluster", cmp.Kind, name)
@@ -108,7 +108,7 @@ forOuterLoop:
 		case <-ctx.Done():
 			return nil, context.Canceled
 		default:
-			batch, err = clientSet.CoreV1().ConfigMaps(cmp.Namespace).List(metav1.ListOptions{
+			batch, err = clientSet.CoreV1().ConfigMaps(cmp.Namespace).List(ctx, metav1.ListOptions{
 				Limit:         cmp.BatchSize,
 				FieldSelector: cmp.FieldSelectorProvider(ctx),
 				LabelSelector: cmp.LabelSelectorProvider(ctx),

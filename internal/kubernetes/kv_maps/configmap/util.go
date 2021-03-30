@@ -9,6 +9,6 @@ import (
 )
 
 func GetConfigMapByName(ctx context.Context, clientSet kubernetes.Interface, namespace, configMapName string) (*corev1.ConfigMap, error) {
-	configMap, err := clientSet.CoreV1().ConfigMaps(namespace).Get(configMapName, metav1.GetOptions{})
+	configMap, err := clientSet.CoreV1().ConfigMaps(namespace).Get(ctx, configMapName, metav1.GetOptions{})
 	return configMap, err
 }
