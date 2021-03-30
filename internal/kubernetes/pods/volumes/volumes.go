@@ -2,11 +2,12 @@ package volumes
 
 import (
 	"context"
+	"reflect"
+
 	"go.uber.org/zap"
 	"k8s-cluster-comparator/internal/kubernetes/types"
 	"k8s-cluster-comparator/internal/logging"
 	v1 "k8s.io/api/core/v1"
-	"reflect"
 )
 
 func CompareVolumes(ctx context.Context, volume1, volume2 v1.Volume) ([]types.KubeObjectsDifference, error) {
@@ -15,6 +16,9 @@ func CompareVolumes(ctx context.Context, volume1, volume2 v1.Volume) ([]types.Ku
 
 		//diffs = make([]types.KubeObjectsDifference, 0)
 	)
+
+	// TODO!!
+	return nil, nil
 
 	if volume1.Name != volume2.Name {
 		log.Warnf("%s: %s vs %s", ErrorVolumeDifferentNames.Error(), volume1.Name, volume2.Name)
