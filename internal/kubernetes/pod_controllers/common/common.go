@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"go.uber.org/zap"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
 	"k8s-cluster-comparator/internal/kubernetes/metadata"
@@ -22,7 +21,7 @@ type ClusterCompareTask struct {
 	IsAlreadyCheckedFlagsMap map[string]types.IsAlreadyComparedFlag
 }
 
-func ComparePodControllerSpecs(ctx context.Context, name string, apc1, apc2 *AbstractPodController) ([]types.KubeObjectsDifference, error) {
+func ComparePodControllerSpecs(ctx context.Context, name string, apc1, apc2 *AbstractPodController) ([]types.ObjectsDiff, error) {
 	var (
 		log = logging.FromContext(ctx).With(zap.String("objectName", name))
 
@@ -55,22 +54,6 @@ func ComparePodControllerSpecs(ctx context.Context, name string, apc1, apc2 *Abs
 		Template: apc2.PodTemplateSpec,
 		Selector: apc2.PodLabelSelector,
 	}}
-
-	matchLabelsString := make([]string, 2, 2)
-	var err error
-
-	for idx, obj := range objects {
-		matchLabels, err := metav1.LabelSelectorAsSelector(obj.Selector)
-		if err != nil {
-			return nil, fmt.Errorf("cannot convert PodSelector to LabelSelector: %w", err)
-		}
-
-		matchLabelsString[idx] = matchLabels.String()
-	}
-
-	if matchLabelsString[0] != matchLabelsString[1] {
-		log.Warnf("%s: %s vs %s", ErrorMatchLabelsNotEqual.Error(), matchLabelsString[0], matchLabelsString[1])
-	}
 
 	diff, err := pods.ComparePodSpecs(ctx, objects[0], objects[1])
 	if err != nil {
@@ -129,11 +112,11 @@ func ComparePodControllerSpecs(ctx context.Context, name string, apc1, apc2 *Abs
 //	return flag, nil
 //}
 
-func CompareAbstractPodControllerMaps(ctx context.Context, kind string, apcs1, apcs2 map[string]*AbstractPodController) ([]types.KubeObjectsDifference, error) {
+func CompareAbstractPodControllerMaps(ctx context.Context, kind string, apcs1, apcs2 map[string]*AbstractPodController) ([]types.ObjectsDiff, error) {
 	var (
 		log = logging.FromContext(ctx)
 
-		diffs = make([]types.KubeObjectsDifference, 0)
+		diffs = make([]types.ObjectsDiff, 0)
 	)
 
 	if len(apcs1) != len(apcs2) {
@@ -141,7 +124,7 @@ func CompareAbstractPodControllerMaps(ctx context.Context, kind string, apcs1, a
 	}
 
 	for name, obj1 := range apcs1 {
-		ctx = logging.WithLogger(ctx, log.With(zap.String("objectName", name)))
+		ctx := logging.WithLogger(ctx, log.With(zap.String("objectName", name)))
 
 		select {
 		case <-ctx.Done():

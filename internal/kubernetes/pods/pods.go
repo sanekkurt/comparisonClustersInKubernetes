@@ -2,8 +2,13 @@ package pods
 
 import (
 	"context"
+	"fmt"
 
 	"go.uber.org/zap"
+	"k8s-cluster-comparator/internal/config"
+	kubectx "k8s-cluster-comparator/internal/kubernetes/context"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes"
 
 	"k8s-cluster-comparator/internal/kubernetes/pods/containers"
 	"k8s-cluster-comparator/internal/kubernetes/types"
@@ -111,10 +116,14 @@ import (
 //}
 
 // ComparePodSpecs compares pod templates of two abstract pod controllers
-func ComparePodSpecs(ctx context.Context, spec1, spec2 types.InformationAboutObject) ([]types.KubeObjectsDifference, error) {
+func ComparePodSpecs(ctx context.Context, spec1, spec2 types.InformationAboutObject) ([]types.ObjectsDiff, error) {
 	var (
 		log = logging.FromContext(ctx)
-		diffs = make([]types.KubeObjectsDifference, 0)
+		cfg = config.FromContext(ctx)
+
+		diffs = make([]types.ObjectsDiff, 0)
+
+		namespace = kubectx.NamespaceFromContext(ctx)
 	)
 
 	log.Debugf("ComparePodSpecs (pod/%s, pod/%s): started", spec1.Template.Name, spec2.Template.Name)
@@ -132,14 +141,41 @@ func ComparePodSpecs(ctx context.Context, spec1, spec2 types.InformationAboutObj
 		return nil, nil
 	}
 
-	//pods1, err := common.GetPodsListOnMatchLabels(ctx, spec1.Selector.MatchLabels, namespace, clientSet1)
-	//if err != nil {
-	//	return false, err
-	//}
-	//pods2, err := common.GetPodsListOnMatchLabels(ctx, spec1.Selector.MatchLabels, namespace, clientSet2)
-	//if err != nil {
-	//	return false, err
-	//}
+	if cfg.Workloads.PodControllers.CompareImageDigestsAlways ||
+		cfg.Workloads.PodControllers.CompareImageDigestsOnRollingTag ||
+		cfg.Workloads.Containers.Env.EnvFrom.DeepCompareAlways ||
+		cfg.Workloads.Containers.Env.EnvFrom.DeepCompareOnRollingTag {
+
+		if namespace == "" {
+			return nil, fmt.Errorf("ComparePodSpecs: call to kubernetes-api is required but namespace is unknown")
+		}
+
+		var (
+			podLists = make([][]v1.Pod, 2, 2)
+			podList []v1.Pod
+			err error
+		)
+
+		type Struct struct{
+			Info types.InformationAboutObject
+			ClientSet kubernetes.Interface
+		}
+
+		for idx, spec := range []Struct{{
+			Info:      spec1,
+			ClientSet: cfg.Connections.Cluster1.ClientSet,
+		}, {
+			Info:      spec2,
+			ClientSet: cfg.Connections.Cluster2.ClientSet,
+		}} {
+			podList, err = GetPodsListOnMatchLabels(ctx, spec.ClientSet, namespace, spec.Info.Selector)
+			if err != nil {
+				return nil, err
+			}
+
+			podLists[idx] = podList
+		}
+	}
 
 	for podTemplate1ContainerIdx := range containersPod1 {
 		select {

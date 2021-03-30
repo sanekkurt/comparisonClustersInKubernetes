@@ -10,10 +10,10 @@ import (
 	"k8s-cluster-comparator/internal/logging"
 )
 
-func compareContainerExecParams(ctx context.Context, container1, container2 v1.Container) ([]types.KubeObjectsDifference, error) {
+func compareContainerExecParams(ctx context.Context, container1, container2 v1.Container) ([]types.ObjectsDiff, error) {
 	var (
 		log = logging.FromContext(ctx)
-		diffs = make([]types.KubeObjectsDifference, 0)
+		diffs = make([]types.ObjectsDiff, 0)
 	)
 
 	log.Debugf("ComparePodSpecs: start checking commands in container - %s", container1.Name)

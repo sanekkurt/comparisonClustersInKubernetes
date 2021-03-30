@@ -65,7 +65,7 @@ func getEnvValue(ctx context.Context, clientSet kubernetes.Interface, namespace 
 	return env.Value, nil
 }
 
-func compareEnvVarValueFroms(ctx context.Context, env1, env2 v12.EnvVar) ([]types.KubeObjectsDifference, error) {
+func compareEnvVarValueFroms(ctx context.Context, env1, env2 v12.EnvVar) ([]types.ObjectsDiff, error) {
 	log := logging.FromContext(ctx)
 
 	if env1.ValueFrom.ConfigMapKeyRef != nil && env2.ValueFrom.SecretKeyRef != nil ||
@@ -109,18 +109,23 @@ func compareEnvVarValueFroms(ctx context.Context, env1, env2 v12.EnvVar) ([]type
 	return nil, nil
 }
 
-func compareEnvVarValueSources(ctx context.Context, env1, env2 v12.EnvVar) ([]types.KubeObjectsDifference, error) {
-	log := logging.FromContext(ctx)
+func compareEnvVarValueSources(ctx context.Context, env1, env2 v12.EnvVar) ([]types.ObjectsDiff, error) {
+	var (
+		log = logging.FromContext(ctx)
+		diffs = make([]types.ObjectsDiff, 0)
+	)
 
 	if env1.ValueFrom == nil && env2.ValueFrom != nil || env1.ValueFrom != nil && env2.ValueFrom == nil {
 		log.Warnf("variable %s has different value sources: raw value vs ValueFrom", env1.Name)
 	}
 
 	if env1.ValueFrom != nil && env2.ValueFrom != nil {
-		_, err := compareEnvVarValueFroms(ctx, env1, env2)
+		diff, err := compareEnvVarValueFroms(ctx, env1, env2)
 		if err != nil  {
 			return nil, err
 		}
+
+		diffs = append(diffs, diff...)
 	}
 
 	if env1.Value != env2.Value {
@@ -180,10 +185,10 @@ func compareEnvVarValueSources(ctx context.Context, env1, env2 v12.EnvVar) ([]ty
 	//return fmt.Errorf("%w. Different ValueFrom: ValueFrom in container 1 - %s. ValueFrom in container 2 - %s", ErrorEnvironmentNotEqual, env1[pod1EnvIdx].ValueFrom, env2[pod1EnvIdx].ValueFrom)
 	//}
 
-	return nil, nil
+	return diffs, nil
 }
 
-func compareEnvVars(ctx context.Context, envIdx int, env1, env2 v12.EnvVar) ([]types.KubeObjectsDifference, error) {
+func compareEnvVars(ctx context.Context, envIdx int, env1, env2 v12.EnvVar) ([]types.ObjectsDiff, error) {
 	var (
 		log = logging.FromContext(ctx)
 
@@ -194,7 +199,7 @@ func compareEnvVars(ctx context.Context, envIdx int, env1, env2 v12.EnvVar) ([]t
 		log.Warnf("variable #%d: %s: %s vs %s", envIdx+1, ErrorContainerDifferentEnvVarNames.Error(), env1.Name, env2.Name)
 	}
 
-	_, err := compareEnvVarValueSources(ctx, env1, env2)
+	diff, err := compareEnvVarValueSources(ctx, env1, env2)
 	if err != nil {
 		return nil, err
 	}
@@ -209,15 +214,15 @@ func compareEnvVars(ctx context.Context, envIdx int, env1, env2 v12.EnvVar) ([]t
 	//	return false, err
 	//}
 
-	return nil, nil
+	return diff, nil
 }
 
 // Compare compare environment variables in container specs
-func Compare(ctx context.Context, env1, env2 []v12.EnvVar) ([]types.KubeObjectsDifference, error) {
+func Compare(ctx context.Context, env1, env2 []v12.EnvVar) ([]types.ObjectsDiff, error) {
 	var (
 		log = logging.FromContext(ctx)
 
-		diffs = make([]types.KubeObjectsDifference, 0)
+		diffs = make([]types.ObjectsDiff, 0)
 	)
 
 	log.Debugf("CompareEnvVars: started")
@@ -228,11 +233,21 @@ func Compare(ctx context.Context, env1, env2 []v12.EnvVar) ([]types.KubeObjectsD
 	}
 
 	for pod1EnvIdx := range env1 {
-		bDiff, err := compareEnvVars(ctx, pod1EnvIdx, env1[pod1EnvIdx], env2[pod1EnvIdx])
+		if pod1EnvIdx > len(env2) - 1 {
+			log.Warnf("CompareEnvVars: there are only %d envVars in 2nd cluster", len(env2))
+			break
+		}
+
+		err := compareEnvVars(ctx, pod1EnvIdx, env1[pod1EnvIdx], env2[pod1EnvIdx])
 		if err != nil {
 			return nil, err
 		}
-		diffs = append(diffs, bDiff...)
+
+		if batch.IsFinal() {
+			break
+		}
+
+		diffs = append(diffs, diff...)
 	}
 
 	if len(env2) > len(env1) {

@@ -47,18 +47,6 @@ func GetClientSet(kubeconfig string) *kubernetes.Clientset {
 	return clientset
 }
 
-//// GetPodsListOnMatchLabels get pods list
-//func GetPodsListOnMatchLabels(ctx context.Context, matchLabels map[string]string, namespace string, clientSet kubernetes.Interface) (*v12.PodList, error) { //nolint:gocritic,unused
-//	matchLabelsString := ConvertMatchLabelsToString(ctx, matchLabels)
-//
-//	pods, err := clientSet.CoreV1().Pods(namespace).List(metav1.ListOptions{LabelSelector: matchLabelsString})
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	return pods, nil
-//}
-
 //// ConvertMatchLabelsToString convert MatchLabels to string
 //func ConvertMatchLabelsToString(ctx context.Context, matchLabels map[string]string) string {
 //	var (

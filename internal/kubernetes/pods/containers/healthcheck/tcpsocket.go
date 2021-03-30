@@ -8,7 +8,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-func compareTCPSocketProbes(ctx context.Context, probe1, probe2 corev1.Probe) ([]types.KubeObjectsDifference, error) {
+func compareTCPSocketProbes(ctx context.Context, probe1, probe2 corev1.Probe) ([]types.ObjectsDiff, error) {
 	var (
 		log = logging.FromContext(ctx)
 	)

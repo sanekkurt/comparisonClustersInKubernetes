@@ -9,6 +9,7 @@ import (
 	"k8s-cluster-comparator/internal/config"
 	"k8s-cluster-comparator/internal/consts"
 	kubectx "k8s-cluster-comparator/internal/kubernetes/context"
+	"k8s-cluster-comparator/internal/kubernetes/diff"
 	pccommon "k8s-cluster-comparator/internal/kubernetes/pod_controllers/common"
 	"k8s-cluster-comparator/internal/kubernetes/types"
 	"k8s-cluster-comparator/internal/logging"
@@ -28,7 +29,7 @@ type Comparator struct {
 	BatchSize int64
 }
 
-func NewStatefulSetsComparator(ctx context.Context, namespace string) *Comparator {
+func NewComparator(ctx context.Context, namespace string) *Comparator {
 	return &Comparator{
 		Kind:      objectKind,
 		Namespace: namespace,
@@ -36,11 +37,11 @@ func NewStatefulSetsComparator(ctx context.Context, namespace string) *Comparato
 	}
 }
 
-func (cmp *Comparator) fieldSelectorProvider(ctx context.Context) string {
+func (cmp *Comparator) FieldSelectorProvider(ctx context.Context) string {
 	return ""
 }
 
-func (cmp *Comparator) labelSelectorProvider(ctx context.Context) string {
+func (cmp *Comparator) LabelSelectorProvider(ctx context.Context) string {
 	return ""
 }
 
@@ -108,8 +109,8 @@ forOuterLoop:
 		default:
 			batch, err = clientSet.AppsV1().StatefulSets(cmp.Namespace).List(metav1.ListOptions{
 				Limit:         cmp.BatchSize,
-				FieldSelector: cmp.fieldSelectorProvider(ctx),
-				LabelSelector: cmp.labelSelectorProvider(ctx),
+				FieldSelector: cmp.FieldSelectorProvider(ctx),
+				LabelSelector: cmp.LabelSelectorProvider(ctx),
 				Continue:      continueToken,
 			})
 			if err != nil {
@@ -164,7 +165,7 @@ func (cmp *Comparator) collectFromCluster(ctx context.Context) (map[string]appsv
 }
 
 // Compare compares list of StatefulSet objects in two given k8s-clusters
-func (cmp *Comparator) Compare(ctx context.Context) ([]types.KubeObjectsDifference, error) {
+func (cmp *Comparator) Compare(ctx context.Context) (*diff.DiffsStorage, error) {
 	var (
 		log = logging.FromContext(ctx).With(zap.String("kind", cmp.Kind))
 		cfg = config.FromContext(ctx)
@@ -225,7 +226,7 @@ func (cmp *Comparator) collect(ctx context.Context) ([]map[string]appsv1.Statefu
 	return objects, nil
 }
 
-func (cmp *Comparator) compare(ctx context.Context, map1, map2 map[string]appsv1.StatefulSet) ([]types.KubeObjectsDifference, error) {
+func (cmp *Comparator) compare(ctx context.Context, map1, map2 map[string]appsv1.StatefulSet) ([]types.ObjectsDiff, error) {
 	var (
 		apcs = make([]map[string]*pccommon.AbstractPodController, 2, 2)
 	)
@@ -234,7 +235,7 @@ func (cmp *Comparator) compare(ctx context.Context, map1, map2 map[string]appsv1
 		apcs[idx] = cmp.prepareAPCMap(ctx, objs)
 	}
 
-	diffs, err := pccommon.CompareAbstractPodControllerMaps(ctx, cmp.Kind, apcs[0], apcs[1])
+	diffs, err := pccommon.CompareAbstractPodControllerMaps(kubectx.WithNamespace(ctx, cmp.Namespace), cmp.Kind, apcs[0], apcs[1])
 	if err != nil {
 		return nil, err
 	}

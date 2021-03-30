@@ -8,10 +8,10 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
-func compareCommonProbeParams(ctx context.Context, probe1, probe2 v1.Probe) ([]types.KubeObjectsDifference, error) {
+func compareCommonProbeParams(ctx context.Context, probe1, probe2 v1.Probe) ([]types.ObjectsDiff, error) {
 	var (
 		log = logging.FromContext(ctx)
-		diffs = make([]types.KubeObjectsDifference, 0)
+		diffs = make([]types.ObjectsDiff, 0)
 	)
 
 	if probe1.FailureThreshold != probe2.FailureThreshold {

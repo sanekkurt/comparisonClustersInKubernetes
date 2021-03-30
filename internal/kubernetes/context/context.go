@@ -6,10 +6,12 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-type clientSetCtxKeyT string
+type ctxKey string
 
 var (
-	clientSetCtxKey clientSetCtxKeyT = "clientSetCtxKey"
+	clientSetCtxKey ctxKey = "clientSetCtxKey"
+
+	namespaceCtxKey ctxKey = "namespaceCtxKey"
 )
 
 func WithClientSet(ctx context.Context, cset kubernetes.Interface) context.Context {
@@ -23,4 +25,17 @@ func ClientSetFromContext(ctx context.Context) kubernetes.Interface {
 	}
 
 	return cfg
+}
+
+func WithNamespace(ctx context.Context, namespace string) context.Context {
+	return context.WithValue(ctx, namespaceCtxKey, namespace)
+}
+
+func NamespaceFromContext(ctx context.Context) string {
+	namespace, ok := ctx.Value(namespaceCtxKey).(string)
+	if !ok {
+		return ""
+	}
+
+	return namespace
 }

@@ -16,11 +16,11 @@ var (
 	ErrorContainerDifferentNames = errors.New("different container names in Pod specs")
 )
 
-func CompareContainerSpecs(ctx context.Context, container1, container2 v1.Container) ([]types.KubeObjectsDifference, error) {
+func CompareContainerSpecs(ctx context.Context, container1, container2 v1.Container) ([]types.ObjectsDiff, error) {
 	var (
 		log = logging.FromContext(ctx)
 
-		diffs = make([]types.KubeObjectsDifference, 0)
+		diffs = make([]types.ObjectsDiff, 0)
 	)
 
 	if container1.Name != container2.Name {

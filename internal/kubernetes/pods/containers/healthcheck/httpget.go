@@ -8,7 +8,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
-func compareHTTPGetProbes(ctx context.Context, probe1, probe2 v1.Probe) ([]types.KubeObjectsDifference, error) {
+func compareHTTPGetProbes(ctx context.Context, probe1, probe2 v1.Probe) ([]types.ObjectsDiff, error) {
 	var (
 		log = logging.FromContext(ctx)
 	)

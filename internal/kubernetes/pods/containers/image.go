@@ -24,7 +24,7 @@ const (
 	containerImageLabelTagSep = ":"
 )
 
-func compareContainerSpecImages(ctx context.Context, container1, container2 v1.Container) ([]types.KubeObjectsDifference, error) {
+func compareContainerSpecImages(ctx context.Context, container1, container2 v1.Container) ([]types.ObjectsDiff, error) {
 	var (
 		log = logging.FromContext(ctx)
 		cfg = config.FromContext(ctx)

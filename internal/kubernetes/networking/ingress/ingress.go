@@ -87,7 +87,7 @@ func NewIngressesComparator(ctx context.Context, namespace string) IngressesComp
 }
 
 // Compare compares list of ingresses objects in two given k8s-clusters
-func (cmd IngressesComparator) Compare(ctx context.Context, namespace string) ([]types.KubeObjectsDifference, error) {
+func (cmd IngressesComparator) Compare(ctx context.Context, namespace string) ([]types.ObjectsDiff, error) {
 	var (
 		log = logging.FromContext(ctx).With(zap.String("kind", ingressKind))
 		cfg = config.FromContext(ctx)
@@ -198,7 +198,7 @@ func setInformationAboutIngresses(ctx context.Context, map1, map2 map[string]typ
 	channel := make(chan bool, len(map1))
 
 	for name, index1 := range map1 {
-		ctx = logging.WithLogger(ctx, log.With(zap.String("objectName", name)))
+		ctx := logging.WithLogger(ctx, log.With(zap.String("objectName", name)))
 
 		if index2, ok := map2[name]; ok {
 			wg.Add(1)

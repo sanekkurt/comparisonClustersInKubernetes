@@ -7,6 +7,7 @@ import (
 	"k8s-cluster-comparator/internal/config"
 	"k8s-cluster-comparator/internal/interrupt"
 	kube "k8s-cluster-comparator/internal/kubernetes"
+	"k8s-cluster-comparator/internal/kubernetes/diff"
 	"k8s-cluster-comparator/internal/logging"
 )
 
@@ -48,6 +49,10 @@ func main() {
 	}()
 
 	ctx = config.With(ctx, cfg)
+
+	diffs := diff.NewDiffsStorage()
+
+	ctx = diff.With(ctx, diffs)
 
 	_, err = kube.CompareClusters(ctx)
 	if err != nil {

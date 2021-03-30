@@ -6,11 +6,14 @@ import (
 
 	"go.uber.org/zap"
 	"k8s-cluster-comparator/internal/config"
+	"k8s-cluster-comparator/internal/kubernetes/diff"
 	"k8s-cluster-comparator/internal/kubernetes/kv_maps/configmap"
 	"k8s-cluster-comparator/internal/kubernetes/kv_maps/secret"
 	"k8s-cluster-comparator/internal/kubernetes/pod_controllers/daemonset"
 	"k8s-cluster-comparator/internal/kubernetes/pod_controllers/deployment"
 	"k8s-cluster-comparator/internal/kubernetes/pod_controllers/statefulset"
+	"k8s-cluster-comparator/internal/kubernetes/tasks/cronjob"
+	"k8s-cluster-comparator/internal/kubernetes/tasks/job"
 	"k8s-cluster-comparator/internal/kubernetes/types"
 	"k8s-cluster-comparator/internal/logging"
 )
@@ -20,46 +23,45 @@ type ResStr struct {
 	Err              error
 }
 
-func compareKubeNamespaces(ctx context.Context, ns string) (*types.KubeObjectsDifference, error) {
-	log := logging.FromContext(ctx).With(zap.String("namespace", ns))
-
-	log.Debugf("Processing namespace/%s", ns)
-	defer func() {
-		log.Debugf("End of namespace/%s processing", ns)
-	}()
-
-	return nil, nil
-}
+//func compareKubeNamespaces(ctx context.Context, ns string) (*types.ObjectsDiff, error) {
+//	log := logging.FromContext(ctx).With(zap.String("namespace", ns))
+//
+//	log.Debugf("Processing namespace/%s", ns)
+//	defer func() {
+//		log.Debugf("End of namespace/%s processing", ns)
+//	}()
+//
+//	return nil, nil
+//}
 
 // CompareClusters main compare function, runs functions for comparing clusters by different parameters one at a time: Deployments, StatefulSets, DaemonSets, ConfigMaps
-func CompareClusters(ctx context.Context) ([]types.KubeObjectsDifference, error) {
+func CompareClusters(ctx context.Context) (*diff.DiffsStorage, error) {
 	var (
 		log = logging.FromContext(ctx)
 		cfg = config.FromContext(ctx)
 
-		diffs = make([]types.KubeObjectsDifference, 0)
+		diffs = diff.FromContext(ctx)
 	)
 
 	for _, namespace := range cfg.Connections.Namespaces {
 		log := log.With(zap.String("namespace", namespace))
 
 		comparators := []types.KubeResourceComparator{
-			deployment.NewDeploymentsComparator(ctx, namespace),
-			statefulset.NewStatefulSetsComparator(ctx, namespace),
-			daemonset.NewDaemonSetsComparator(ctx, namespace),
+			deployment.NewComparator(ctx, namespace),
+			statefulset.NewComparator(ctx, namespace),
+			daemonset.NewComparator(ctx, namespace),
 
-			//job.NewJobsComparator(ctx, namespace),
-			//cronjob.NewCronJobsComparator(ctx, namespace),
+			job.NewComparator(ctx, namespace),
+			cronjob.NewComparator(ctx, namespace),
 
-			configmap.NewConfigMapsComparator(ctx, namespace),
-			secret.NewSecretsComparator(ctx, namespace),
+			configmap.NewComparator(ctx, namespace),
+			secret.NewComparator(ctx, namespace),
 
 			//service.NewServicesComparator(ctx, namespace),
 			//ingress.NewIngressesComparator(ctx, namespace),
 		}
 
 		wg := &sync.WaitGroup{}
-		diffsCh := make(chan []types.KubeObjectsDifference, len(comparators))
 
 		for _, cmp := range comparators {
 			select {
@@ -78,23 +80,16 @@ func CompareClusters(ctx context.Context) ([]types.KubeObjectsDifference, error)
 						log.Debugf("%T completed", cmp)
 					}()
 
-					diffs, err := cmp.Compare(ctx)
+					_, err := cmp.Compare(ctx)
 					if err != nil {
 						log.Errorf("cannot call %T: %s", cmp, err.Error())
 						return
 					}
-
-					diffsCh <- diffs
 				}(wg)
 			}
 		}
 
 		wg.Wait()
-		close(diffsCh)
-
-		for diff := range diffsCh {
-			diffs = append(diffs, diff...)
-		}
 	}
 
 	return diffs, nil

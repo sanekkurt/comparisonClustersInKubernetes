@@ -10,6 +10,7 @@ import (
 	"k8s-cluster-comparator/internal/consts"
 	"k8s-cluster-comparator/internal/kubernetes/common"
 	kubectx "k8s-cluster-comparator/internal/kubernetes/context"
+	"k8s-cluster-comparator/internal/kubernetes/diff"
 	"k8s-cluster-comparator/internal/kubernetes/metadata"
 	"k8s-cluster-comparator/internal/kubernetes/types"
 	"k8s-cluster-comparator/internal/logging"
@@ -30,7 +31,7 @@ type Comparator struct {
 	BatchSize int64
 }
 
-func NewSecretsComparator(ctx context.Context, namespace string) *Comparator {
+func NewComparator(ctx context.Context, namespace string) *Comparator {
 	return &Comparator{
 		Kind:      objectKind,
 		Namespace: namespace,
@@ -39,7 +40,7 @@ func NewSecretsComparator(ctx context.Context, namespace string) *Comparator {
 	}
 }
 
-func (cmp *Comparator) fieldSelectorProvider(ctx context.Context) string {
+func (cmp *Comparator) FieldSelectorProvider(ctx context.Context) string {
 	var (
 		cfg = config.FromContext(ctx)
 		fieldSelector string
@@ -52,7 +53,7 @@ func (cmp *Comparator) fieldSelectorProvider(ctx context.Context) string {
 	return fieldSelector
 }
 
-func (cmp *Comparator) labelSelectorProvider(ctx context.Context) string {
+func (cmp *Comparator) LabelSelectorProvider(ctx context.Context) string {
 	return ""
 }
 
@@ -121,8 +122,8 @@ forOuterLoop:
 		default:
 			batch, err = clientSet.CoreV1().Secrets(cmp.Namespace).List(metav1.ListOptions{
 				Limit:    cmp.BatchSize,
-				FieldSelector: cmp.fieldSelectorProvider(ctx),
-				LabelSelector: cmp.labelSelectorProvider(ctx),
+				FieldSelector: cmp.FieldSelectorProvider(ctx),
+				LabelSelector: cmp.LabelSelectorProvider(ctx),
 				Continue: continueToken,
 			})
 			if err != nil {
@@ -173,7 +174,7 @@ func (cmp *Comparator) collectFromCluster(ctx context.Context) (map[string]corev
 }
 
 // Compare compares list of Secret objects in two given k8s-clusters
-func (cmp *Comparator) Compare(ctx context.Context) ([]types.KubeObjectsDifference, error) {
+func (cmp *Comparator) Compare(ctx context.Context) (*diff.DiffsStorage, error) {
 	var (
 		log = logging.FromContext(ctx).With(zap.String("kind", cmp.Kind))
 		cfg = config.FromContext(ctx)
@@ -230,11 +231,11 @@ func  (cmp *Comparator) collect(ctx context.Context) ([]map[string]corev1.Secret
 	return objects, nil
 }
 
-func (cmp *Comparator) compare(ctx context.Context, map1, map2 map[string]corev1.Secret) []types.KubeObjectsDifference {
+func (cmp *Comparator) compare(ctx context.Context, map1, map2 map[string]corev1.Secret) []types.ObjectsDiff {
 	var (
 		log = logging.FromContext(ctx)
 
-		diffs = make([]types.KubeObjectsDifference, 0)
+		diffs = make([]types.ObjectsDiff, 0)
 	)
 
 	if len(map1) != len(map2) {
@@ -242,7 +243,7 @@ func (cmp *Comparator) compare(ctx context.Context, map1, map2 map[string]corev1
 	}
 
 	for name, obj1 := range map1 {
-		ctx = logging.WithLogger(ctx, log.With(zap.String("objectName", name)))
+		ctx := logging.WithLogger(ctx, log.With(zap.String("objectName", name)))
 
 		select {
 		case <-ctx.Done():
@@ -269,7 +270,7 @@ func (cmp *Comparator) compare(ctx context.Context, map1, map2 map[string]corev1
 	return diffs
 }
 
-func compareSecretSpecs(ctx context.Context, name string, cm1, cm2 *corev1.Secret) []types.KubeObjectsDifference {
+func compareSecretSpecs(ctx context.Context, name string, cm1, cm2 *corev1.Secret) []types.ObjectsDiff {
 	var (
 		log = logging.FromContext(ctx).With(zap.String("objectName", name))
 		cfg = config.FromContext(ctx)

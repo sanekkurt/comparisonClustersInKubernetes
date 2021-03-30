@@ -11,11 +11,11 @@ import (
 	"k8s-cluster-comparator/internal/logging"
 )
 
-func Compare(ctx context.Context, container1, container2 corev1.Container) ([]types.KubeObjectsDifference, error) {
+func Compare(ctx context.Context, container1, container2 corev1.Container) ([]types.ObjectsDiff, error) {
 	var (
 		log = logging.FromContext(ctx)
 
-		diffs = make([]types.KubeObjectsDifference, 0)
+		diffs = make([]types.ObjectsDiff, 0)
 	)
 
 	if container1.LivenessProbe != nil && container2.LivenessProbe != nil {
@@ -49,13 +49,13 @@ func Compare(ctx context.Context, container1, container2 corev1.Container) ([]ty
 	return diffs, nil
 }
 
-func compareContainerProbes(ctx context.Context, probe1, probe2 corev1.Probe) ([]types.KubeObjectsDifference, error) {
+func compareContainerProbes(ctx context.Context, probe1, probe2 corev1.Probe) ([]types.ObjectsDiff, error) {
 	var (
 		log = logging.FromContext(ctx)
-		diffs = make([]types.KubeObjectsDifference, 0)
+		diffs = make([]types.ObjectsDiff, 0)
 	)
 
-	comparisons := []func(context.Context, corev1.Probe, corev1.Probe)([]types.KubeObjectsDifference, error){
+	comparisons := []func(context.Context, corev1.Probe, corev1.Probe)([]types.ObjectsDiff, error){
 		compareCommonProbeParams,
 		compareTCPSocketProbes,
 		compareHTTPGetProbes,

@@ -89,7 +89,7 @@ func NewServicesComparator(ctx context.Context, namespace string) ServicesCompar
 }
 
 // Compare compares list of services objects in two given k8s-clusters
-func (cmp ServicesComparator) Compare(ctx context.Context, namespace string) ([]types.KubeObjectsDifference, error) {
+func (cmp ServicesComparator) Compare(ctx context.Context, namespace string) ([]types.ObjectsDiff, error) {
 	var (
 		log = logging.FromContext(ctx).With(zap.String("kind", serviceKind))
 		cfg = config.FromContext(ctx)
@@ -200,7 +200,7 @@ func compareServicesSpecs(ctx context.Context, map1, map2 map[string]types.IsAlr
 	channel := make(chan bool, len(map1))
 
 	for name, index1 := range map1 {
-		ctx = logging.WithLogger(ctx, log.With(zap.String("objectName", name)))
+		ctx := logging.WithLogger(ctx, log.With(zap.String("objectName", name)))
 
 		if index2, ok := map2[name]; ok {
 			wg.Add(1)
