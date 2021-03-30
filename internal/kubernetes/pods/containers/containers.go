@@ -2,6 +2,7 @@ package containers
 
 import (
 	"context"
+
 	"k8s-cluster-comparator/internal/kubernetes/pods/containers/env"
 	"k8s-cluster-comparator/internal/kubernetes/pods/containers/healthcheck"
 	"k8s-cluster-comparator/internal/kubernetes/types"
@@ -46,5 +47,5 @@ func CompareContainerSpecs(ctx context.Context, container1, container2 v1.Contai
 	}
 	diffs = append(diffs, bDiff...)
 
-	return diffs, nil
+	return nil, nil
 }

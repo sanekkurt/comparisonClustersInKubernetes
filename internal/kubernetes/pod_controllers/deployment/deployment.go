@@ -188,12 +188,12 @@ func (cmp *Comparator) Compare(ctx context.Context) (*diff.DiffsStorage, error) 
 		return nil, fmt.Errorf("cannot retrieve objects for comparision: %w", err)
 	}
 
-	diff, err := cmp.compare(ctx, objects[0], objects[1])
+	_, err = cmp.compare(ctx, objects[0], objects[1])
 	if err != nil {
 		return nil, err
 	}
 
-	return diff, nil
+	return nil, nil
 }
 
 func (cmp *Comparator) collect(ctx context.Context) ([]map[string]appsv1.Deployment, error) {

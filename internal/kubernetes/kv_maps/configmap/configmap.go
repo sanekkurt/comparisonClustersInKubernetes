@@ -182,9 +182,9 @@ func (cmp *Comparator) Compare(ctx context.Context) (*diff.DiffsStorage, error) 
 		return nil, fmt.Errorf("cannot retrieve objects for comparision: %w", err)
 	}
 
-	diff := cmp.compare(ctx, objects[0], objects[1])
+	_ = cmp.compare(ctx, objects[0], objects[1])
 
-	return diff, nil
+	return nil, nil
 }
 
 func (cmp *Comparator) collect(ctx context.Context) ([]map[string]corev1.ConfigMap, error) {

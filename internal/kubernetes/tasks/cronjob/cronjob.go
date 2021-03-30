@@ -40,7 +40,6 @@ func NewComparator(ctx context.Context, namespace string) *Comparator {
 	}
 }
 
-
 func (cmp *Comparator) FieldSelectorProvider(ctx context.Context) string {
 	return ""
 }
@@ -62,7 +61,7 @@ func (cmp *Comparator) collectIncludedFromCluster(ctx context.Context) (map[stri
 	defer log.Debugf("%T: collectIncludedFromCluster completed", cmp)
 
 	for name := range cfg.ExcludesIncludes.NameBasedSkip {
-		obj, err := clientSet.BatchV1beta1().CronJobs(cmp.Namespace).Get(string(name), metav1.GetOptions{})
+		obj, err := clientSet.BatchV1beta1().CronJobs(cmp.Namespace).Get(ctx, string(name), metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
 				log.With(zap.String("objectName", string(name))).Warnf("%s/%s not found in cluster", cmp.Kind, name)
@@ -74,7 +73,7 @@ func (cmp *Comparator) collectIncludedFromCluster(ctx context.Context) (map[stri
 	}
 
 	for name := range cfg.ExcludesIncludes.FullResourceNamesSkip[types.ObjectKind(cmp.Kind)] {
-		obj, err := clientSet.BatchV1beta1().CronJobs(cmp.Namespace).Get(string(name), metav1.GetOptions{})
+		obj, err := clientSet.BatchV1beta1().CronJobs(cmp.Namespace).Get(ctx, string(name), metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
 				log.With(zap.String("objectName", string(name))).Warnf("%s/%s not found in cluster", cmp.Kind, name)
@@ -112,7 +111,7 @@ forOuterLoop:
 		case <-ctx.Done():
 			return nil, context.Canceled
 		default:
-			batch, err = clientSet.BatchV1beta1().CronJobs(cmp.Namespace).List(metav1.ListOptions{
+			batch, err = clientSet.BatchV1beta1().CronJobs(cmp.Namespace).List(ctx, metav1.ListOptions{
 				Limit:         cmp.BatchSize,
 				FieldSelector: cmp.FieldSelectorProvider(ctx),
 				LabelSelector: cmp.LabelSelectorProvider(ctx),
@@ -187,12 +186,12 @@ func (cmp *Comparator) Compare(ctx context.Context) (*diff.DiffsStorage, error) 
 		return nil, fmt.Errorf("cannot retrieve objects for comparision: %w", err)
 	}
 
-	diff, err := cmp.compare(ctx, objects[0], objects[1])
+	_, err = cmp.compare(ctx, objects[0], objects[1])
 	if err != nil {
 		return nil, err
 	}
 
-	return diff, nil
+	return nil, nil
 }
 
 func (cmp *Comparator) collect(ctx context.Context) ([]map[string]v1beta1.CronJob, error) {
@@ -280,11 +279,11 @@ func (cmp *Comparator) prepareAPCMap(ctx context.Context, objs map[string]v1beta
 				},
 				Meta: obj.ObjectMeta,
 			},
-			Name:             obj.Name,
-			Labels:           obj.Labels,
-			Annotations:      obj.Annotations,
-			Replicas:         nil,
-			PodTemplateSpec:  obj.Spec.JobTemplate.Spec.Template,
+			Name:            obj.Name,
+			Labels:          obj.Labels,
+			Annotations:     obj.Annotations,
+			Replicas:        nil,
+			PodTemplateSpec: obj.Spec.JobTemplate.Spec.Template,
 		}
 	}
 
@@ -318,4 +317,3 @@ func (cmp *Comparator) compareCronJobSpecs(ctx context.Context, map1, map2 map[s
 
 	return nil, nil
 }
-

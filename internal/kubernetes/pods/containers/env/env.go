@@ -126,7 +126,7 @@ func compareEnvVarValueSources(ctx context.Context, env1, env2 v12.EnvVar) ([]ty
 			return nil, err
 		}
 
-		diffs = append(diffs, diff...)
+		//diffs = append(diffs, diff...)
 	}
 
 	if env1.Value != env2.Value {

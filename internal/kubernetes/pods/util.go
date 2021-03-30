@@ -15,7 +15,7 @@ func GetPodsListOnMatchLabels(ctx context.Context, clientSet kubernetes.Interfac
 		return nil, err
 	}
 
-	pods, err := clientSet.CoreV1().Pods(namespace).List(metav1.ListOptions{
+	pods, err := clientSet.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
 		LabelSelector: matchLabels.String(),
 	})
 	if err != nil {

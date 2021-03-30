@@ -3,6 +3,9 @@ package pods
 import (
 	"context"
 	"fmt"
+
+	"k8s-cluster-comparator/internal/config"
+	kubectx "k8s-cluster-comparator/internal/kubernetes/context"
 	"k8s-cluster-comparator/internal/kubernetes/pods/nodeSelectors"
 	"k8s-cluster-comparator/internal/kubernetes/pods/volumes"
 
@@ -119,7 +122,10 @@ import (
 func ComparePodSpecs(ctx context.Context, spec1, spec2 types.InformationAboutObject) ([]types.ObjectsDiff, error) {
 	var (
 		log   = logging.FromContext(ctx)
+		cfg   = config.FromContext(ctx)
 		diffs = make([]types.KubeObjectsDifference, 0)
+
+		namespace = kubectx.NamespaceFromContext(ctx)
 	)
 
 	log.Debugf("ComparePodSpecs (pod/%s, pod/%s): started", spec1.Template.Name, spec2.Template.Name)
@@ -235,5 +241,5 @@ func ComparePodSpecs(ctx context.Context, spec1, spec2 types.InformationAboutObj
 		}
 	}
 
-	return diffs, nil
+	return nil, nil
 }

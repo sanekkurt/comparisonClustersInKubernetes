@@ -118,7 +118,7 @@ forOuterLoop:
 		case <-ctx.Done():
 			return nil, context.Canceled
 		default:
-			batch, err = clientSet.CoreV1().Secrets(cmp.Namespace).List(metav1.ListOptions{
+			batch, err = clientSet.CoreV1().Secrets(cmp.Namespace).List(ctx, metav1.ListOptions{
 				Limit:         cmp.BatchSize,
 				FieldSelector: cmp.FieldSelectorProvider(ctx),
 				LabelSelector: cmp.LabelSelectorProvider(ctx),
@@ -192,9 +192,9 @@ func (cmp *Comparator) Compare(ctx context.Context) (*diff.DiffsStorage, error) 
 		return nil, fmt.Errorf("cannot retrieve objects for comparision: %w", err)
 	}
 
-	diff := cmp.compare(ctx, objects[0], objects[1])
+	_ = cmp.compare(ctx, objects[0], objects[1])
 
-	return diff, nil
+	return nil, nil
 }
 
 func (cmp *Comparator) collect(ctx context.Context) ([]map[string]corev1.Secret, error) {
