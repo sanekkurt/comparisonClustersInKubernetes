@@ -205,7 +205,7 @@ func (cmp *Comparator) Compare(ctx context.Context) (*diff.DiffsStorage, error) 
 		return nil, fmt.Errorf("cannot retrieve objects for comparision: %w", err)
 	}
 
-	_, err = cmp.compare(ctx, objects[0], objects[1])
+	err = cmp.compare(ctx, objects[0], objects[1])
 	if err != nil {
 		return nil, err
 	}
@@ -245,7 +245,7 @@ func (cmp *Comparator) collect(ctx context.Context) ([]map[string]batchv1.Job, e
 	return objects, nil
 }
 
-func (cmp *Comparator) compare(ctx context.Context, map1, map2 map[string]batchv1.Job) ([]types.ObjectsDiff, error) {
+func (cmp *Comparator) compare(ctx context.Context, map1, map2 map[string]batchv1.Job) error {
 	var (
 		apcs = make([]map[string]*pccommon.AbstractPodController, 2, 2)
 	)
@@ -254,12 +254,12 @@ func (cmp *Comparator) compare(ctx context.Context, map1, map2 map[string]batchv
 		apcs[idx] = cmp.prepareAPCMap(ctx, objs)
 	}
 
-	diffs, err := pccommon.CompareAbstractPodControllerMaps(kubectx.WithNamespace(ctx, cmp.Namespace), cmp.Kind, apcs[0], apcs[1])
+	err := pccommon.CompareAbstractPodControllerMaps(kubectx.WithNamespace(ctx, cmp.Namespace), cmp.Kind, apcs[0], apcs[1])
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return diffs, nil
+	return nil
 }
 
 func (cmp *Comparator) prepareAPCMap(ctx context.Context, objs map[string]batchv1.Job) map[string]*pccommon.AbstractPodController {

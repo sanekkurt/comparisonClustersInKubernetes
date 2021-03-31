@@ -2,50 +2,49 @@ package containers
 
 import (
 	"context"
+	"go.uber.org/zap"
+	"k8s-cluster-comparator/internal/kubernetes/diff"
 
 	"k8s-cluster-comparator/internal/kubernetes/pods/containers/env"
 	"k8s-cluster-comparator/internal/kubernetes/pods/containers/healthcheck"
 	"k8s-cluster-comparator/internal/kubernetes/types"
 
 	v1 "k8s.io/api/core/v1"
-
-	"k8s-cluster-comparator/internal/logging"
 )
 
-func CompareContainerSpecs(ctx context.Context, container1, container2 v1.Container) ([]types.KubeObjectsDifference, error) {
+func CompareContainerSpecs(ctx context.Context, container1, container2 v1.Container) error {
 	var (
-		log = logging.FromContext(ctx)
+		//log = logging.FromContext(ctx)
 
-		diffs = make([]types.ObjectsDiff, 0)
+		diffsBatch = ctx.Value("diffBatch").(*diff.DiffsBatch)
+		meta       = ctx.Value("apcMeta").(types.AbstractObjectMetadata)
 	)
 
 	if container1.Name != container2.Name {
-		log.Warnf("%s: %s vs %s", ErrorContainerDifferentNames.Error(), container1.Name, container2.Name)
+		diffsBatch.Add(ctx, &meta.Type, &meta.Meta, true, zap.WarnLevel, "%s: %s vs %s", ErrorContainerDifferentNames.Error(), container1.Name, container2.Name)
+		//log.Warnf("%s: %s vs %s", ErrorContainerDifferentNames.Error(), container1.Name, container2.Name)
+		return nil
 	}
 
-	bDiff, err := compareContainerSpecImages(ctx, container1, container2)
+	err := compareContainerSpecImages(ctx, container1, container2)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	diffs = append(diffs, bDiff...)
 
-	bDiff, err = env.Compare(ctx, container1.Env, container2.Env)
+	err = env.Compare(ctx, container1.Env, container2.Env)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	diffs = append(diffs, bDiff...)
 
-	bDiff, err = compareContainerExecParams(ctx, container1, container2)
+	err = compareContainerExecParams(ctx, container1, container2)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	diffs = append(diffs, bDiff...)
 
-	bDiff, err = healthcheck.Compare(ctx, container1, container2)
+	err = healthcheck.Compare(ctx, container1, container2)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	diffs = append(diffs, bDiff...)
 
-	return nil, nil
+	return nil
 }

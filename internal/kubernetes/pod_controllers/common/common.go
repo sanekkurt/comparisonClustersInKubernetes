@@ -3,8 +3,8 @@ package common
 import (
 	"context"
 	"fmt"
-
 	"go.uber.org/zap"
+	"k8s-cluster-comparator/internal/kubernetes/diff"
 	"k8s.io/client-go/kubernetes"
 
 	"k8s-cluster-comparator/internal/kubernetes/metadata"
@@ -21,15 +21,24 @@ type ClusterCompareTask struct {
 	IsAlreadyCheckedFlagsMap map[string]types.IsAlreadyComparedFlag
 }
 
-func ComparePodControllerSpecs(ctx context.Context, name string, apc1, apc2 *AbstractPodController) ([]types.ObjectsDiff, error) {
+func ComparePodControllerSpecs(ctx context.Context, name string, apc1, apc2 *AbstractPodController) error {
 	var (
 		log = logging.FromContext(ctx).With(zap.String("objectName", name))
 
 		kind = types.ObjectKindWrapper(apc1.Metadata.Type.Kind)
+
+		diffStorage = diff.FromContext(ctx)
 	)
+
+	ctx = context.WithValue(ctx, "diffBatch", diffStorage.NewBatch())
+	ctx = context.WithValue(ctx, "apcMeta", apc1.Metadata)
 	ctx = logging.WithLogger(ctx, log)
 
-	metadata.IsMetadataDiffers(ctx, apc1.Metadata.Meta, apc2.Metadata.Meta)
+	diffsBatch := ctx.Value("diffBatch").(*diff.DiffsBatch)
+
+	//??????????????????????????????????????????????????????????????????????????????????
+	metadata.IsMetadataDiffers(ctx, apc1.Metadata.Meta, apc2.Metadata.Meta) // ?????????????????????????????????
+	//??????????????????????????????????????????????????????????????????????????????????
 
 	log.Debugf("%s/%s: check started", kind, apc1.Name)
 	defer func() {
@@ -38,12 +47,14 @@ func ComparePodControllerSpecs(ctx context.Context, name string, apc1, apc2 *Abs
 
 	if apc1.Replicas != nil || apc2.Replicas != nil {
 		if *apc1.Replicas != *apc2.Replicas {
-			log.Warnf("the number of replicas is different: %d and %d", *apc1.Replicas, *apc2.Replicas)
+			//log.Warnf("the number of replicas is different: %d and %d", *apc1.Replicas, *apc2.Replicas)
+			diffsBatch.Add(ctx, &apc1.Metadata.Type, &apc1.Metadata.Meta, false, zap.WarnLevel, "the number of replicas is different: %d and %d", *apc1.Replicas, *apc2.Replicas)
 		}
 	}
 
 	if (apc1.Replicas != nil && apc2.Replicas == nil) || (apc2.Replicas != nil && apc1.Replicas == nil) {
-		log.Warnf("strange replicas specification difference: %#v and %#v", apc1.Replicas, apc2.Replicas)
+		//log.Warnf("strange replicas specification difference: %#v and %#v", apc1.Replicas, apc2.Replicas)
+		diffsBatch.Add(ctx, &apc1.Metadata.Type, &apc1.Metadata.Meta, false, zap.WarnLevel, "strange replicas specification difference: %#v and %#v", apc1.Replicas, apc2.Replicas)
 	}
 
 	// fill in the information that will be used for comparison
@@ -55,12 +66,12 @@ func ComparePodControllerSpecs(ctx context.Context, name string, apc1, apc2 *Abs
 		Selector: apc2.PodLabelSelector,
 	}}
 
-	diff, err := pods.ComparePodSpecs(ctx, objects[0], objects[1])
+	err := pods.ComparePodSpecs(ctx, objects[0], objects[1])
 	if err != nil {
-		return nil, fmt.Errorf("cannot compare Pod Specs: %w", err)
+		return fmt.Errorf("cannot compare Pod Specs: %w", err)
 	}
 
-	return diff, nil
+	return nil
 }
 
 //// ComparePodControllers compares abstracted pod controller specifications in two k8s clusters
@@ -112,11 +123,9 @@ func ComparePodControllerSpecs(ctx context.Context, name string, apc1, apc2 *Abs
 //	return flag, nil
 //}
 
-func CompareAbstractPodControllerMaps(ctx context.Context, kind string, apcs1, apcs2 map[string]*AbstractPodController) ([]types.ObjectsDiff, error) {
+func CompareAbstractPodControllerMaps(ctx context.Context, kind string, apcs1, apcs2 map[string]*AbstractPodController) error {
 	var (
 		log = logging.FromContext(ctx)
-
-		diffs = make([]types.ObjectsDiff, 0)
 	)
 
 	if len(apcs1) != len(apcs2) {
@@ -128,15 +137,13 @@ func CompareAbstractPodControllerMaps(ctx context.Context, kind string, apcs1, a
 
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return ctx.Err()
 		default:
 			if obj2, ok := apcs2[name]; ok {
-				diff, err := ComparePodControllerSpecs(ctx, name, obj1, obj2)
+				err := ComparePodControllerSpecs(ctx, name, obj1, obj2)
 				if err != nil {
-					return nil, err
+					return err
 				}
-
-				diffs = append(diffs, diff...)
 
 				delete(apcs1, name)
 				delete(apcs2, name)
@@ -150,5 +157,5 @@ func CompareAbstractPodControllerMaps(ctx context.Context, kind string, apcs1, a
 		log.With(zap.String("objectName", name)).Warnf("%s/%s does not exist in 1st cluster", kind, name)
 	}
 
-	return diffs, nil
+	return nil
 }

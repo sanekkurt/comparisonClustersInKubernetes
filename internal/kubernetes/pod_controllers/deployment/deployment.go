@@ -174,6 +174,7 @@ func (cmp *Comparator) Compare(ctx context.Context) (*diff.DiffsStorage, error) 
 
 		err error
 	)
+
 	ctx = logging.WithLogger(ctx, log)
 
 	if !cfg.Workloads.Enabled ||
@@ -188,7 +189,7 @@ func (cmp *Comparator) Compare(ctx context.Context) (*diff.DiffsStorage, error) 
 		return nil, fmt.Errorf("cannot retrieve objects for comparision: %w", err)
 	}
 
-	_, err = cmp.compare(ctx, objects[0], objects[1])
+	err = cmp.compare(ctx, objects[0], objects[1])
 	if err != nil {
 		return nil, err
 	}
@@ -228,7 +229,7 @@ func (cmp *Comparator) collect(ctx context.Context) ([]map[string]appsv1.Deploym
 	return objects, nil
 }
 
-func (cmp *Comparator) compare(ctx context.Context, map1, map2 map[string]appsv1.Deployment) ([]types.ObjectsDiff, error) {
+func (cmp *Comparator) compare(ctx context.Context, map1, map2 map[string]appsv1.Deployment) error {
 	var (
 		apcs = make([]map[string]*pccommon.AbstractPodController, 2, 2)
 		cfg  = config.FromContext(ctx)
@@ -241,23 +242,23 @@ func (cmp *Comparator) compare(ctx context.Context, map1, map2 map[string]appsv1
 	if cfg.Common.CheckingCreationTimestampDeploymentsLimit {
 		clearApcs, err := cmp.prepareReplicaSets(ctx, apcs)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		diffs, err := pccommon.CompareAbstractPodControllerMaps(kubectx.WithNamespace(ctx, cmp.Namespace), cmp.Kind, clearApcs[0], clearApcs[1])
+		err = pccommon.CompareAbstractPodControllerMaps(kubectx.WithNamespace(ctx, cmp.Namespace), cmp.Kind, clearApcs[0], clearApcs[1])
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		return diffs, nil
+		return nil
 
 	} else {
-		diffs, err := pccommon.CompareAbstractPodControllerMaps(kubectx.WithNamespace(ctx, cmp.Namespace), cmp.Kind, apcs[0], apcs[1])
+		err := pccommon.CompareAbstractPodControllerMaps(kubectx.WithNamespace(ctx, cmp.Namespace), cmp.Kind, apcs[0], apcs[1])
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		return diffs, nil
+		return nil
 	}
 
 }

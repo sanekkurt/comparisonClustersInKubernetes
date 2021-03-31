@@ -186,7 +186,7 @@ func (cmp *Comparator) Compare(ctx context.Context) (*diff.DiffsStorage, error) 
 		return nil, fmt.Errorf("cannot retrieve objects for comparision: %w", err)
 	}
 
-	_, err = cmp.compare(ctx, objects[0], objects[1])
+	err = cmp.compare(ctx, objects[0], objects[1])
 	if err != nil {
 		return nil, err
 	}
@@ -226,29 +226,23 @@ func (cmp *Comparator) collect(ctx context.Context) ([]map[string]v1beta1.CronJo
 	return objects, nil
 }
 
-func (cmp *Comparator) compare(ctx context.Context, map1, map2 map[string]v1beta1.CronJob) ([]types.ObjectsDiff, error) {
-	var (
-		diffs = make([]types.ObjectsDiff, 0, 0)
-	)
+func (cmp *Comparator) compare(ctx context.Context, map1, map2 map[string]v1beta1.CronJob) error {
+	var ()
 
-	diff, err := cmp.compareCronJobSpecs(ctx, map1, map2)
+	err := cmp.compareCronJobSpecs(ctx, map1, map2)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	diffs = append(diffs, diff...)
-
-	diff, err = cmp.compareAPCs(ctx, map1, map2)
+	err = cmp.compareAPCs(ctx, map1, map2)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	diffs = append(diffs, diff...)
-
-	return diffs, nil
+	return nil
 }
 
-func (cmp *Comparator) compareAPCs(ctx context.Context, map1, map2 map[string]v1beta1.CronJob) ([]types.ObjectsDiff, error) {
+func (cmp *Comparator) compareAPCs(ctx context.Context, map1, map2 map[string]v1beta1.CronJob) error {
 	var (
 		apcs = make([]map[string]*pccommon.AbstractPodController, 2, 2)
 	)
@@ -257,12 +251,12 @@ func (cmp *Comparator) compareAPCs(ctx context.Context, map1, map2 map[string]v1
 		apcs[idx] = cmp.prepareAPCMap(ctx, objs)
 	}
 
-	diffs, err := pccommon.CompareAbstractPodControllerMaps(kubectx.WithNamespace(ctx, cmp.Namespace), cmp.Kind, apcs[0], apcs[1])
+	err := pccommon.CompareAbstractPodControllerMaps(kubectx.WithNamespace(ctx, cmp.Namespace), cmp.Kind, apcs[0], apcs[1])
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return diffs, nil
+	return nil
 }
 
 func (cmp *Comparator) prepareAPCMap(ctx context.Context, objs map[string]v1beta1.CronJob) map[string]*pccommon.AbstractPodController {
@@ -290,7 +284,7 @@ func (cmp *Comparator) prepareAPCMap(ctx context.Context, objs map[string]v1beta
 	return apcs
 }
 
-func (cmp *Comparator) compareCronJobSpecs(ctx context.Context, map1, map2 map[string]v1beta1.CronJob) ([]types.ObjectsDiff, error) {
+func (cmp *Comparator) compareCronJobSpecs(ctx context.Context, map1, map2 map[string]v1beta1.CronJob) error {
 	var (
 		log = logging.FromContext(ctx)
 	)
@@ -315,5 +309,5 @@ func (cmp *Comparator) compareCronJobSpecs(ctx context.Context, map1, map2 map[s
 		log.With(zap.String("objectName", name)).Warnf("%s does not exist in 1st cluster", cmp.Kind)
 	}
 
-	return nil, nil
+	return nil
 }

@@ -5,8 +5,8 @@ import (
 )
 
 var (
-	ErrorContainerHealthCheckLivenessProbeDifferent  = errors.New("livenessProbe in containers are different")
-	ErrorContainerHealthCheckReadinessProbeDifferent = errors.New("readinessProbe in containers are different")
+	ErrorContainerHealthCheckLivenessProbeDifferent  = errors.New("one of the containers does not have a liveness probe")
+	ErrorContainerHealthCheckReadinessProbeDifferent = errors.New("one of the containers does not have a readiness probe")
 
 	ErrorContainerHealthCheckDifferentExec        = errors.New("the exec command missing in one probe")
 	ErrorContainerHealthCheckDifferentExecCommand = errors.New("the exec command in probe not equal")

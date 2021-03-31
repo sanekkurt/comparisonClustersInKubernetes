@@ -3,6 +3,7 @@ package pods
 import (
 	"context"
 	"fmt"
+	"k8s-cluster-comparator/internal/kubernetes/diff"
 
 	"k8s-cluster-comparator/internal/config"
 	kubectx "k8s-cluster-comparator/internal/kubernetes/context"
@@ -119,11 +120,13 @@ import (
 //}
 
 // ComparePodSpecs compares pod templates of two abstract pod controllers
-func ComparePodSpecs(ctx context.Context, spec1, spec2 types.InformationAboutObject) ([]types.ObjectsDiff, error) {
+func ComparePodSpecs(ctx context.Context, spec1, spec2 types.InformationAboutObject) error {
 	var (
-		log   = logging.FromContext(ctx)
-		cfg   = config.FromContext(ctx)
-		diffs = make([]types.KubeObjectsDifference, 0)
+		log = logging.FromContext(ctx)
+		cfg = config.FromContext(ctx)
+
+		diffsBatch = ctx.Value("diffBatch").(*diff.DiffsBatch)
+		meta       = ctx.Value("apcMeta").(types.AbstractObjectMetadata)
 
 		namespace = kubectx.NamespaceFromContext(ctx)
 	)
@@ -143,8 +146,9 @@ func ComparePodSpecs(ctx context.Context, spec1, spec2 types.InformationAboutObj
 	)
 
 	if len(containersPod1) != len(containersPod2) {
-		log.Warnf("%s: %d vs %d", ErrorDiffersContainersNumberInTemplates.Error(), len(containersPod1), len(containersPod2))
-		return nil, nil
+		diffsBatch.Add(ctx, &meta.Type, &meta.Meta, true, zap.WarnLevel, "%s: %d vs %d", ErrorDiffersContainersNumberInTemplates.Error(), len(containersPod1), len(containersPod2))
+		//log.Warnf("%s: %d vs %d", ErrorDiffersContainersNumberInTemplates.Error(), len(containersPod1), len(containersPod2))
+		return nil
 	}
 
 	if cfg.Workloads.PodControllers.CompareImageDigestsAlways ||
@@ -153,7 +157,7 @@ func ComparePodSpecs(ctx context.Context, spec1, spec2 types.InformationAboutObj
 		cfg.Workloads.Containers.Env.EnvFrom.DeepCompareOnRollingTag {
 
 		if namespace == "" {
-			return nil, fmt.Errorf("ComparePodSpecs: call to kubernetes-api is required but namespace is unknown")
+			return fmt.Errorf("ComparePodSpecs: call to kubernetes-api is required but namespace is unknown")
 		}
 
 		var (
@@ -176,7 +180,7 @@ func ComparePodSpecs(ctx context.Context, spec1, spec2 types.InformationAboutObj
 		}} {
 			podList, err = GetPodsListOnMatchLabels(ctx, spec.ClientSet, namespace, spec.Info.Selector)
 			if err != nil {
-				return nil, err
+				return err
 			}
 
 			podLists[idx] = podList
@@ -186,16 +190,16 @@ func ComparePodSpecs(ctx context.Context, spec1, spec2 types.InformationAboutObj
 	for podTemplate1ContainerIdx := range containersPod1 {
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return ctx.Err()
 		default:
 			log := log.With(zap.String("containerName", containersPod1[podTemplate1ContainerIdx].Name))
 			ctx := logging.WithLogger(ctx, log)
 
-			diff, err := containers.CompareContainerSpecs(ctx, containersPod1[podTemplate1ContainerIdx], containersPod2[podTemplate1ContainerIdx])
+			err := containers.CompareContainerSpecs(ctx, containersPod1[podTemplate1ContainerIdx], containersPod2[podTemplate1ContainerIdx])
 			if err != nil {
-				return nil, err
+				return err
 			}
-			diffs = append(diffs, diff...)
+
 		}
 	}
 
@@ -203,13 +207,13 @@ func ComparePodSpecs(ctx context.Context, spec1, spec2 types.InformationAboutObj
 
 		if len(nodeSelectorPod1) != len(nodeSelectorPod2) {
 			log.Warnf("%s", ErrorDiffersNodeSelectorsNumberInTemplates.Error())
-			return nil, nil
+			return nil
 		}
 
 	} else if nodeSelectorPod1 != nil || nodeSelectorPod2 != nil {
 
 		log.Warnf("%s", ErrorPodMissingNodeSelectors.Error())
-		return nil, nil
+		return nil
 
 	} else {
 		nodeSelectors.CompareNodeSelectors(ctx, nodeSelectorPod1, nodeSelectorPod2)
@@ -218,28 +222,28 @@ func ComparePodSpecs(ctx context.Context, spec1, spec2 types.InformationAboutObj
 	if volumesPod1 != nil && volumesPod2 != nil {
 		if len(volumesPod1) != len(volumesPod2) {
 			log.Warnf("%s", ErrorDiffersVolumesNumberInTemplates.Error())
-			return nil, nil
+			return nil
 		}
 	} else if volumesPod1 != nil && volumesPod2 != nil {
 		log.Warnf("%s", ErrorPodMissingVolumes.Error())
-		return nil, nil
+		return nil
 	}
 
 	for podTemplate1VolumeIdx := range volumesPod1 {
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return ctx.Err()
 		default:
 			log := log.With(zap.String("volumeName", volumesPod1[podTemplate1VolumeIdx].Name))
 			ctx := logging.WithLogger(ctx, log)
 
-			diff, err := volumes.CompareVolumes(ctx, volumesPod1[podTemplate1VolumeIdx], volumesPod2[podTemplate1VolumeIdx])
+			_, err := volumes.CompareVolumes(ctx, volumesPod1[podTemplate1VolumeIdx], volumesPod2[podTemplate1VolumeIdx])
 			if err != nil {
-				return nil, err
+				return err
 			}
-			diffs = append(diffs, diff...)
+
 		}
 	}
 
-	return nil, nil
+	return nil
 }

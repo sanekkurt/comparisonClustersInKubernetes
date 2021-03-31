@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"k8s-cluster-comparator/internal/config"
-	"k8s-cluster-comparator/internal/kubernetes/diff"
 	"k8s-cluster-comparator/internal/kubernetes/kv_maps/configmap"
 	"k8s-cluster-comparator/internal/kubernetes/kv_maps/secret"
 	"k8s-cluster-comparator/internal/kubernetes/networking/ingress"
@@ -38,12 +37,10 @@ type ResStr struct {
 //}
 
 // CompareClusters main compare function, runs functions for comparing clusters by different parameters one at a time: Deployments, StatefulSets, DaemonSets, ConfigMaps
-func CompareClusters(ctx context.Context) (*diff.DiffsStorage, error) {
+func CompareClusters(ctx context.Context) error {
 	var (
 		log = logging.FromContext(ctx)
 		cfg = config.FromContext(ctx)
-
-		diffs = diff.FromContext(ctx)
 	)
 
 	for _, namespace := range cfg.Connections.Namespaces {
@@ -95,5 +92,5 @@ func CompareClusters(ctx context.Context) (*diff.DiffsStorage, error) {
 		wg.Wait()
 	}
 
-	return diffs, nil
+	return nil
 }

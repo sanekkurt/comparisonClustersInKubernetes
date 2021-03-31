@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"k8s-cluster-comparator/internal/kubernetes/diff"
 	"os"
 
 	"k8s-cluster-comparator/internal/config"
@@ -49,6 +50,9 @@ func main() {
 	}()
 
 	ctx = config.With(ctx, cfg)
+	ctx = diff.With(ctx, &diff.DiffsStorage{
+		Batches: make([]diff.DiffsBatch, 0, 0),
+	})
 
 	err = discovery.DetectKubeVersions(ctx)
 	if err != nil {
@@ -56,7 +60,7 @@ func main() {
 		return
 	}
 
-	_, err = kube.CompareClusters(ctx)
+	err = kube.CompareClusters(ctx)
 	if err != nil {
 		log.Errorf("cannot compare clusters: %s", err.Error())
 		return
