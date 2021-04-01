@@ -25,17 +25,6 @@ type ResStr struct {
 	Err              error
 }
 
-//func compareKubeNamespaces(ctx context.Context, ns string) (*types.ObjectsDiff, error) {
-//	log := logging.FromContext(ctx).With(zap.String("namespace", ns))
-//
-//	log.Debugf("Processing namespace/%s", ns)
-//	defer func() {
-//		log.Debugf("End of namespace/%s processing", ns)
-//	}()
-//
-//	return nil, nil
-//}
-
 // CompareClusters main compare function, runs functions for comparing clusters by different parameters one at a time: Deployments, StatefulSets, DaemonSets, ConfigMaps
 func CompareClusters(ctx context.Context) error {
 	var (
