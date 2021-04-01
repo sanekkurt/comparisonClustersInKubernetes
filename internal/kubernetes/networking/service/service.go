@@ -258,11 +258,9 @@ func (cmp *Comparator) collect(ctx context.Context) ([]map[string]v12.Service, e
 	return objects, nil
 }
 
-func (cmp *Comparator) compare(ctx context.Context, map1, map2 map[string]v12.Service) []types.KubeObjectsDifference {
+func (cmp *Comparator) compare(ctx context.Context, map1, map2 map[string]v12.Service) error {
 	var (
 		log = logging.FromContext(ctx)
-
-		diffs = make([]types.KubeObjectsDifference, 0)
 	)
 
 	if len(map1) != len(map2) {
@@ -278,9 +276,7 @@ func (cmp *Comparator) compare(ctx context.Context, map1, map2 map[string]v12.Se
 			return nil
 		default:
 			if obj2, ok := map2[name]; ok {
-				diff := compareServicesSpecs(ctx, name, &obj1, &obj2)
-
-				diffs = append(diffs, diff...)
+				compareServicesSpecs(ctx, name, &obj1, &obj2)
 
 				delete(map1, name)
 				delete(map2, name)
@@ -294,7 +290,7 @@ func (cmp *Comparator) compare(ctx context.Context, map1, map2 map[string]v12.Se
 		log.With(zap.String("objectName", name)).Warnf("%s does not exist in 1st cluster", cmp.Kind)
 	}
 
-	return diffs
+	return nil
 }
 
 func fillInComparisonMap(ctx context.Context, namespace string, limit int64) (*v12.ServiceList, error) {
@@ -436,10 +432,15 @@ func fillInComparisonMap(ctx context.Context, namespace string, limit int64) (*v
 //}
 
 //compareServicesSpecs set information about services
-func compareServicesSpecs(ctx context.Context, name string, svc1, svc2 *v12.Service) []types.KubeObjectsDifference {
+func compareServicesSpecs(ctx context.Context, name string, svc1, svc2 *v12.Service) {
 	var (
 		log = logging.FromContext(ctx)
+
+		diffStorage = diff.DiffStorageFromContext(ctx)
+		diffsBatch  = diffStorage.NewBatch(svc1.TypeMeta, svc1.ObjectMeta)
 	)
+
+	ctx = diff.WithDiffBatch(ctx, diffsBatch)
 
 	ctx = logging.WithLogger(ctx, log)
 
@@ -449,12 +450,9 @@ func compareServicesSpecs(ctx context.Context, name string, svc1, svc2 *v12.Serv
 	}()
 
 	metadata.IsMetadataDiffers(ctx, svc1.ObjectMeta, svc2.ObjectMeta)
-	err := compareSpecInServices(ctx, *svc1, *svc2)
-	if err != nil {
-		log.Warnf(err.Error())
-	}
+	compareSpecInServices(ctx, *svc1, *svc2)
 
-	return nil
+	return
 }
 
 //func compareServiceSpecInternals(ctx context.Context, wg *sync.WaitGroup, channel chan bool, name string, svc1, svc2 *v12.Service) {
@@ -486,48 +484,55 @@ func compareServicesSpecs(ctx context.Context, name string, svc1, svc2 *v12.Serv
 //}
 
 // compareSpecInServices compares spec in services
-func compareSpecInServices(ctx context.Context, service1, service2 v12.Service) error {
+func compareSpecInServices(ctx context.Context, service1, service2 v12.Service) {
 	var (
 		log = logging.FromContext(ctx)
+
+		diffsBatch = diff.DiffBatchFromContext(ctx)
 	)
 
 	select {
 	case <-ctx.Done():
 		log.Warnw(context.Canceled.Error())
-		return nil
+		return
 	default:
 		if len(service1.Spec.Ports) != len(service2.Spec.Ports) {
-			log.Warnf("%s. %d vs %d", ErrorPortsCountDifferent.Error(), len(service1.Spec.Ports), len(service2.Spec.Ports))
-			return nil
+			//log.Warnf("%s. %d vs %d", ErrorPortsCountDifferent.Error(), len(service1.Spec.Ports), len(service2.Spec.Ports))
+			diffsBatch.Add(ctx, true, zap.WarnLevel, "%s. %d vs %d", ErrorPortsCountDifferent.Error(), len(service1.Spec.Ports), len(service2.Spec.Ports))
+			return
 		}
 
 		for index, value := range service1.Spec.Ports {
 			if value != service2.Spec.Ports[index] {
 				//return fmt.Errorf("%w. Name service: '%s'. First service: %s-%d-%s. Second service: %s-%d-%s", ErrorPortInServicesDifferent, service1.Name, value.Name, value.Port, value.Protocol, service2.Spec.Ports[index].Name, service2.Spec.Ports[index].Port, service2.Spec.Ports[index].Protocol)
-				log.Warnf("%s. %s-%d-%s vs %s-%d-%s", ErrorPortInServicesDifferent.Error(), value.Name, value.Port, value.Protocol, service2.Spec.Ports[index].Name, service2.Spec.Ports[index].Port, service2.Spec.Ports[index].Protocol)
-				return nil
+				//log.Warnf("%s. %s-%d-%s vs %s-%d-%s", ErrorPortInServicesDifferent.Error(), value.Name, value.Port, value.Protocol, service2.Spec.Ports[index].Name, service2.Spec.Ports[index].Port, service2.Spec.Ports[index].Protocol)
+				diffsBatch.Add(ctx, true, zap.WarnLevel, "%s. %s-%d-%s vs %s-%d-%s", ErrorPortInServicesDifferent.Error(), value.Name, value.Port, value.Protocol, service2.Spec.Ports[index].Name, service2.Spec.Ports[index].Port, service2.Spec.Ports[index].Protocol)
+				return
 			}
 		}
 
 		if len(service1.Spec.Selector) != len(service2.Spec.Selector) {
 			//return fmt.Errorf("%w. Name service: '%s'. In first service - %d selectors, in second service - '%d' selectors", ErrorSelectorsCountDifferent, service1.Name, len(service1.Spec.Selector), len(service2.Spec.Selector))
-			log.Warnf("%s. %d vs %d", ErrorSelectorsCountDifferent.Error(), len(service1.Spec.Selector), len(service2.Spec.Selector))
-			return nil
+			//log.Warnf("%s. %d vs %d", ErrorSelectorsCountDifferent.Error(), len(service1.Spec.Selector), len(service2.Spec.Selector))
+			diffsBatch.Add(ctx, true, zap.WarnLevel, "%s. %d vs %d", ErrorSelectorsCountDifferent.Error(), len(service1.Spec.Selector), len(service2.Spec.Selector))
+			return
 		}
 
 		for key, value := range service1.Spec.Selector {
 			if service2.Spec.Selector[key] != value {
 				//return fmt.Errorf("%w. Name service: '%s'. First service: %s-%s. Second service: %s-%s", ErrorSelectorInServicesDifferent, service1.Name, key, value, key, service2.Spec.Selector[key])
-				log.Warnf("%s. %s-%s vs %s-%s", ErrorSelectorInServicesDifferent.Error(), key, value, key, service2.Spec.Selector[key])
-				return nil
+				//log.Warnf("%s. %s-%s vs %s-%s", ErrorSelectorInServicesDifferent.Error(), key, value, key, service2.Spec.Selector[key])
+				diffsBatch.Add(ctx, true, zap.WarnLevel, "%s. %s-%s vs %s-%s", ErrorSelectorInServicesDifferent.Error(), key, value, key, service2.Spec.Selector[key])
+				return
 
 			}
 		}
 
 		if service1.Spec.Type != service2.Spec.Type {
 			//return fmt.Errorf("%w. Name service: '%s'. First service type: %s. Second service type: %s", ErrorTypeInServicesDifferent, service1.Name, service1.Spec.Type, service2.Spec.Type)
-			log.Warnf("%s. %s vs %s", ErrorTypeInServicesDifferent.Error(), service1.Spec.Type, service2.Spec.Type)
+			//log.Warnf("%s. %s vs %s", ErrorTypeInServicesDifferent.Error(), service1.Spec.Type, service2.Spec.Type)
+			diffsBatch.Add(ctx, false, zap.WarnLevel, "%s. %s vs %s", ErrorTypeInServicesDifferent.Error(), service1.Spec.Type, service2.Spec.Type)
 		}
-		return nil
+		return
 	}
 }

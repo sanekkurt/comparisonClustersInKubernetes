@@ -12,7 +12,7 @@ func compareCommonProbeParams(ctx context.Context, probe1, probe2 v1.Probe) {
 	var (
 		//log = logging.FromContext(ctx)
 
-		diffsBatch = ctx.Value("diffBatch").(*diff.DiffsBatch)
+		diffsBatch = diff.DiffBatchFromContext(ctx)
 
 		//diffs = make([]types.ObjectsDiff, 0)
 	)

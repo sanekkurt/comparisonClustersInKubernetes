@@ -126,12 +126,15 @@ func ComparePodSpecs(ctx context.Context, spec1, spec2 types.InformationAboutObj
 		log = logging.FromContext(ctx)
 		cfg = config.FromContext(ctx)
 
-		diffsBatch = ctx.Value("diffBatch").(*diff.DiffsBatch)
+		//diffsBatch = ctx.Value("diffBatch").(*diff.DiffsBatch)
+		diffsBatch = diff.DiffBatchFromContext(ctx)
 
 		namespace = kubectx.NamespaceFromContext(ctx)
 	)
 
-	log.Debugf("ComparePodSpecs (pod/%s, pod/%s): started", spec1.Template.Name, spec2.Template.Name)
+	fmt.Println(spec1.Template.Name)
+
+	log.Debugf("ComparePodSpecs started")
 	defer func() {
 		log.Debug("ComparePodSpecs: completed")
 	}()

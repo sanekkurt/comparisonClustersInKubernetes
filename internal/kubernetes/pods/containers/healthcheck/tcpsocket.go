@@ -12,7 +12,7 @@ func compareTCPSocketProbes(ctx context.Context, probe1, probe2 corev1.Probe) {
 	var (
 		//log = logging.FromContext(ctx)
 
-		diffsBatch = ctx.Value("diffBatch").(*diff.DiffsBatch)
+		diffsBatch = diff.DiffBatchFromContext(ctx)
 	)
 
 	if probe1.TCPSocket != nil && probe2.TCPSocket != nil {

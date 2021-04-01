@@ -15,7 +15,7 @@ func compareContainerExecParams(ctx context.Context, container1, container2 v1.C
 	var (
 		log = logging.FromContext(ctx)
 
-		diffsBatch = ctx.Value("diffBatch").(*diff.DiffsBatch)
+		diffsBatch = diff.DiffBatchFromContext(ctx)
 	)
 
 	log.Debugf("ComparePodSpecs: start checking commands in container - %s", container1.Name)

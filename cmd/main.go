@@ -50,7 +50,7 @@ func main() {
 	}()
 
 	ctx = config.With(ctx, cfg)
-	ctx = diff.With(ctx, &diff.DiffsStorage{
+	ctx = diff.WithDiffStorage(ctx, &diff.DiffsStorage{
 		Batches: make([]diff.DiffsBatch, 0, 0),
 	})
 

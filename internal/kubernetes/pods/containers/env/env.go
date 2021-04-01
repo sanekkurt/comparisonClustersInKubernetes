@@ -70,7 +70,7 @@ func getEnvValue(ctx context.Context, clientSet kubernetes.Interface, namespace 
 func compareEnvVarValueFroms(ctx context.Context, env1, env2 v12.EnvVar) error {
 	var (
 		//log = logging.FromContext(ctx)
-		diffsBatch = ctx.Value("diffBatch").(*diff.DiffsBatch)
+		diffsBatch = diff.DiffBatchFromContext(ctx)
 	)
 
 	if env1.ValueFrom.ConfigMapKeyRef != nil && env2.ValueFrom.SecretKeyRef != nil ||
@@ -124,7 +124,7 @@ func compareEnvVarValueSources(ctx context.Context, env1, env2 v12.EnvVar) error
 	var (
 		//log   = logging.FromContext(ctx)
 		//diffs = make([]types.ObjectsDiff, 0)
-		diffsBatch = ctx.Value("diffBatch").(*diff.DiffsBatch)
+		diffsBatch = diff.DiffBatchFromContext(ctx)
 	)
 
 	if env1.ValueFrom == nil && env2.ValueFrom != nil || env1.ValueFrom != nil && env2.ValueFrom == nil {
@@ -149,17 +149,17 @@ func compareEnvVarValueSources(ctx context.Context, env1, env2 v12.EnvVar) error
 	return nil
 }
 
-func compareEnvVars(ctx context.Context, envIdx int, env1, env2 v12.EnvVar) error {
+func compareEnvVars(ctx context.Context, env1, env2 v12.EnvVar) error {
 	var (
-		//log = logging.FromContext(ctx)
+	//log = logging.FromContext(ctx)
 
-		diffsBatch = ctx.Value("diffBatch").(*diff.DiffsBatch)
+	//		diffsBatch = diff.DiffBatchFromContext(ctx)
 	)
 
-	if env1.Name != env2.Name {
-		diffsBatch.Add(ctx, false, zapcore.WarnLevel, "variable #%d: %s: %s vs %s", envIdx+1, ErrorContainerDifferentEnvVarNames.Error(), env1.Name, env2.Name)
-		//log.Warnf("variable #%d: %s: %s vs %s", envIdx+1, ErrorContainerDifferentEnvVarNames.Error(), env1.Name, env2.Name)
-	}
+	//if env1.Name != env2.Name {
+	//	diffsBatch.Add(ctx, false, zapcore.WarnLevel, "variable #%d: %s: %s vs %s", envIdx+1, ErrorContainerDifferentEnvVarNames.Error(), env1.Name, env2.Name)
+	//	//log.Warnf("variable #%d: %s: %s vs %s", envIdx+1, ErrorContainerDifferentEnvVarNames.Error(), env1.Name, env2.Name)
+	//}
 
 	err := compareEnvVarValueSources(ctx, env1, env2)
 	if err != nil {
@@ -170,39 +170,78 @@ func compareEnvVars(ctx context.Context, envIdx int, env1, env2 v12.EnvVar) erro
 }
 
 // Compare compare environment variables in container specs
-func Compare(ctx context.Context, env1, env2 []v12.EnvVar) error {
+func Compare(ctx context.Context, envs1, envs2 []v12.EnvVar) error {
 	var (
 		log = logging.FromContext(ctx)
 
-		diffsBatch = ctx.Value("diffBatch").(*diff.DiffsBatch)
+		diffsBatch = diff.DiffBatchFromContext(ctx)
 	)
 
 	log.Debugf("CompareEnvVars: started")
 	defer log.Debugf("CompareEnvVars: completed")
 
-	if len(env1) != len(env2) {
+	if len(envs1) != len(envs2) {
 		//log.Warnf("%s: %d vs %d", ErrorContainerDifferentEnvVarsNumber.Error(), len(env1), len(env2))
-		diffsBatch.Add(ctx, false, zapcore.WarnLevel, "%s: %d vs %d", ErrorContainerDifferentEnvVarsNumber.Error(), len(env1), len(env2))
+		diffsBatch.Add(ctx, false, zapcore.WarnLevel, "%s: %d vs %d", ErrorContainerDifferentEnvVarsNumber.Error(), len(envs1), len(envs2))
 	}
 
-	for pod1EnvIdx := range env1 {
-		if pod1EnvIdx > len(env2)-1 {
-			//log.Warnf("CompareEnvVars: there are only %d envVars in 2nd cluster", len(env2))
-			diffsBatch.Add(ctx, false, zapcore.WarnLevel, "CompareEnvVars: there are only %d envVars in 2nd cluster", len(env2))
-			break
-		}
-		err := compareEnvVars(ctx, pod1EnvIdx, env1[pod1EnvIdx], env2[pod1EnvIdx])
-		if err != nil {
-			return err
-		}
+	//for pod1EnvIdx := range env1 {
+	//	if pod1EnvIdx > len(env2)-1 {
+	//		//log.Warnf("CompareEnvVars: there are only %d envVars in 2nd cluster", len(env2))
+	//		diffsBatch.Add(ctx, false, zapcore.WarnLevel, "CompareEnvVars: there are only %d envVars in 2nd cluster", len(env2))
+	//		break
+	//	}
+	//	err := compareEnvVars(ctx, pod1EnvIdx, env1[pod1EnvIdx], env2[pod1EnvIdx])
+	//	if err != nil {
+	//		return err
+	//	}
+	//
+	//}
+	//
+	//if len(envs2) > len(envs1) {
+	//	for idx := 1 + (len(envs2) - len(envs1)); idx < len(envs2); idx++ {
+	//		log.Warnf("env variable #%d '%s' does not exist in 1st cluster", idx+1, envs2[idx].Name)
+	//	}
+	//}
 
+	mapEnv1 := makeEnvMap(envs1)
+	mapEnv2 := makeEnvMap(envs2)
+
+	for key, value := range mapEnv1 {
+		if _, ok := mapEnv2[key]; ok {
+			err := compareEnvVars(ctx, value, mapEnv2[key])
+			if err != nil {
+				return err
+			}
+
+			delete(mapEnv1, key)
+			delete(mapEnv2, key)
+		}
 	}
 
-	if len(env2) > len(env1) {
-		for idx := 1 + (len(env2) - len(env1)); idx < len(env2); idx++ {
-			log.Warnf("env variable #%d '%s' does not exist in 1st cluster", idx+1, env2[idx].Name)
+	if len(mapEnv1) > 0 {
+		for key, _ := range mapEnv1 {
+			//log.Warnf("env variable '%s' does not exist in 2st cluster", key)
+			diffsBatch.Add(ctx, false, zapcore.WarnLevel, "env variable '%s' does not exist in 2st cluster", key)
+		}
+	}
+
+	if len(mapEnv2) > 0 {
+		for key, _ := range mapEnv2 {
+			//log.Warnf("env variable '%s' does not exist in 1st cluster", key)
+			diffsBatch.Add(ctx, false, zapcore.WarnLevel, "env variable '%s' does not exist in 1st cluster", key)
 		}
 	}
 
 	return nil
+}
+
+func makeEnvMap(envs []v12.EnvVar) map[string]v12.EnvVar {
+	newEnvMap := make(map[string]v12.EnvVar, len(envs))
+
+	for _, value := range envs {
+		newEnvMap[value.Name] = value
+	}
+
+	return newEnvMap
 }

@@ -219,12 +219,16 @@ func (cmp *Comparator) collect(ctx context.Context) ([]map[string]corev1.ConfigM
 	return objects, nil
 }
 
-func compareConfigMapSpecs(ctx context.Context, name string, cm1, cm2 *corev1.ConfigMap) []types.ObjectsDiff {
+func compareConfigMapSpecs(ctx context.Context, name string, cm1, cm2 *corev1.ConfigMap) {
 	var (
 		log = logging.FromContext(ctx).With(zap.String("objectName", name))
 		cfg = config.FromContext(ctx)
+
+		diffStorage = diff.DiffStorageFromContext(ctx)
+		diffsBatch  = diffStorage.NewBatch(cm1.TypeMeta, cm2.ObjectMeta)
 	)
 
+	ctx = diff.WithDiffBatch(ctx, diffsBatch)
 	ctx = logging.WithLogger(ctx, log)
 
 	log.Debugf("configmap/%s compare started", name)
@@ -235,14 +239,12 @@ func compareConfigMapSpecs(ctx context.Context, name string, cm1, cm2 *corev1.Co
 	metadata.IsMetadataDiffers(ctx, cm1.ObjectMeta, cm2.ObjectMeta)
 	common.AreKVMapsEqual(ctx, cm1.Data, cm2.Data, nil, cfg.Configs.ConfigMaps.DumpDifferentValues)
 
-	return nil
+	return
 }
 
-func (cmp *Comparator) compare(ctx context.Context, map1, map2 map[string]corev1.ConfigMap) []types.ObjectsDiff {
+func (cmp *Comparator) compare(ctx context.Context, map1, map2 map[string]corev1.ConfigMap) error {
 	var (
 		log = logging.FromContext(ctx)
-
-		diffs = make([]types.ObjectsDiff, 0)
 	)
 
 	if len(map1) != len(map2) {
@@ -258,9 +260,8 @@ func (cmp *Comparator) compare(ctx context.Context, map1, map2 map[string]corev1
 			return nil
 		default:
 			if obj2, ok := map2[name]; ok {
-				diff := compareConfigMapSpecs(ctx, name, &obj1, &obj2)
 
-				diffs = append(diffs, diff...)
+				compareConfigMapSpecs(ctx, name, &obj1, &obj2)
 
 				delete(map1, name)
 				delete(map2, name)
@@ -274,5 +275,5 @@ func (cmp *Comparator) compare(ctx context.Context, map1, map2 map[string]corev1
 		log.With(zap.String("objectName", name)).Warnf("%s does not exist in 1st cluster", cmp.Kind)
 	}
 
-	return diffs
+	return nil
 }

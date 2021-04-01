@@ -30,7 +30,7 @@ func compareContainerSpecImages(ctx context.Context, container1, container2 v1.C
 		log = logging.FromContext(ctx)
 		cfg = config.FromContext(ctx)
 
-		diffsBatch = ctx.Value("diffBatch").(*diff.DiffsBatch)
+		diffsBatch = diff.DiffBatchFromContext(ctx)
 	)
 
 	var (

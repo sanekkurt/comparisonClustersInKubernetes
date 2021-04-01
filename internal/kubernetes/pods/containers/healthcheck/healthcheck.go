@@ -16,7 +16,7 @@ func Compare(ctx context.Context, container1, container2 corev1.Container) error
 	var (
 		log = logging.FromContext(ctx)
 
-		diffsBatch = ctx.Value("diffBatch").(*diff.DiffsBatch)
+		diffsBatch = diff.DiffBatchFromContext(ctx)
 	)
 
 	if container1.LivenessProbe != nil && container2.LivenessProbe != nil {

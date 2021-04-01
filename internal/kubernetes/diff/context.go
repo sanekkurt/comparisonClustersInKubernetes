@@ -8,17 +8,31 @@ type ctxKey string
 
 var (
 	diffsStoragePtrCtxKey ctxKey = "diffsStoragePtrCtxKey"
+	diffsBatchPtrCtxKey   ctxKey = "diffsBatchPtrCtxKey"
 )
 
-func With(ctx context.Context, diffs *DiffsStorage) context.Context {
+func WithDiffStorage(ctx context.Context, diffs *DiffsStorage) context.Context {
 	return context.WithValue(ctx, diffsStoragePtrCtxKey, diffs)
 }
 
-func FromContext(ctx context.Context) *DiffsStorage {
-	diffs, ok := ctx.Value(diffsStoragePtrCtxKey).(*DiffsStorage)
+func DiffStorageFromContext(ctx context.Context) *DiffsStorage {
+	diffsStorage, ok := ctx.Value(diffsStoragePtrCtxKey).(*DiffsStorage)
 	if !ok {
 		return nil
 	}
 
-	return diffs
+	return diffsStorage
+}
+
+func WithDiffBatch(ctx context.Context, batch *DiffsBatch) context.Context {
+	return context.WithValue(ctx, diffsBatchPtrCtxKey, batch)
+}
+
+func DiffBatchFromContext(ctx context.Context) *DiffsBatch {
+	diffsBatch, ok := ctx.Value(diffsBatchPtrCtxKey).(*DiffsBatch)
+	if !ok {
+		return nil
+	}
+
+	return diffsBatch
 }

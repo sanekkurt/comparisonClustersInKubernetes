@@ -12,7 +12,7 @@ import (
 func compareExecProbes(ctx context.Context, probe1, probe2 v1.Probe) {
 	var (
 		//log = logging.FromContext(ctx)
-		diffsBatch = ctx.Value("diffBatch").(*diff.DiffsBatch)
+		diffsBatch = diff.DiffBatchFromContext(ctx)
 	)
 
 	if probe1.Exec != nil && probe2.Exec != nil {

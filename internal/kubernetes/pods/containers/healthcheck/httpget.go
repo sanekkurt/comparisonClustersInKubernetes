@@ -9,7 +9,7 @@ import (
 
 func compareHTTPGetProbes(ctx context.Context, probe1, probe2 v1.Probe) {
 	var (
-		diffsBatch = ctx.Value("diffBatch").(*diff.DiffsBatch)
+		diffsBatch = diff.DiffBatchFromContext(ctx)
 	)
 
 	if probe1.HTTPGet != nil && probe2.HTTPGet != nil {

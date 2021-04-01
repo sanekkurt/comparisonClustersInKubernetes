@@ -3,6 +3,7 @@ package common
 import (
 	"bytes"
 	"context"
+	"k8s-cluster-comparator/internal/kubernetes/diff"
 	"strings"
 
 	"go.uber.org/zap"
@@ -13,7 +14,10 @@ import (
 
 // AreKVMapsEqual is a general function to compare two key-value maps
 func AreKVMapsEqual(ctx context.Context, map1, map2 types.KVMap, skipKeys map[string]struct{}, dumpValues bool) bool {
-	log := logging.FromContext(ctx)
+	var (
+		log        = logging.FromContext(ctx)
+		diffsBatch = diff.DiffBatchFromContext(ctx)
+	)
 
 	for k, val1 := range map1 {
 		if skipKeys != nil {
@@ -28,8 +32,8 @@ func AreKVMapsEqual(ctx context.Context, map1, map2 types.KVMap, skipKeys map[st
 		}
 
 		if _, ok := map2[k]; !ok {
-			log.With(zap.String("key", k)).Warn("key does not exist in map2")
-
+			//log.With(zap.String("key", k)).Warn("key does not exist in map2")
+			diffsBatch.Add(ctx, false, zap.WarnLevel, "key %s does not exist in map2", k)
 			delete(map1, k)
 			delete(map2, k)
 
@@ -37,13 +41,16 @@ func AreKVMapsEqual(ctx context.Context, map1, map2 types.KVMap, skipKeys map[st
 		}
 
 		if strings.Compare(val1, map2[k]) != 0 {
-			log := log.With(zap.String("key", k))
+			//log := log.With(zap.String("key", k))
 
 			if dumpValues {
-				log = log.With(zap.String("value1", val1), zap.String("value2", map2[k]))
+				//log = log.With(zap.String("value1", val1), zap.String("value2", map2[k]))
+				diffsBatch.Add(ctx, false, zap.WarnLevel, "key values do not match. %s: %s vs %s", k, val1, map2[k])
+			} else {
+				diffsBatch.Add(ctx, false, zap.WarnLevel, "key %s values do not match", k)
 			}
 
-			log.Warn("key values do not match")
+			//log.Warn("key values do not match")
 
 			delete(map1, k)
 			delete(map2, k)

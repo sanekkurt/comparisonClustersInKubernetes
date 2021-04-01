@@ -15,7 +15,7 @@ func CompareContainerSpecs(ctx context.Context, container1, container2 v1.Contai
 	var (
 		//log = logging.FromContext(ctx)
 
-		diffsBatch = ctx.Value("diffBatch").(*diff.DiffsBatch)
+		diffsBatch = diff.DiffBatchFromContext(ctx)
 	)
 
 	if container1.Name != container2.Name {
