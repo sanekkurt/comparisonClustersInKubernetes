@@ -3,6 +3,7 @@ package pods
 import (
 	"context"
 	"fmt"
+
 	"k8s-cluster-comparator/internal/kubernetes/diff"
 
 	"k8s-cluster-comparator/internal/config"
@@ -126,7 +127,6 @@ func ComparePodSpecs(ctx context.Context, spec1, spec2 types.InformationAboutObj
 		cfg = config.FromContext(ctx)
 
 		diffsBatch = ctx.Value("diffBatch").(*diff.DiffsBatch)
-		meta       = ctx.Value("apcMeta").(types.AbstractObjectMetadata)
 
 		namespace = kubectx.NamespaceFromContext(ctx)
 	)
@@ -146,7 +146,7 @@ func ComparePodSpecs(ctx context.Context, spec1, spec2 types.InformationAboutObj
 	)
 
 	if len(containersPod1) != len(containersPod2) {
-		diffsBatch.Add(ctx, &meta.Type, &meta.Meta, true, zap.WarnLevel, "%s: %d vs %d", ErrorDiffersContainersNumberInTemplates.Error(), len(containersPod1), len(containersPod2))
+		diffsBatch.Add(ctx, true, zap.WarnLevel, "%s: %d vs %d", ErrorDiffersContainersNumberInTemplates.Error(), len(containersPod1), len(containersPod2))
 		//log.Warnf("%s: %d vs %d", ErrorDiffersContainersNumberInTemplates.Error(), len(containersPod1), len(containersPod2))
 		return nil
 	}

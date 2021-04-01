@@ -15,7 +15,7 @@ func getApiServerVersion(ctx context.Context, clientSet kubernetes.Interface) (s
 		return "", fmt.Errorf("cannot detect kube-apiserver version: %w", err)
 	}
 
-	return fmt.Sprintf("%s.%s", ver.Major, ver.Major), nil
+	return ver.String(), nil
 }
 
 func DetectKubeVersions(ctx context.Context) error {

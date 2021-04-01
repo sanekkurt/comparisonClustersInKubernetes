@@ -5,7 +5,6 @@ import (
 	"errors"
 	"go.uber.org/zap"
 	"k8s-cluster-comparator/internal/kubernetes/diff"
-	"k8s-cluster-comparator/internal/kubernetes/types"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
@@ -32,7 +31,6 @@ func compareContainerSpecImages(ctx context.Context, container1, container2 v1.C
 		cfg = config.FromContext(ctx)
 
 		diffsBatch = ctx.Value("diffBatch").(*diff.DiffsBatch)
-		meta       = ctx.Value("apcMeta").(types.AbstractObjectMetadata)
 	)
 
 	var (
@@ -52,12 +50,12 @@ func compareContainerSpecImages(ctx context.Context, container1, container2 v1.C
 
 	if imgParts[0][0] != imgParts[1][0] {
 		//log.Warnf("%s: %s vs %s", ErrorContainerDifferentImageLabels.Error(), imgParts[0][0], imgParts[1][0])
-		diffsBatch.Add(ctx, &meta.Type, &meta.Meta, false, zap.WarnLevel, "%s: %s vs %s", ErrorContainerDifferentImageLabels.Error(), imgParts[0][0], imgParts[1][0])
+		diffsBatch.Add(ctx, false, zap.WarnLevel, "%s: %s vs %s", ErrorContainerDifferentImageLabels.Error(), imgParts[0][0], imgParts[1][0])
 	}
 
 	if imgParts[0][1] != imgParts[1][1] {
 		//log.Warnf("%s: %s vs %s", ErrorContainerDifferentImageTags.Error(), imgParts[0][1], imgParts[1][1])
-		diffsBatch.Add(ctx, &meta.Type, &meta.Meta, false, zap.WarnLevel, "%s: %s vs %s", ErrorContainerDifferentImageTags.Error(), imgParts[0][1], imgParts[1][1])
+		diffsBatch.Add(ctx, false, zap.WarnLevel, "%s: %s vs %s", ErrorContainerDifferentImageTags.Error(), imgParts[0][1], imgParts[1][1])
 	}
 
 	if cfg.Workloads.Containers.RollingTags.WarnOnRollingTag {
@@ -74,7 +72,7 @@ func compareContainerSpecImages(ctx context.Context, container1, container2 v1.C
 
 	if container1.ImagePullPolicy != container2.ImagePullPolicy {
 		//log.Warnf("%s: %s vs %s", ErrorContainerDifferentImagePolicies.Error(), container1.ImagePullPolicy, container2.ImagePullPolicy)
-		diffsBatch.Add(ctx, &meta.Type, &meta.Meta, false, zap.WarnLevel, "%s: %s vs %s", ErrorContainerDifferentImagePolicies.Error(), container1.ImagePullPolicy, container2.ImagePullPolicy)
+		diffsBatch.Add(ctx, false, zap.WarnLevel, "%s: %s vs %s", ErrorContainerDifferentImagePolicies.Error(), container1.ImagePullPolicy, container2.ImagePullPolicy)
 	}
 
 	return nil

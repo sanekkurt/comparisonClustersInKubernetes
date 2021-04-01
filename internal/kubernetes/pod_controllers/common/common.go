@@ -3,6 +3,7 @@ package common
 import (
 	"context"
 	"fmt"
+
 	"go.uber.org/zap"
 	"k8s-cluster-comparator/internal/kubernetes/diff"
 	"k8s.io/client-go/kubernetes"
@@ -28,13 +29,11 @@ func ComparePodControllerSpecs(ctx context.Context, name string, apc1, apc2 *Abs
 		kind = types.ObjectKindWrapper(apc1.Metadata.Type.Kind)
 
 		diffStorage = diff.FromContext(ctx)
+		diffsBatch  = diffStorage.NewBatch(apc1.Metadata.Type, apc1.Metadata.Meta)
 	)
 
-	ctx = context.WithValue(ctx, "diffBatch", diffStorage.NewBatch())
-	ctx = context.WithValue(ctx, "apcMeta", apc1.Metadata)
+	ctx = context.WithValue(ctx, "diffBatch", diffsBatch)
 	ctx = logging.WithLogger(ctx, log)
-
-	diffsBatch := ctx.Value("diffBatch").(*diff.DiffsBatch)
 
 	//??????????????????????????????????????????????????????????????????????????????????
 	metadata.IsMetadataDiffers(ctx, apc1.Metadata.Meta, apc2.Metadata.Meta) // ?????????????????????????????????
@@ -48,13 +47,13 @@ func ComparePodControllerSpecs(ctx context.Context, name string, apc1, apc2 *Abs
 	if apc1.Replicas != nil || apc2.Replicas != nil {
 		if *apc1.Replicas != *apc2.Replicas {
 			//log.Warnf("the number of replicas is different: %d and %d", *apc1.Replicas, *apc2.Replicas)
-			diffsBatch.Add(ctx, &apc1.Metadata.Type, &apc1.Metadata.Meta, false, zap.WarnLevel, "the number of replicas is different: %d and %d", *apc1.Replicas, *apc2.Replicas)
+			diffsBatch.Add(ctx, false, zap.WarnLevel, "the number of replicas is different: %d and %d", *apc1.Replicas, *apc2.Replicas)
 		}
 	}
 
 	if (apc1.Replicas != nil && apc2.Replicas == nil) || (apc2.Replicas != nil && apc1.Replicas == nil) {
 		//log.Warnf("strange replicas specification difference: %#v and %#v", apc1.Replicas, apc2.Replicas)
-		diffsBatch.Add(ctx, &apc1.Metadata.Type, &apc1.Metadata.Meta, false, zap.WarnLevel, "strange replicas specification difference: %#v and %#v", apc1.Replicas, apc2.Replicas)
+		diffsBatch.Add(ctx, false, zap.WarnLevel, "strange replicas specification difference: %#v and %#v", apc1.Replicas, apc2.Replicas)
 	}
 
 	// fill in the information that will be used for comparison
