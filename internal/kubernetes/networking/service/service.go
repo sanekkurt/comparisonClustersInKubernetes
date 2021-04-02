@@ -308,7 +308,7 @@ func compareServicesSpecs(ctx context.Context, name string, svc1, svc2 *v12.Serv
 	var (
 		log = logging.FromContext(ctx)
 
-		diffStorage = diff.DiffStorageFromContext(ctx)
+		diffStorage = diff.StorageFromContext(ctx)
 		diffsBatch  = diffStorage.NewBatch(svc1.TypeMeta, svc1.ObjectMeta)
 	)
 
@@ -332,7 +332,7 @@ func compareSpecInServices(ctx context.Context, service1, service2 v12.Service) 
 	var (
 		log = logging.FromContext(ctx)
 
-		diffsBatch = diff.DiffBatchFromContext(ctx)
+		diffsBatch = diff.BatchFromContext(ctx)
 	)
 
 	select {

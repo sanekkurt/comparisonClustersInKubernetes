@@ -9,7 +9,7 @@ import (
 
 func CompareVolumeNFS(ctx context.Context, nfs1, nfs2 *v1.NFSVolumeSource) {
 	var (
-		diffsBatch = diff.DiffBatchFromContext(ctx)
+		diffsBatch = diff.BatchFromContext(ctx)
 	)
 
 	if nfs1.ReadOnly != nfs2.ReadOnly {

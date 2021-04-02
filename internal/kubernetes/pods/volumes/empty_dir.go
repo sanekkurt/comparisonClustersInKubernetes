@@ -9,7 +9,7 @@ import (
 
 func CompareVolumeEmptyDir(ctx context.Context, emptyDir1, emptyDir2 *v1.EmptyDirVolumeSource) {
 	var (
-		diffsBatch = diff.DiffBatchFromContext(ctx)
+		diffsBatch = diff.BatchFromContext(ctx)
 	)
 
 	if emptyDir1.Medium != emptyDir2.Medium {

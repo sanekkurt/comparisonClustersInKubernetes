@@ -15,20 +15,25 @@ func compareContainerExecParams(ctx context.Context, container1, container2 v1.C
 	var (
 		log = logging.FromContext(ctx)
 
-		diffsBatch = diff.DiffBatchFromContext(ctx)
+		//diffsBatch = diff.BatchFromContext(ctx)
+		diffsChannel = diff.ChanFromContext(ctx)
 	)
 
 	log.Debugf("ComparePodSpecs: start checking commands in container - %s", container1.Name)
 
 	if bDiff, dif := utils.AreStringListsEqual(ctx, container1.Command, container2.Command); !bDiff {
-		//log.Warnf("%s. container '%s': %s", ErrorContainerCommandsDifferent, container1.Name, dif)
-		diffsBatch.Add(ctx, false, zap.WarnLevel, "%s. container '%s': %s", ErrorContainerCommandsDifferent, container1.Name, dif)
+		//log.Warnf("%s. container '%s': %s", ErrorContainerCommandsDifferent.Error(), container1.Name, dif)
+		//diffsBatch.Add(ctx, false, zap.WarnLevel, "%s. container '%s': %s", ErrorContainerCommandsDifferent.Error(), container1.Name, dif)
+		*diffsChannel <- diff.Diff{ctx, false, zap.WarnLevel, "%s. container '%s': %s", append(make([]interface{}, 0, 0), ErrorContainerCommandsDifferent.Error(), container1.Name, dif)}
+
 	}
 
 	log.Debugf("ComparePodSpecs: started")
 	if bDiff, dif := utils.AreStringListsEqual(ctx, container1.Args, container2.Args); !bDiff {
-		//log.Warnf("%s. container '%s': %s", ErrorContainerArgumentsDifferent, container1.Name, dif)
-		diffsBatch.Add(ctx, false, zap.WarnLevel, "%s. container '%s': %s", ErrorContainerArgumentsDifferent, container1.Name, dif)
+		//log.Warnf("%s. container '%s': %s", ErrorContainerArgumentsDifferent.Error(), container1.Name, dif)
+		//diffsBatch.Add(ctx, false, zap.WarnLevel, "%s. container '%s': %s", ErrorContainerArgumentsDifferent.Error(), container1.Name, dif)
+		*diffsChannel <- diff.Diff{ctx, false, zap.WarnLevel, "%s. container '%s': %s", append(make([]interface{}, 0, 0), ErrorContainerArgumentsDifferent.Error(), container1.Name, dif)}
+
 	}
 
 	return nil

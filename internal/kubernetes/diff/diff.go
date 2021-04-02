@@ -57,6 +57,42 @@ func (s *DiffsStorage) NewBatch(objType metav1.TypeMeta, objMeta metav1.ObjectMe
 	return &s.Batches[len(s.Batches)-1]
 }
 
+type Diff struct {
+	Ctx       context.Context
+	Final     bool
+	LogLevel  zapcore.Level
+	Msg       string
+	Variables []interface{}
+}
+
+type ChanForDiff chan Diff
+
+func (s *DiffsStorage) NewChannel(objType metav1.TypeMeta, objMeta metav1.ObjectMeta) *ChanForDiff {
+
+	ch := make(ChanForDiff)
+	go cyclicReadingFromChannel(ch, s, objType, objMeta)
+
+	return &ch
+}
+
+func cyclicReadingFromChannel(c ChanForDiff, difStorage *DiffsStorage, objType metav1.TypeMeta, objMeta metav1.ObjectMeta) {
+	var batchCreated bool
+	var dif *DiffsBatch
+	for {
+		val, ok := <-c
+		if ok {
+			if !batchCreated {
+				dif = difStorage.NewBatch(objType, objMeta)
+				batchCreated = true
+			}
+
+			dif.Add(val.Ctx, val.Final, val.LogLevel, val.Msg, val.Variables...)
+		} else {
+			break
+		}
+	}
+}
+
 //func (s *DiffsStorage) Add(ctx context.Context, objType *metav1.TypeMeta, objMeta *metav1.ObjectMeta, final bool, logLevel zapcore.Level, msg string, variables ...interface{}) bool {
 //
 //	var (

@@ -566,7 +566,7 @@ func compareIngressesSpecs(ctx context.Context, name string, ing1, ing2 *v1.Ingr
 	var (
 		log = logging.FromContext(ctx)
 
-		diffStorage = diff.DiffStorageFromContext(ctx)
+		diffStorage = diff.StorageFromContext(ctx)
 		diffsBatch  = diffStorage.NewBatch(ing1.TypeMeta, ing1.ObjectMeta)
 	)
 
@@ -592,7 +592,7 @@ func compareSpecInIngresses(ctx context.Context, ingress1, ingress2 v1.Ingress) 
 	var (
 		log = logging.FromContext(ctx)
 
-		diffsBatch = diff.DiffBatchFromContext(ctx)
+		diffsBatch = diff.BatchFromContext(ctx)
 	)
 
 	select {
@@ -695,7 +695,7 @@ func compareIngressesBackend(ctx context.Context, backend1, backend2 v1.IngressB
 	var (
 		log = logging.FromContext(ctx)
 
-		diffsBatch = diff.DiffBatchFromContext(ctx)
+		diffsBatch = diff.BatchFromContext(ctx)
 	)
 
 	select {
@@ -752,7 +752,7 @@ func compareIngressesHTTP(ctx context.Context, http1, http2 v1.HTTPIngressRuleVa
 	var (
 		//log = logging.FromContext(ctx)
 
-		diffsBatch = diff.DiffBatchFromContext(ctx)
+		diffsBatch = diff.BatchFromContext(ctx)
 	)
 	if len(http1.Paths) != len(http2.Paths) {
 		diffsBatch.Add(ctx, true, zap.WarnLevel, "%s. %d vs %d", ErrorPathsCountDifferent.Error(), len(http1.Paths), len(http2.Paths))

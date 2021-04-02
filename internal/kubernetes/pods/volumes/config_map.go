@@ -9,7 +9,7 @@ import (
 
 func CompareVolumeConfigMap(ctx context.Context, configMap1, configMap2 *v1.ConfigMapVolumeSource) {
 	var (
-		diffsBatch = diff.DiffBatchFromContext(ctx)
+		diffsBatch = diff.BatchFromContext(ctx)
 	)
 
 	if configMap1.Name != configMap2.Name {

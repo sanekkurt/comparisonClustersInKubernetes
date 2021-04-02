@@ -11,7 +11,7 @@ func CompareNodeSelectors(ctx context.Context, nodeSelector1, nodeSelector2 map[
 	var (
 		//log = logging.FromContext(ctx)
 
-		diffsBatch = diff.DiffBatchFromContext(ctx)
+		diffsBatch = diff.BatchFromContext(ctx)
 	)
 
 	for key1, value1 := range nodeSelector1 {

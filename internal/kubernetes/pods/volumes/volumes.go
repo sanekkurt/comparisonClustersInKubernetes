@@ -14,7 +14,7 @@ func CompareVolumes(ctx context.Context, volume1, volume2 v1.Volume) error {
 	var (
 		log = logging.FromContext(ctx)
 
-		diffsBatch = diff.DiffBatchFromContext(ctx)
+		diffsBatch = diff.BatchFromContext(ctx)
 	)
 
 	if volume1.Name != volume2.Name {

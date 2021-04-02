@@ -224,7 +224,7 @@ func compareConfigMapSpecs(ctx context.Context, name string, cm1, cm2 *corev1.Co
 		log = logging.FromContext(ctx).With(zap.String("objectName", name))
 		cfg = config.FromContext(ctx)
 
-		diffStorage = diff.DiffStorageFromContext(ctx)
+		diffStorage = diff.StorageFromContext(ctx)
 		diffsBatch  = diffStorage.NewBatch(cm1.TypeMeta, cm2.ObjectMeta)
 	)
 

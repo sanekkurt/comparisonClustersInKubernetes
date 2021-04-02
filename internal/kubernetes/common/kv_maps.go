@@ -16,7 +16,7 @@ import (
 func AreKVMapsEqual(ctx context.Context, map1, map2 types.KVMap, skipKeys map[string]struct{}, dumpValues bool) bool {
 	var (
 		log        = logging.FromContext(ctx)
-		diffsBatch = diff.DiffBatchFromContext(ctx)
+		diffsBatch = diff.BatchFromContext(ctx)
 	)
 
 	for k, val1 := range map1 {

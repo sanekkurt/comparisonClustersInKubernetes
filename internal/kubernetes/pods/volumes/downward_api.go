@@ -9,7 +9,7 @@ import (
 
 func CompareVolumeDownwardAPI(ctx context.Context, downwardAPI1, downwardAPI2 *v1.DownwardAPIVolumeSource) {
 	var (
-		diffsBatch = diff.DiffBatchFromContext(ctx)
+		diffsBatch = diff.BatchFromContext(ctx)
 	)
 
 	if downwardAPI1.DefaultMode != nil && downwardAPI2.DefaultMode != nil {

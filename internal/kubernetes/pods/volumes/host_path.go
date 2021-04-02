@@ -9,7 +9,7 @@ import (
 
 func CompareVolumeHostPath(ctx context.Context, hostPath1, hostPath2 *v1.HostPathVolumeSource) {
 	var (
-		diffsBatch = diff.DiffBatchFromContext(ctx)
+		diffsBatch = diff.BatchFromContext(ctx)
 	)
 
 	if hostPath1.Path != hostPath2.Path {

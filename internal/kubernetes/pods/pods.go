@@ -126,7 +126,8 @@ func ComparePodSpecs(ctx context.Context, spec1, spec2 types.InformationAboutObj
 		log = logging.FromContext(ctx)
 		cfg = config.FromContext(ctx)
 
-		diffsBatch = diff.DiffBatchFromContext(ctx)
+		//diffsBatch = diff.BatchFromContext(ctx)
+		diffsChannel = diff.ChanFromContext(ctx)
 
 		namespace = kubectx.NamespaceFromContext(ctx)
 	)
@@ -146,7 +147,8 @@ func ComparePodSpecs(ctx context.Context, spec1, spec2 types.InformationAboutObj
 	)
 
 	if len(containersPod1) != len(containersPod2) {
-		diffsBatch.Add(ctx, true, zap.WarnLevel, "%s: %d vs %d", ErrorDiffersContainersNumberInTemplates.Error(), len(containersPod1), len(containersPod2))
+		//diffsBatch.Add(ctx, true, zap.WarnLevel, "%s: %d vs %d", ErrorDiffersContainersNumberInTemplates.Error(), len(containersPod1), len(containersPod2))
+		*diffsChannel <- diff.Diff{ctx, true, zap.WarnLevel, "%s: %d vs %d", append(make([]interface{}, 0, 0), ErrorDiffersContainersNumberInTemplates.Error(), len(containersPod1), len(containersPod2))}
 		return nil
 	}
 
@@ -205,12 +207,14 @@ func ComparePodSpecs(ctx context.Context, spec1, spec2 types.InformationAboutObj
 	if nodeSelectorPod1 != nil && nodeSelectorPod2 != nil {
 
 		if len(nodeSelectorPod1) != len(nodeSelectorPod2) {
-			diffsBatch.Add(ctx, true, zap.WarnLevel, "%s", ErrorDiffersNodeSelectorsNumberInTemplates.Error())
+			//diffsBatch.Add(ctx, true, zap.WarnLevel, "%s", ErrorDiffersNodeSelectorsNumberInTemplates.Error())
+			*diffsChannel <- diff.Diff{ctx, true, zap.WarnLevel, "%s", append(make([]interface{}, 0, 0), ErrorDiffersNodeSelectorsNumberInTemplates.Error())}
 			return nil
 		}
 
 	} else if nodeSelectorPod1 != nil || nodeSelectorPod2 != nil {
-		diffsBatch.Add(ctx, true, zap.WarnLevel, "%s", ErrorPodMissingNodeSelectors.Error())
+		//diffsBatch.Add(ctx, true, zap.WarnLevel, "%s", ErrorPodMissingNodeSelectors.Error())
+		*diffsChannel <- diff.Diff{ctx, true, zap.WarnLevel, "%s", append(make([]interface{}, 0, 0), ErrorPodMissingNodeSelectors.Error())}
 		return nil
 
 	} else {
@@ -219,11 +223,12 @@ func ComparePodSpecs(ctx context.Context, spec1, spec2 types.InformationAboutObj
 
 	if volumesPod1 != nil && volumesPod2 != nil {
 		if len(volumesPod1) != len(volumesPod2) {
-			diffsBatch.Add(ctx, true, zap.WarnLevel, "%s", ErrorDiffersVolumesNumberInTemplates.Error())
+			//diffsBatch.Add(ctx, true, zap.WarnLevel, "%s", ErrorDiffersVolumesNumberInTemplates.Error())
 			return nil
 		}
 	} else if volumesPod1 != nil && volumesPod2 != nil {
-		diffsBatch.Add(ctx, true, zap.WarnLevel, "%s", ErrorPodMissingVolumes.Error())
+		//diffsBatch.Add(ctx, true, zap.WarnLevel, "%s", ErrorPodMissingVolumes.Error())
+		*diffsChannel <- diff.Diff{ctx, true, zap.WarnLevel, "%s", append(make([]interface{}, 0, 0), ErrorPodMissingVolumes.Error())}
 		return nil
 	}
 

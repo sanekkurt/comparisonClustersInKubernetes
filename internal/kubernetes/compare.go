@@ -5,15 +5,7 @@ import (
 	"sync"
 
 	"k8s-cluster-comparator/internal/config"
-	"k8s-cluster-comparator/internal/kubernetes/kv_maps/configmap"
-	"k8s-cluster-comparator/internal/kubernetes/kv_maps/secret"
-	"k8s-cluster-comparator/internal/kubernetes/networking/ingress"
-	"k8s-cluster-comparator/internal/kubernetes/networking/service"
-	"k8s-cluster-comparator/internal/kubernetes/pod_controllers/daemonset"
 	"k8s-cluster-comparator/internal/kubernetes/pod_controllers/deployment"
-	"k8s-cluster-comparator/internal/kubernetes/pod_controllers/statefulset"
-	"k8s-cluster-comparator/internal/kubernetes/tasks/cronjob"
-	"k8s-cluster-comparator/internal/kubernetes/tasks/job"
 	"k8s-cluster-comparator/internal/kubernetes/types"
 	"k8s-cluster-comparator/internal/logging"
 
@@ -37,17 +29,17 @@ func CompareClusters(ctx context.Context) error {
 
 		comparators := []types.KubeResourceComparator{
 			deployment.NewComparator(ctx, namespace),
-			statefulset.NewComparator(ctx, namespace),
-			daemonset.NewComparator(ctx, namespace),
+			//statefulset.NewComparator(ctx, namespace),
+			//daemonset.NewComparator(ctx, namespace),
 
-			job.NewComparator(ctx, namespace),
-			cronjob.NewComparator(ctx, namespace),
+			//job.NewComparator(ctx, namespace),
+			//cronjob.NewComparator(ctx, namespace),
 
-			configmap.NewComparator(ctx, namespace),
-			secret.NewComparator(ctx, namespace),
+			//configmap.NewComparator(ctx, namespace),
+			//secret.NewComparator(ctx, namespace),
 
-			service.NewComparator(ctx, namespace),
-			ingress.NewComparator(ctx, namespace),
+			//service.NewComparator(ctx, namespace),
+			//ingress.NewComparator(ctx, namespace),
 		}
 
 		wg := &sync.WaitGroup{}

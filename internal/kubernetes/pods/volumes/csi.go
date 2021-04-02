@@ -10,7 +10,7 @@ import (
 
 func CompareVolumeCSI(ctx context.Context, csi1, csi2 *v1.CSIVolumeSource) {
 	var (
-		diffsBatch = diff.DiffBatchFromContext(ctx)
+		diffsBatch = diff.BatchFromContext(ctx)
 	)
 
 	if csi1.Driver != csi2.Driver {

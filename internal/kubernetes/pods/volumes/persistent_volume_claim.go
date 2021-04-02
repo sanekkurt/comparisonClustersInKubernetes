@@ -9,7 +9,7 @@ import (
 
 func CompareVolumePersistentVolumeClaim(ctx context.Context, persistentVolumeClaim1, persistentVolumeClaim2 *v1.PersistentVolumeClaimVolumeSource) {
 	var (
-		diffsBatch = diff.DiffBatchFromContext(ctx)
+		diffsBatch = diff.BatchFromContext(ctx)
 	)
 
 	if persistentVolumeClaim1.ReadOnly != persistentVolumeClaim2.ReadOnly {

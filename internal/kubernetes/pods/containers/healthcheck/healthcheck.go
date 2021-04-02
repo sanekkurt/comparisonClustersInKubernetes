@@ -16,7 +16,8 @@ func Compare(ctx context.Context, container1, container2 corev1.Container) error
 	var (
 		log = logging.FromContext(ctx)
 
-		diffsBatch = diff.DiffBatchFromContext(ctx)
+		//diffsBatch = diff.BatchFromContext(ctx)
+		diffsChannel = diff.ChanFromContext(ctx)
 	)
 
 	if container1.LivenessProbe != nil && container2.LivenessProbe != nil {
@@ -29,7 +30,8 @@ func Compare(ctx context.Context, container1, container2 corev1.Container) error
 
 	} else if container1.LivenessProbe != nil || container2.LivenessProbe != nil {
 		//logging.DiffLog(log, ErrorContainerHealthCheckLivenessProbeDifferent, "One of the containers has no liveness probe defined", *container1.LivenessProbe, *container2.LivenessProbe)
-		diffsBatch.Add(ctx, false, zap.WarnLevel, "%s", ErrorContainerHealthCheckLivenessProbeDifferent.Error())
+		//diffsBatch.Add(ctx, false, zap.WarnLevel, "%s", ErrorContainerHealthCheckLivenessProbeDifferent.Error())
+		*diffsChannel <- diff.Diff{ctx, false, zap.WarnLevel, "%s", append(make([]interface{}, 0, 0), ErrorContainerHealthCheckLivenessProbeDifferent.Error())}
 	}
 
 	if container1.ReadinessProbe != nil && container2.ReadinessProbe != nil {
@@ -42,7 +44,9 @@ func Compare(ctx context.Context, container1, container2 corev1.Container) error
 
 	} else if container1.ReadinessProbe != nil || container2.ReadinessProbe != nil {
 		//logging.DiffLog(log, ErrorContainerHealthCheckReadinessProbeDifferent, "One of the containers has no readiness probe defined", *container1.ReadinessProbe, *container2.ReadinessProbe)
-		diffsBatch.Add(ctx, false, zap.WarnLevel, "%s", ErrorContainerHealthCheckReadinessProbeDifferent.Error())
+		//diffsBatch.Add(ctx, false, zap.WarnLevel, "%s", ErrorContainerHealthCheckReadinessProbeDifferent.Error())
+		*diffsChannel <- diff.Diff{ctx, false, zap.WarnLevel, "%s", append(make([]interface{}, 0, 0), ErrorContainerHealthCheckReadinessProbeDifferent.Error())}
+
 	}
 
 	return nil

@@ -9,7 +9,7 @@ import (
 
 func CompareVolumeSecret(ctx context.Context, secret1, secret2 *v1.SecretVolumeSource) {
 	var (
-		diffsBatch = diff.DiffBatchFromContext(ctx)
+		diffsBatch = diff.BatchFromContext(ctx)
 	)
 
 	if secret1.SecretName != secret2.SecretName {
