@@ -11,15 +11,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type object struct {
+	Type metav1.TypeMeta
+	Meta metav1.ObjectMeta
+}
+
 type DiffsStorage struct {
 	wg *sync.WaitGroup
 
 	batches []*DiffsBatch
-}
-
-type object struct {
-	Type metav1.TypeMeta
-	Meta metav1.ObjectMeta
 }
 
 type objectsDiff struct {
@@ -158,7 +158,13 @@ func (s *DiffsStorage) NewLazyBatch(objType metav1.TypeMeta, objMeta metav1.Obje
 //}
 
 func (b *DiffsBatch) lazyInit(ctx context.Context) {
+	var (
+		log = logging.FromContext(ctx)
+	)
+
 	b.once.Do(func() {
+		log.Debug("New diffsBatch created")
+
 		b.s.wg.Add(1)
 		b.s.batches = append(b.s.batches, b)
 
@@ -166,6 +172,8 @@ func (b *DiffsBatch) lazyInit(ctx context.Context) {
 		b.diffs = make([]objectsDiff, 0, 1)
 
 		go func(b *DiffsBatch) {
+			log.Debug("New diffsBatch channel reader created")
+
 			for diff := range b.diffsCh {
 				b.diffs = append(b.diffs, diff)
 			}
@@ -178,7 +186,7 @@ func (b *DiffsBatch) lazyInit(ctx context.Context) {
 func (b *DiffsBatch) Add(ctx context.Context, final bool, logLevel zapcore.Level, msg string, fields ...interface{}) bool {
 	b.lazyInit(ctx)
 
-	logging.DiffLog(logLevel, msg, fields...)
+	diffLog(ctx, b.object, logLevel, msg, fields...)
 
 	diff := objectsDiff{
 		Msg:   fmt.Sprintf(msg, fields...),

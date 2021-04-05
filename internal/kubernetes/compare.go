@@ -21,13 +21,12 @@ type ResStr struct {
 // CompareClusters main compare function, runs functions for comparing clusters by different parameters one at a time: Deployments, StatefulSets, DaemonSets, ConfigMaps
 func CompareClusters(ctx context.Context) error {
 	var (
-		log = logging.FromContext(ctx)
-		cfg = config.FromContext(ctx)
-
-		shutdownWg = &sync.WaitGroup{}
+		log   = logging.FromContext(ctx)
+		cfg   = config.FromContext(ctx)
+		diffs = diff.NewDiffsStorage(ctx)
 	)
 
-	ctx = diff.WithDiffStorage(ctx, diff.NewDiffsStorage(ctx))
+	ctx = diff.WithDiffStorage(ctx, diffs)
 
 	for _, namespace := range cfg.Connections.Namespaces {
 		log := log.With(zap.String("namespace", namespace))
@@ -78,7 +77,7 @@ func CompareClusters(ctx context.Context) error {
 		wg.Wait()
 	}
 
-	shutdownWg.Wait()
+	diffs.Finalize()
 
 	return nil
 }

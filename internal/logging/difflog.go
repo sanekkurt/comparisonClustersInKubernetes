@@ -1,9 +1,5 @@
 package logging
 
-import (
-	"go.uber.org/zap/zapcore"
-)
-
 //func DiffLog(log *zap.SugaredLogger, e interface{}, v... interface{}) {
 //	var (
 //		diff string
@@ -37,16 +33,3 @@ import (
 //		log.Warnf("%s, %s: %s vs %s", diff, strings.Join(vals[0:len(vals)-2], " "), vals[len(vals)-2], vals[len(vals)-1])
 //	}
 //}
-
-func DiffLog(logLevel zapcore.Level, msg string, variables ...interface{}) {
-	switch logLevel {
-	case zapcore.WarnLevel:
-		log.Warnf(msg, variables...)
-	case zapcore.ErrorLevel:
-		log.Errorf(msg, variables...)
-	case zapcore.FatalLevel:
-		log.Fatalf(msg, variables...)
-	case zapcore.PanicLevel:
-		log.Panicf(msg, variables...)
-	}
-}
