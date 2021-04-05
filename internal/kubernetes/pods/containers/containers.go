@@ -15,15 +15,12 @@ func CompareContainerSpecs(ctx context.Context, container1, container2 v1.Contai
 	var (
 		//log = logging.FromContext(ctx)
 
-		//diffsBatch = diff.BatchFromContext(ctx)
-
-		diffsChannel = diff.ChanFromContext(ctx)
+		diffsBatch = diff.BatchFromContext(ctx)
 	)
 
 	if container1.Name != container2.Name {
 		//log.Warnf("%s: %s vs %s", ErrorContainerDifferentNames.Error(), container1.Name, container2.Name)
-		//diffsBatch.Add(ctx, true, zap.WarnLevel, "%s: %s vs %s", ErrorContainerDifferentNames.Error(), container1.Name, container2.Name)
-		*diffsChannel <- diff.Diff{ctx, true, zap.WarnLevel, "%s: %s vs %s", append(make([]interface{}, 0, 0), ErrorContainerDifferentNames.Error(), container1.Name, container2.Name)}
+		diffsBatch.Add(ctx, true, zap.WarnLevel, "%s: %s vs %s", ErrorContainerDifferentNames.Error(), container1.Name, container2.Name)
 		return nil
 	}
 

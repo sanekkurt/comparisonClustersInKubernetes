@@ -22,8 +22,8 @@ import (
 )
 
 // Context returns a context that is canceled on SIGINT and SIGTERM.
-func Context() (context.Context, func()) {
-	return WrappedContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+func Context(ctx context.Context) (context.Context, func()) {
+	return WrappedContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 }
 
 // WrappedContext returns a new context wrapping the provided context and

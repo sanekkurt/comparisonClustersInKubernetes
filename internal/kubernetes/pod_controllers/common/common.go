@@ -26,18 +26,11 @@ func ComparePodControllerSpecs(ctx context.Context, name string, apc1, apc2 *Abs
 
 		kind = types.ObjectKindWrapper(apc1.Metadata.Type.Kind)
 
-		diffStorage = diff.StorageFromContext(ctx)
-
-		//diffsBatch  = diffStorage.NewBatch(apc1.Metadata.Type, apc1.Metadata.Meta) !!!!!!!!!!!!!!!!
-
-		diffChannel = diffStorage.NewChannel(apc1.Metadata.Type, apc1.Metadata.Meta)
+		diffsBatch = diff.StorageFromContext(ctx).NewLazyBatch(apc1.Metadata.Type, apc1.Metadata.Meta)
 	)
 
-	//*channel <- diff.Diff{Ctx: ctx, LogLevel: zap.WarnLevel, Msg: "hello %s", Variables: append(make([]interface{}, 0, 0), "asdas")}
-	defer close(*diffChannel)
-
 	//ctx = diff.WithDiffBatch(ctx, diffsBatch) !!!!!!!!!!!!!!!!!!!!!!!!
-	ctx = diff.WithDiffChannel(ctx, diffChannel)
+	ctx = diff.WithDiffBatch(ctx, diffsBatch)
 	ctx = logging.WithLogger(ctx, log)
 
 	//??????????????????????????????????????????????????????????????????????????????????
@@ -53,14 +46,13 @@ func ComparePodControllerSpecs(ctx context.Context, name string, apc1, apc2 *Abs
 		if *apc1.Replicas != *apc2.Replicas {
 			//log.Warnf("the number of replicas is different: %d and %d", *apc1.Replicas, *apc2.Replicas)
 			//diffsBatch.Add(ctx, false, zap.WarnLevel, "the number of replicas is different: %d and %d", *apc1.Replicas, *apc2.Replicas)
-			*diffChannel <- diff.Diff{ctx, false, zap.WarnLevel, "the number of replicas is different: %d and %d", append(make([]interface{}, 0, 0), *apc1.Replicas, *apc2.Replicas)}
+			diffsBatch.Add(ctx, false, zap.WarnLevel, "number of replicas is different: %d and %d", *apc1.Replicas, *apc2.Replicas)
 		}
 	}
 
 	if (apc1.Replicas != nil && apc2.Replicas == nil) || (apc2.Replicas != nil && apc1.Replicas == nil) {
 		//log.Warnf("strange replicas specification difference: %#v and %#v", apc1.Replicas, apc2.Replicas)
-		//diffsBatch.Add(ctx, false, zap.WarnLevel, "strange replicas specification difference: %#v and %#v", apc1.Replicas, apc2.Replicas)
-		*diffChannel <- diff.Diff{ctx, false, zap.WarnLevel, "strange replicas specification difference: %#v and %#v", append(make([]interface{}, 0, 0), apc1.Replicas, apc2.Replicas)}
+		diffsBatch.Add(ctx, false, zap.WarnLevel, "strange replicas specification difference: %#v and %#v", apc1.Replicas, apc2.Replicas)
 	}
 
 	// fill in the information that will be used for comparison

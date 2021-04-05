@@ -567,7 +567,7 @@ func compareIngressesSpecs(ctx context.Context, name string, ing1, ing2 *v1.Ingr
 		log = logging.FromContext(ctx)
 
 		diffStorage = diff.StorageFromContext(ctx)
-		diffsBatch  = diffStorage.NewBatch(ing1.TypeMeta, ing1.ObjectMeta)
+		diffsBatch  = diffStorage.NewLazyBatch(ing1.TypeMeta, ing1.ObjectMeta)
 	)
 
 	ctx = diff.WithDiffBatch(ctx, diffsBatch)

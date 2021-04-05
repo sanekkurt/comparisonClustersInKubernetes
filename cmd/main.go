@@ -1,8 +1,8 @@
 package main
 
 import (
+	"context"
 	"fmt"
-	"k8s-cluster-comparator/internal/kubernetes/diff"
 	"os"
 
 	"k8s-cluster-comparator/internal/config"
@@ -15,17 +15,17 @@ import (
 func main() {
 	var (
 		debug bool
+		ctx   = context.Background()
 	)
+
+	ctx, doneFn := interrupt.Context(ctx)
+	defer func() {
+		doneFn()
+	}()
 
 	if os.Getenv("DEBUG") == "true" {
 		debug = true
 	}
-
-	ctx, doneFn := interrupt.Context()
-
-	defer func() {
-		doneFn()
-	}()
 
 	err := logging.Configure(debug)
 	if err != nil {
@@ -44,15 +44,12 @@ func main() {
 		return
 	}
 
+	ctx = config.With(ctx, cfg)
+
 	log.Infow("Starting k8s-cluster-comparator")
 	defer func() {
 		log.Infow("k8s-cluster-comparator completed")
 	}()
-
-	ctx = config.With(ctx, cfg)
-	ctx = diff.WithDiffStorage(ctx, &diff.DiffsStorage{
-		Batches: make([]diff.DiffsBatch, 0, 0),
-	})
 
 	err = discovery.DetectKubeVersions(ctx)
 	if err != nil {

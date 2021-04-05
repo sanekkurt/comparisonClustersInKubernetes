@@ -9,7 +9,7 @@ type ctxKey string
 var (
 	diffsStoragePtrCtxKey ctxKey = "diffsStoragePtrCtxKey"
 	diffsBatchPtrCtxKey   ctxKey = "diffsBatchPtrCtxKey"
-	diffsChannelPtrCtxKey ctxKey = "diffsChannelPtrCtxKey"
+	//diffsChannelPtrCtxKey ctxKey = "diffsChannelPtrCtxKey"
 )
 
 func WithDiffStorage(ctx context.Context, diffs *DiffsStorage) context.Context {
@@ -38,15 +38,15 @@ func BatchFromContext(ctx context.Context) *DiffsBatch {
 	return diffsBatch
 }
 
-func WithDiffChannel(ctx context.Context, channel *ChanForDiff) context.Context {
-	return context.WithValue(ctx, diffsChannelPtrCtxKey, channel)
-}
-
-func ChanFromContext(ctx context.Context) *ChanForDiff {
-	channel, ok := ctx.Value(diffsChannelPtrCtxKey).(*ChanForDiff)
-	if !ok {
-		return nil
-	}
-
-	return channel
-}
+//func WithDiffChannel(ctx context.Context, channel *ChanForDiff) context.Context {
+//	return context.WithValue(ctx, diffsChannelPtrCtxKey, channel)
+//}
+//
+//func ChanFromContext(ctx context.Context) *ChanForDiff {
+//	channel, ok := ctx.Value(diffsChannelPtrCtxKey).(*ChanForDiff)
+//	if !ok {
+//		return nil
+//	}
+//
+//	return channel
+//}

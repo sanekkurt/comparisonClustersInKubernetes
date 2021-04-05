@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"k8s-cluster-comparator/internal/config"
+	"k8s-cluster-comparator/internal/kubernetes/diff"
 	"k8s-cluster-comparator/internal/kubernetes/pod_controllers/deployment"
 	"k8s-cluster-comparator/internal/kubernetes/types"
 	"k8s-cluster-comparator/internal/logging"
@@ -22,7 +23,11 @@ func CompareClusters(ctx context.Context) error {
 	var (
 		log = logging.FromContext(ctx)
 		cfg = config.FromContext(ctx)
+
+		shutdownWg = &sync.WaitGroup{}
 	)
+
+	ctx = diff.WithDiffStorage(ctx, diff.NewDiffsStorage(ctx))
 
 	for _, namespace := range cfg.Connections.Namespaces {
 		log := log.With(zap.String("namespace", namespace))
@@ -72,6 +77,8 @@ func CompareClusters(ctx context.Context) error {
 
 		wg.Wait()
 	}
+
+	shutdownWg.Wait()
 
 	return nil
 }

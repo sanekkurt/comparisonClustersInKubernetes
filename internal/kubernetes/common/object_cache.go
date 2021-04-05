@@ -19,7 +19,7 @@ type kindsCache map[string]objectsCache
 
 type ObjectCache struct {
 	m sync.RWMutex
-	// [objectKind][objectName]Object
+	// [objectKind][objectName]object
 	cache kindsCache
 }
 

@@ -2,9 +2,10 @@ package env
 
 import (
 	"context"
-	"go.uber.org/zap"
-	"k8s-cluster-comparator/internal/kubernetes/diff"
 	"reflect"
+
+	"go.uber.org/zap/zapcore"
+	"k8s-cluster-comparator/internal/kubernetes/diff"
 
 	"k8s-cluster-comparator/internal/kubernetes/kv_maps/configmap"
 	"k8s-cluster-comparator/internal/kubernetes/kv_maps/secret"
@@ -69,58 +70,44 @@ func getEnvValue(ctx context.Context, clientSet kubernetes.Interface, namespace 
 
 func compareEnvVarValueFroms(ctx context.Context, env1, env2 v12.EnvVar) error {
 	var (
-		//diffsBatch = diff.BatchFromContext(ctx)
-		diffsChannel = diff.ChanFromContext(ctx)
+		diffsBatch = diff.BatchFromContext(ctx)
 	)
 
 	if env1.ValueFrom.ConfigMapKeyRef != nil && env2.ValueFrom.SecretKeyRef != nil ||
 		env1.ValueFrom.SecretKeyRef != nil && env2.ValueFrom.ConfigMapKeyRef != nil {
 		//log.Warnf("variable %s has different value sources: configMapKeyRef vs secretKeyRef", env1.Name)
-		//diffsBatch.Add(ctx, false, zapcore.WarnLevel, "variable %s has different value sources: configMapKeyRef vs secretKeyRef", env1.Name)
-		*diffsChannel <- diff.Diff{ctx, false, zap.WarnLevel, "variable %s has different value sources: configMapKeyRef vs secretKeyRef", append(make([]interface{}, 0, 0), env1.Name)}
+		diffsBatch.Add(ctx, false, zapcore.WarnLevel, "variable %s has different value sources: configMapKeyRef vs secretKeyRef", env1.Name)
 	}
 
 	if env1.ValueFrom.ConfigMapKeyRef != nil && env2.ValueFrom.ConfigMapKeyRef != nil {
 		if env1.ValueFrom.ConfigMapKeyRef.Name != env2.ValueFrom.ConfigMapKeyRef.Name {
-			//diffsBatch.Add(ctx, false, zapcore.WarnLevel, "variable %s has different value source ConfigMaps: %s vs %s", env1.Name, env1.ValueFrom.ConfigMapKeyRef.Name, env2.ValueFrom.ConfigMapKeyRef.Name)
-			*diffsChannel <- diff.Diff{ctx, false, zap.WarnLevel, "variable %s has different value source ConfigMaps: %s vs %s", append(make([]interface{}, 0, 0), env1.Name, env1.ValueFrom.ConfigMapKeyRef.Name, env2.ValueFrom.ConfigMapKeyRef.Name)}
-
+			diffsBatch.Add(ctx, false, zapcore.WarnLevel, "variable %s has different value source ConfigMaps: %s vs %s", env1.Name, env1.ValueFrom.ConfigMapKeyRef.Name, env2.ValueFrom.ConfigMapKeyRef.Name)
 		}
 
 		if env1.ValueFrom.ConfigMapKeyRef.Key != env2.ValueFrom.ConfigMapKeyRef.Key {
-			//diffsBatch.Add(ctx, false, zapcore.WarnLevel, "variable %s has different value source ConfigMap %s keys: %s vs %s", env1.Name, env1.ValueFrom.ConfigMapKeyRef.Name, env1.ValueFrom.ConfigMapKeyRef.Key, env2.ValueFrom.ConfigMapKeyRef.Key)
-			*diffsChannel <- diff.Diff{ctx, false, zap.WarnLevel, "variable %s has different value source ConfigMap %s keys: %s vs %s", append(make([]interface{}, 0, 0), env1.Name, env1.ValueFrom.ConfigMapKeyRef.Name, env1.ValueFrom.ConfigMapKeyRef.Key, env2.ValueFrom.ConfigMapKeyRef.Key)}
-
+			diffsBatch.Add(ctx, false, zapcore.WarnLevel, "variable %s has different value source ConfigMap %s keys: %s vs %s", env1.Name, env1.ValueFrom.ConfigMapKeyRef.Name, env1.ValueFrom.ConfigMapKeyRef.Key, env2.ValueFrom.ConfigMapKeyRef.Key)
 		}
 	}
 
 	if env1.ValueFrom.SecretKeyRef != nil && env2.ValueFrom.SecretKeyRef != nil {
 		if env1.ValueFrom.SecretKeyRef.Name != env2.ValueFrom.SecretKeyRef.Name {
-			//diffsBatch.Add(ctx, false, zapcore.WarnLevel, "variable %s has different value source Secrets: %s vs %s", env1.Name, env1.ValueFrom.SecretKeyRef.Name, env2.ValueFrom.SecretKeyRef.Name)
-			*diffsChannel <- diff.Diff{ctx, false, zap.WarnLevel, "variable %s has different value source Secrets: %s vs %s", append(make([]interface{}, 0, 0), env1.Name, env1.ValueFrom.SecretKeyRef.Name, env2.ValueFrom.SecretKeyRef.Name)}
-
+			diffsBatch.Add(ctx, false, zapcore.WarnLevel, "variable %s has different value source Secrets: %s vs %s", env1.Name, env1.ValueFrom.SecretKeyRef.Name, env2.ValueFrom.SecretKeyRef.Name)
 		}
 
 		if env1.ValueFrom.SecretKeyRef.Key != env2.ValueFrom.SecretKeyRef.Key {
-			//diffsBatch.Add(ctx, false, zapcore.WarnLevel, "variable %s has different value source Secret %s keys: %s vs %s", env1.Name, env1.ValueFrom.SecretKeyRef.Name, env1.ValueFrom.SecretKeyRef.Key, env2.ValueFrom.SecretKeyRef.Key)
-			*diffsChannel <- diff.Diff{ctx, false, zap.WarnLevel, "variable %s has different value source Secret %s keys: %s vs %s", append(make([]interface{}, 0, 0), env1.Name, env1.ValueFrom.SecretKeyRef.Name, env1.ValueFrom.SecretKeyRef.Key, env2.ValueFrom.SecretKeyRef.Key)}
-
+			diffsBatch.Add(ctx, false, zapcore.WarnLevel, "variable %s has different value source Secret %s keys: %s vs %s", env1.Name, env1.ValueFrom.SecretKeyRef.Name, env1.ValueFrom.SecretKeyRef.Key, env2.ValueFrom.SecretKeyRef.Key)
 		}
 	}
 
 	if env1.ValueFrom.FieldRef != nil && env2.ValueFrom.FieldRef != nil {
 		if bDiff := reflect.DeepEqual(*env1.ValueFrom.FieldRef, *env2.ValueFrom.FieldRef); bDiff {
-			//diffsBatch.Add(ctx, false, zapcore.WarnLevel, "variable %s has different fieldRef value sources", env1.Name)
-			*diffsChannel <- diff.Diff{ctx, false, zap.WarnLevel, "variable %s has different fieldRef value sources", append(make([]interface{}, 0, 0), env1.Name)}
-
+			diffsBatch.Add(ctx, false, zapcore.WarnLevel, "variable %s has different fieldRef value sources", env1.Name)
 		}
 	}
 
 	if env1.ValueFrom.ResourceFieldRef != nil && env2.ValueFrom.ResourceFieldRef != nil {
 		if bDiff := reflect.DeepEqual(*env1.ValueFrom.ResourceFieldRef, *env2.ValueFrom.ResourceFieldRef); bDiff {
-			//diffsBatch.Add(ctx, false, zapcore.WarnLevel, "variable %s has different resourceFieldRef value sources", env1.Name)
-			*diffsChannel <- diff.Diff{ctx, false, zap.WarnLevel, "variable %s has different resourceFieldRef value sources", append(make([]interface{}, 0, 0), env1.Name)}
-
+			diffsBatch.Add(ctx, false, zapcore.WarnLevel, "variable %s has different resourceFieldRef value sources", env1.Name)
 		}
 	}
 
@@ -129,14 +116,11 @@ func compareEnvVarValueFroms(ctx context.Context, env1, env2 v12.EnvVar) error {
 
 func compareEnvVarValueSources(ctx context.Context, env1, env2 v12.EnvVar) error {
 	var (
-		//diffsBatch = diff.BatchFromContext(ctx)
-		diffsChannel = diff.ChanFromContext(ctx)
+		diffsBatch = diff.BatchFromContext(ctx)
 	)
 
 	if env1.ValueFrom == nil && env2.ValueFrom != nil || env1.ValueFrom != nil && env2.ValueFrom == nil {
-		//diffsBatch.Add(ctx, false, zapcore.WarnLevel, "variable %s has different value sources: raw value vs ValueFrom", env1.Name)
-		*diffsChannel <- diff.Diff{ctx, false, zap.WarnLevel, "variable %s has different value sources: raw value vs ValueFrom", append(make([]interface{}, 0, 0), env1.Name)}
-
+		diffsBatch.Add(ctx, false, zapcore.WarnLevel, "variable %s has different value sources: raw value vs ValueFrom", env1.Name)
 	}
 
 	if env1.ValueFrom != nil && env2.ValueFrom != nil {
@@ -148,9 +132,7 @@ func compareEnvVarValueSources(ctx context.Context, env1, env2 v12.EnvVar) error
 	}
 
 	if env1.Value != env2.Value {
-		//diffsBatch.Add(ctx, false, zapcore.WarnLevel, "variable %s has different values: '%s' vs '%s'", env1.Name, env1.Value, env2.Value)
-		*diffsChannel <- diff.Diff{ctx, false, zap.WarnLevel, "variable %s has different values: '%s' vs '%s'", append(make([]interface{}, 0, 0), env1.Name, env1.Value, env2.Value)}
-
+		diffsBatch.Add(ctx, false, zapcore.WarnLevel, "variable %s has different values: '%s' vs '%s'", env1.Name, env1.Value, env2.Value)
 	}
 
 	return nil
@@ -176,16 +158,14 @@ func Compare(ctx context.Context, envs1, envs2 []v12.EnvVar) error {
 	var (
 		log = logging.FromContext(ctx)
 
-		//diffsBatch = diff.BatchFromContext(ctx)
-		diffsChannel = diff.ChanFromContext(ctx)
+		diffsBatch = diff.BatchFromContext(ctx)
 	)
 
 	log.Debugf("CompareEnvVars: started")
 	defer log.Debugf("CompareEnvVars: completed")
 
 	if len(envs1) != len(envs2) {
-		//diffsBatch.Add(ctx, false, zapcore.WarnLevel, "%s: %d vs %d", ErrorContainerDifferentEnvVarsNumber.Error(), len(envs1), len(envs2))
-		*diffsChannel <- diff.Diff{ctx, false, zap.WarnLevel, "%s: %d vs %d", append(make([]interface{}, 0, 0), ErrorContainerDifferentEnvVarsNumber.Error(), len(envs1), len(envs2))}
+		diffsBatch.Add(ctx, false, zapcore.WarnLevel, "%s: %d vs %d", ErrorContainerDifferentEnvVarsNumber.Error(), len(envs1), len(envs2))
 	}
 
 	//for pod1EnvIdx := range env1 {
@@ -229,17 +209,14 @@ func Compare(ctx context.Context, envs1, envs2 []v12.EnvVar) error {
 	if len(mapEnv1) > 0 {
 		for key, _ := range mapEnv1 {
 			//log.Warnf("env variable '%s' does not exist in 2st cluster", key)
-			//diffsBatch.Add(ctx, false, zapcore.WarnLevel, "env variable '%s' does not exist in 2st cluster", key)
-			*diffsChannel <- diff.Diff{ctx, false, zap.WarnLevel, "env variable '%s' does not exist in 2st cluster", append(make([]interface{}, 0, 0), key)}
-
+			diffsBatch.Add(ctx, false, zapcore.WarnLevel, "env variable '%s' does not exist in 2st cluster", key)
 		}
 	}
 
 	if len(mapEnv2) > 0 {
 		for key, _ := range mapEnv2 {
 			//log.Warnf("env variable '%s' does not exist in 1st cluster", key)
-			//diffsBatch.Add(ctx, false, zapcore.WarnLevel, "env variable '%s' does not exist in 1st cluster", key)
-			*diffsChannel <- diff.Diff{ctx, false, zap.WarnLevel, "env variable '%s' does not exist in 1st cluster", append(make([]interface{}, 0, 0), key)}
+			diffsBatch.Add(ctx, false, zapcore.WarnLevel, "env variable '%s' does not exist in 1st cluster", key)
 		}
 	}
 
