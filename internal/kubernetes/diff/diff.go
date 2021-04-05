@@ -68,8 +68,16 @@ func NewDiffsStorage(ctx context.Context) *DiffsStorage {
 	return ds
 }
 
-func (s *DiffsStorage) Finalize() {
-	s.wg.Wait()
+func (s *DiffsStorage) Finalize(ctx context.Context) {
+	var (
+		diffsStorage = StorageFromContext(ctx)
+	)
+
+	for _, batch := range diffsStorage.batches {
+		close(batch.diffsCh)
+	}
+
+	//s.wg.Wait()
 }
 
 func (s *DiffsStorage) NewLazyBatch(objType metav1.TypeMeta, objMeta metav1.ObjectMeta) *DiffsBatch {

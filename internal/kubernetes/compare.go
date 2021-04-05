@@ -85,7 +85,8 @@ func CompareClusters(ctx context.Context) error {
 		wg.Wait()
 	}
 
-	diffs.Finalize()
+	//ctx.Done()
+	diffs.Finalize(ctx)
 
 	return nil
 }
