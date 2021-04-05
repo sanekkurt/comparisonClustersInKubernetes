@@ -3,12 +3,12 @@ package pods
 import (
 	"context"
 	"fmt"
+	"k8s-cluster-comparator/internal/kubernetes/pods/nodeSelectors"
 
 	"k8s-cluster-comparator/internal/kubernetes/diff"
 
 	"k8s-cluster-comparator/internal/config"
 	kubectx "k8s-cluster-comparator/internal/kubernetes/context"
-	"k8s-cluster-comparator/internal/kubernetes/pods/nodeSelectors"
 	"k8s-cluster-comparator/internal/kubernetes/pods/volumes"
 
 	"go.uber.org/zap"
@@ -146,7 +146,7 @@ func ComparePodSpecs(ctx context.Context, spec1, spec2 types.InformationAboutObj
 	)
 
 	if len(containersPod1) != len(containersPod2) {
-		diffsBatch.Add(ctx, true, zap.WarnLevel, "%s: %d vs %d", ErrorDiffersContainersNumberInTemplates.Error(), len(containersPod1), len(containersPod2))
+		diffsBatch.Add(ctx, true, "%s: %d vs %d", ErrorDiffersContainersNumberInTemplates.Error(), len(containersPod1), len(containersPod2))
 		return nil
 	}
 
@@ -205,16 +205,16 @@ func ComparePodSpecs(ctx context.Context, spec1, spec2 types.InformationAboutObj
 	if nodeSelectorPod1 != nil && nodeSelectorPod2 != nil {
 
 		if len(nodeSelectorPod1) != len(nodeSelectorPod2) {
-			diffsBatch.Add(ctx, true, zap.WarnLevel, "%s", ErrorDiffersNodeSelectorsNumberInTemplates.Error())
+			diffsBatch.Add(ctx, true, "%s", ErrorDiffersNodeSelectorsNumberInTemplates.Error())
 			return nil
+		} else {
+			nodeSelectors.CompareNodeSelectors(ctx, nodeSelectorPod1, nodeSelectorPod2)
 		}
 
 	} else if nodeSelectorPod1 != nil || nodeSelectorPod2 != nil {
-		diffsBatch.Add(ctx, true, zap.WarnLevel, "%s", ErrorPodMissingNodeSelectors.Error())
+		diffsBatch.Add(ctx, true, "%s", ErrorPodMissingNodeSelectors.Error())
 		return nil
 
-	} else {
-		nodeSelectors.CompareNodeSelectors(ctx, nodeSelectorPod1, nodeSelectorPod2)
 	}
 
 	if volumesPod1 != nil && volumesPod2 != nil {
@@ -223,7 +223,7 @@ func ComparePodSpecs(ctx context.Context, spec1, spec2 types.InformationAboutObj
 			return nil
 		}
 	} else if volumesPod1 != nil && volumesPod2 != nil {
-		diffsBatch.Add(ctx, true, zap.WarnLevel, "%s", ErrorPodMissingVolumes.Error())
+		diffsBatch.Add(ctx, true, "%s", ErrorPodMissingVolumes.Error())
 		return nil
 	}
 

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"sync"
 
-	"go.uber.org/zap/zapcore"
 	"k8s-cluster-comparator/internal/logging"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -183,10 +182,10 @@ func (b *DiffsBatch) lazyInit(ctx context.Context) {
 	})
 }
 
-func (b *DiffsBatch) Add(ctx context.Context, final bool, logLevel zapcore.Level, msg string, fields ...interface{}) bool {
+func (b *DiffsBatch) Add(ctx context.Context, final bool, msg string, fields ...interface{}) bool {
 	b.lazyInit(ctx)
 
-	diffLog(ctx, b.object, logLevel, msg, fields...)
+	diffLog(ctx, b.object, msg, fields...)
 
 	diff := objectsDiff{
 		Msg:   fmt.Sprintf(msg, fields...),

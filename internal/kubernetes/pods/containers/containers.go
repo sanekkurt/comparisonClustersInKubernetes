@@ -2,8 +2,6 @@ package containers
 
 import (
 	"context"
-
-	"go.uber.org/zap"
 	"k8s-cluster-comparator/internal/kubernetes/diff"
 
 	"k8s-cluster-comparator/internal/kubernetes/pods/containers/env"
@@ -20,7 +18,7 @@ func CompareContainerSpecs(ctx context.Context, container1, container2 v1.Contai
 
 	if container1.Name != container2.Name {
 		//log.Warnf("%s: %s vs %s", ErrorContainerDifferentNames.Error(), container1.Name, container2.Name)
-		diffsBatch.Add(ctx, true, zap.WarnLevel, "%s: %s vs %s", ErrorContainerDifferentNames.Error(), container1.Name, container2.Name)
+		diffsBatch.Add(ctx, true, "%s: %s vs %s", ErrorContainerDifferentNames.Error(), container1.Name, container2.Name)
 		return nil
 	}
 

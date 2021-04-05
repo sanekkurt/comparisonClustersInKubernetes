@@ -33,7 +33,7 @@ func AreKVMapsEqual(ctx context.Context, map1, map2 types.KVMap, skipKeys map[st
 
 		if _, ok := map2[k]; !ok {
 			//log.With(zap.String("key", k)).Warn("key does not exist in map2")
-			diffsBatch.Add(ctx, false, zap.WarnLevel, "key %s does not exist in map2", k)
+			diffsBatch.Add(ctx, false, "key %s does not exist in map2", k)
 			delete(map1, k)
 			delete(map2, k)
 
@@ -45,9 +45,9 @@ func AreKVMapsEqual(ctx context.Context, map1, map2 types.KVMap, skipKeys map[st
 
 			if dumpValues {
 				//log = log.With(zap.String("value1", val1), zap.String("value2", map2[k]))
-				diffsBatch.Add(ctx, false, zap.WarnLevel, "key values do not match. %s: %s vs %s", k, val1, map2[k])
+				diffsBatch.Add(ctx, false, "key values do not match. %s: %s vs %s", k, val1, map2[k])
 			} else {
-				diffsBatch.Add(ctx, false, zap.WarnLevel, "key %s values do not match", k)
+				diffsBatch.Add(ctx, false, "key %s values do not match", k)
 			}
 
 			//log.Warn("key values do not match")

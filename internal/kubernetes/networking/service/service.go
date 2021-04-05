@@ -342,32 +342,32 @@ func compareSpecInServices(ctx context.Context, service1, service2 v12.Service) 
 	default:
 		if len(service1.Spec.Ports) != len(service2.Spec.Ports) {
 			//log.Warnf("%s. %d vs %d", ErrorPortsCountDifferent.Error(), len(service1.Spec.Ports), len(service2.Spec.Ports))
-			diffsBatch.Add(ctx, true, zap.WarnLevel, "%s. %d vs %d", ErrorPortsCountDifferent.Error(), len(service1.Spec.Ports), len(service2.Spec.Ports))
+			diffsBatch.Add(ctx, true, "%s. %d vs %d", ErrorPortsCountDifferent.Error(), len(service1.Spec.Ports), len(service2.Spec.Ports))
 			return
 		}
 
 		for index, value := range service1.Spec.Ports {
 			if value != service2.Spec.Ports[index] {
-				diffsBatch.Add(ctx, true, zap.WarnLevel, "%s. %s-%d-%s vs %s-%d-%s", ErrorPortInServicesDifferent.Error(), value.Name, value.Port, value.Protocol, service2.Spec.Ports[index].Name, service2.Spec.Ports[index].Port, service2.Spec.Ports[index].Protocol)
+				diffsBatch.Add(ctx, true, "%s. %s-%d-%s vs %s-%d-%s", ErrorPortInServicesDifferent.Error(), value.Name, value.Port, value.Protocol, service2.Spec.Ports[index].Name, service2.Spec.Ports[index].Port, service2.Spec.Ports[index].Protocol)
 				return
 			}
 		}
 
 		if len(service1.Spec.Selector) != len(service2.Spec.Selector) {
-			diffsBatch.Add(ctx, true, zap.WarnLevel, "%s. %d vs %d", ErrorSelectorsCountDifferent.Error(), len(service1.Spec.Selector), len(service2.Spec.Selector))
+			diffsBatch.Add(ctx, true, "%s. %d vs %d", ErrorSelectorsCountDifferent.Error(), len(service1.Spec.Selector), len(service2.Spec.Selector))
 			return
 		}
 
 		for key, value := range service1.Spec.Selector {
 			if service2.Spec.Selector[key] != value {
-				diffsBatch.Add(ctx, true, zap.WarnLevel, "%s. %s-%s vs %s-%s", ErrorSelectorInServicesDifferent.Error(), key, value, key, service2.Spec.Selector[key])
+				diffsBatch.Add(ctx, true, "%s. %s-%s vs %s-%s", ErrorSelectorInServicesDifferent.Error(), key, value, key, service2.Spec.Selector[key])
 				return
 
 			}
 		}
 
 		if service1.Spec.Type != service2.Spec.Type {
-			diffsBatch.Add(ctx, false, zap.WarnLevel, "%s. %s vs %s", ErrorTypeInServicesDifferent.Error(), service1.Spec.Type, service2.Spec.Type)
+			diffsBatch.Add(ctx, false, "%s. %s vs %s", ErrorTypeInServicesDifferent.Error(), service1.Spec.Type, service2.Spec.Type)
 		}
 		return
 	}
