@@ -69,11 +69,8 @@ func NewDiffsStorage(ctx context.Context) *DiffsStorage {
 }
 
 func (s *DiffsStorage) Finalize(ctx context.Context) {
-	var (
-		diffsStorage = StorageFromContext(ctx)
-	)
 
-	for _, batch := range diffsStorage.batches {
+	for _, batch := range s.batches {
 		close(batch.diffsCh)
 	}
 
