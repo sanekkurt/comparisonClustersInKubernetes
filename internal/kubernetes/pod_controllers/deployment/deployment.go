@@ -3,9 +3,7 @@ package deployment
 import (
 	"context"
 	"fmt"
-	"sort"
 	"sync"
-	"time"
 
 	"k8s-cluster-comparator/internal/config"
 	"k8s-cluster-comparator/internal/consts"
@@ -243,7 +241,7 @@ func (cmp *Comparator) compare(ctx context.Context, map1, map2 map[string]appsv1
 	}
 
 	if cfg.Common.SkipRecentUpdatedResources {
-		apcs, err = cmp.prepareReplicaSets(ctx, apcs)
+		apcs, err = cmp.getFilteredDeploymentsListByUpdateTime(ctx, apcs)
 		if err != nil {
 			return err
 		}
@@ -281,62 +279,4 @@ func (cmp *Comparator) prepareAPCMap(ctx context.Context, objs map[string]appsv1
 	}
 
 	return apcs
-}
-
-func (cmp *Comparator) prepareReplicaSets(ctx context.Context, apcs []map[string]*pccommon.AbstractPodController) ([]map[string]*pccommon.AbstractPodController, error) {
-	var (
-		cfg           = config.FromContext(ctx)
-		log           = logging.FromContext(ctx)
-		continueToken string
-		limitTime     = time.Now().Add(-1 * cfg.Workloads.PodControllers.Deployments.MinimumUpdateAgeMinutes)
-	)
-
-	select {
-	case <-ctx.Done():
-		return nil, context.Canceled
-	default:
-		for _, apc := range apcs {
-			for apcName, value := range apc {
-				matchLabels, _ := metav1.LabelSelectorAsSelector(value.PodLabelSelector)
-				var replicaSetList []appsv1.ReplicaSet
-
-			Loop:
-				for {
-					batch, err := cfg.Connections.Cluster1.ClientSet.AppsV1().ReplicaSets(cmp.Namespace).List(ctx, metav1.ListOptions{
-						Limit:         cmp.BatchSize,
-						LabelSelector: matchLabels.String(),
-						Continue:      continueToken,
-					})
-					if err != nil {
-						return nil, err
-					}
-
-					log.Debugf("%d %s for %s deployment retrieved", len(batch.Items), "ReplicaSets", apcName)
-
-					for _, replicaSet := range batch.Items {
-						replicaSetList = append(replicaSetList, replicaSet)
-					}
-
-					if batch.Continue == "" {
-						break Loop
-					}
-
-					continueToken = batch.Continue
-				}
-
-				sort.SliceStable(replicaSetList, func(i, j int) bool {
-					return replicaSetList[i].CreationTimestamp.Time.After(replicaSetList[j].CreationTimestamp.Time)
-				})
-
-				if replicaSetList[0].CreationTimestamp.Time.After(limitTime) {
-					log.With("objectName", apcName).Infof("deployment/%s skipped from comparison: ReplicaSet '%s' created at %s, less than %d minutes ago", apcName, replicaSetList[0].Name, replicaSetList[0].CreationTimestamp.Time, cfg.Workloads.PodControllers.Deployments.MinimumUpdateAgeMinutes/time.Minute)
-					delete(apc, apcName)
-				}
-			}
-		}
-
-		return apcs, nil
-
-	}
-
 }

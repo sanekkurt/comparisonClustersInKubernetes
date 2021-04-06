@@ -2,6 +2,8 @@ package kubernetes
 
 import (
 	"context"
+	"sync"
+
 	"k8s-cluster-comparator/internal/kubernetes/kv_maps/configmap"
 	"k8s-cluster-comparator/internal/kubernetes/kv_maps/secret"
 	"k8s-cluster-comparator/internal/kubernetes/networking/ingress"
@@ -10,7 +12,6 @@ import (
 	"k8s-cluster-comparator/internal/kubernetes/pod_controllers/statefulset"
 	"k8s-cluster-comparator/internal/kubernetes/tasks/cronjob"
 	"k8s-cluster-comparator/internal/kubernetes/tasks/job"
-	"sync"
 
 	"k8s-cluster-comparator/internal/config"
 	"k8s-cluster-comparator/internal/kubernetes/diff"
@@ -26,6 +27,41 @@ type ResStr struct {
 	Err              error
 }
 
+func runComparatorsAsynchronouslyAndWaitForCompletion(ctx context.Context, comparators []types.KubeResourceComparator) {
+	var (
+		log = logging.FromContext(ctx)
+		wg  = &sync.WaitGroup{}
+	)
+
+	for _, cmp := range comparators {
+		select {
+		case <-ctx.Done():
+			break
+		default:
+			cmp := cmp
+
+			wg.Add(1)
+
+			go func(wg *sync.WaitGroup) {
+				defer wg.Done()
+
+				log.Debugf("%T started", cmp)
+				defer func() {
+					log.Debugf("%T completed", cmp)
+				}()
+
+				_, err := cmp.Compare(ctx)
+				if err != nil {
+					log.Errorf("cannot call %T: %s", cmp, err.Error())
+					return
+				}
+			}(wg)
+		}
+	}
+
+	wg.Wait()
+}
+
 // CompareClusters main compare function, runs functions for comparing clusters by different parameters one at a time: Deployments, StatefulSets, DaemonSets, ConfigMaps
 func CompareClusters(ctx context.Context) error {
 	var (
@@ -37,13 +73,17 @@ func CompareClusters(ctx context.Context) error {
 	ctx = diff.WithDiffStorage(ctx, diffs)
 
 	for _, namespace := range cfg.Connections.Namespaces {
-		log := log.With(zap.String("namespace", namespace))
+		ctx := logging.WithLogger(ctx, log.With(zap.String("namespace", namespace))) //nolint:govet
 
 		comparators := []types.KubeResourceComparator{
 			deployment.NewComparator(ctx, namespace),
 			statefulset.NewComparator(ctx, namespace),
 			daemonset.NewComparator(ctx, namespace),
+		}
 
+		runComparatorsAsynchronouslyAndWaitForCompletion(ctx, comparators)
+
+		comparators = []types.KubeResourceComparator{
 			job.NewComparator(ctx, namespace),
 			cronjob.NewComparator(ctx, namespace),
 
@@ -53,39 +93,9 @@ func CompareClusters(ctx context.Context) error {
 			service.NewComparator(ctx, namespace),
 			ingress.NewComparator(ctx, namespace),
 		}
-
-		wg := &sync.WaitGroup{}
-
-		for _, cmp := range comparators {
-			select {
-			case <-ctx.Done():
-				break
-			default:
-				cmp := cmp
-
-				wg.Add(1)
-
-				go func(wg *sync.WaitGroup) {
-					defer wg.Done()
-
-					log.Debugf("%T started", cmp)
-					defer func() {
-						log.Debugf("%T completed", cmp)
-					}()
-
-					_, err := cmp.Compare(ctx)
-					if err != nil {
-						log.Errorf("cannot call %T: %s", cmp, err.Error())
-						return
-					}
-				}(wg)
-			}
-		}
-
-		wg.Wait()
+		runComparatorsAsynchronouslyAndWaitForCompletion(ctx, comparators)
 	}
 
-	//ctx.Done()
 	diffs.Finalize(ctx)
 
 	return nil
