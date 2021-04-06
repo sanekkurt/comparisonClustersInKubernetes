@@ -14,10 +14,10 @@ import (
 )
 
 func main() {
-	Run(os.Args)
+	run(os.Args)
 }
 
-func Run(args []string) {
+func run(args []string) {
 	var (
 		debug bool
 		ctx   = context.Background()

@@ -10,5 +10,5 @@ func TestEntireComparison(t *testing.T) {
 		t.Error(err)
 	}
 
-	Run([]string{os.Args[0], "-c", "../../config.yaml"})
+	run([]string{os.Args[0], "-c", "../../config.yaml"})
 }
