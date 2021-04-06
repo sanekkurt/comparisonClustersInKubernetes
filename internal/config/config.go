@@ -28,10 +28,10 @@ var (
 )
 
 // Parse performs configuration parsing from various sources and fills in the AppConfig struct
-func Parse(ctx context.Context) (*AppConfig, error) {
+func Parse(ctx context.Context, args []string) (*AppConfig, error) {
 	log := logging.FromContext(ctx)
 
-	_, err := flags.NewParser(&opts, flags.HelpFlag|flags.PassDoubleDash).Parse()
+	_, err := flags.NewParser(&opts, flags.HelpFlag|flags.PassDoubleDash).ParseArgs(args[1:])
 	if err != nil {
 		if flagsErr, ok := err.(*flags.Error); ok {
 			if flagsErr.Type == flags.ErrHelp {

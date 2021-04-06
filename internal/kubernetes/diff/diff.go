@@ -36,45 +36,26 @@ type DiffsBatch struct {
 	once sync.Once
 }
 
-//type DiffsBatch struct {
-//	object object
-//
-//	diffs []objectsDiff
-//}
-
 func NewDiffsStorage(ctx context.Context) *DiffsStorage {
-	var (
-		log    = logging.FromContext(ctx)
-		syncCh = make(chan struct{})
-	)
-
 	ds := &DiffsStorage{
 		wg: &sync.WaitGroup{},
-		//batches: make([]DiffsBatch, 0),
 	}
-
-	go func(ds *DiffsStorage) {
-		log.Infof("[SYNC BEGIN]")
-
-		syncCh <- struct{}{}
-
-		log.Infof("[WORKER COMPLETED]")
-	}(ds)
-
-	<-syncCh
-
-	log.Infof("[SYNC DONE]")
 
 	return ds
 }
 
 func (s *DiffsStorage) Finalize(ctx context.Context) {
+	var (
+		log = logging.FromContext(ctx)
+	)
+
+	log.Debugf("Closing %d collecting goroutines...", len(s.batches))
 
 	for _, batch := range s.batches {
 		close(batch.diffsCh)
 	}
 
-	//s.wg.Wait()
+	s.wg.Wait()
 }
 
 func (s *DiffsStorage) NewLazyBatch(objType metav1.TypeMeta, objMeta metav1.ObjectMeta) *DiffsBatch {
@@ -91,75 +72,6 @@ func (s *DiffsStorage) NewLazyBatch(objType metav1.TypeMeta, objMeta metav1.Obje
 
 	return b
 }
-
-//
-//type Diff struct {
-//	Ctx       context.Context
-//	Final     bool
-//	LogLevel  zapcore.Level
-//	Msg       string
-//	Variables []interface{}
-//}
-
-//type ChanForDiff chan Diff
-//
-//func (s *DiffsStorage) NewChannel(objType metav1.TypeMeta, objMeta metav1.ObjectMeta) *ChanForDiff {
-//
-//	ch := make(ChanForDiff)
-//	go cyclicReadingFromChannel(ch, s, objType, objMeta)
-//
-//	return &ch
-//}
-
-//func cyclicReadingFromChannel(c ChanForDiff, difStorage *DiffsStorage, objType metav1.TypeMeta, objMeta metav1.ObjectMeta) {
-//	var batchCreated bool
-//	var dif *DiffsBatch
-//	for {
-//		val, ok := <-c
-//		if ok {
-//			if !batchCreated {
-//				dif = difStorage.NewLazyBatch(objType, objMeta)
-//				batchCreated = true
-//			}
-//
-//			dif.Add(val.Ctx, val.Final, val.LogLevel, val.Msg, val.Variables...)
-//		} else {
-//			break
-//		}
-//	}
-//}
-
-//func (s *DiffsStorage) Add(ctx context.Context, objType *metav1.TypeMeta, objMeta *metav1.ObjectMeta, final bool, logLevel zapcore.Level, msg string, variables ...interface{}) bool {
-//
-//	var (
-//		log = logging.FromContext(ctx)
-//	)
-//
-//	switch logLevel {
-//	case zapcore.WarnLevel:
-//		log.Warnf(msg, variables...)
-//	case zapcore.ErrorLevel:
-//		log.Errorf(msg, variables...)
-//	case zapcore.FatalLevel:
-//		log.Fatalf(msg, variables...)
-//	case zapcore.PanicLevel:
-//		log.Panicf(msg, variables...)
-//	}
-//
-//	diff := objectsDiff{
-//		Msg:   msg,
-//		Final: final,
-//	}
-//
-//	diff.Msg = fmt.Sprintf(msg, variables...)
-//	diff.Final = final
-//
-//	s.m.Lock()
-//	//	s.batches[0] = append(s.batches[0], diff)
-//	defer s.m.Unlock()
-//
-//	return final == true
-//}
 
 func (b *DiffsBatch) lazyInit(ctx context.Context) {
 	var (

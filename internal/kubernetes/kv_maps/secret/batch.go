@@ -23,4 +23,3 @@ func getBatchLimit(ctx context.Context) int64 {
 
 	return defaultSecretBatchLimit
 }
-

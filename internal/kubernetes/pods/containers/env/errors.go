@@ -13,4 +13,3 @@ var (
 
 	ErrorContainerEnvValueFromComparisonNotImplemented = errors.New("environment variable ValueFrom type not implemented yet")
 )
-
