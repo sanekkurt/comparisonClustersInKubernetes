@@ -329,7 +329,7 @@ func (cmp *Comparator) prepareReplicaSets(ctx context.Context, apcs []map[string
 				})
 
 				if replicaSetList[0].CreationTimestamp.Time.After(limitTime) {
-					log.Infof("deployment/%s skipped from comparison: the latest ReplicaSet '%s' created after %s, less than %d minutes ago", apcName, replicaSetList[0].Name, replicaSetList[0].CreationTimestamp.Time, cfg.Workloads.PodControllers.Deployments.MinimumUpdateAgeMinutes/time.Minute)
+					log.With("objectName", apcName).Infof("deployment/%s skipped from comparison: ReplicaSet '%s' created at %s, less than %d minutes ago", apcName, replicaSetList[0].Name, replicaSetList[0].CreationTimestamp.Time, cfg.Workloads.PodControllers.Deployments.MinimumUpdateAgeMinutes/time.Minute)
 					delete(apc, apcName)
 				}
 			}
