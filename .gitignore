@@ -1,8 +1,7 @@
 /.idea/
-app
 *.env
 config*.yaml
 /build/
 /gobs/
-.chart/
+#.chart/
 /secret/
