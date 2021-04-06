@@ -3,6 +3,7 @@ package diff
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	"k8s-cluster-comparator/internal/logging"
@@ -22,7 +23,7 @@ type DiffsStorage struct {
 }
 
 type objectsDiff struct {
-	Msg   string
+	Msg   interface{}
 	Final bool
 }
 
@@ -102,14 +103,18 @@ func (b *DiffsBatch) lazyInit(ctx context.Context) {
 func (b *DiffsBatch) Add(ctx context.Context, final bool, msg string, fields ...interface{}) bool {
 	b.lazyInit(ctx)
 
-	diffLog(ctx, b.object, msg, fields...)
+	diffLog(ctx, b.object, strings.Replace(msg, "%w", "%s", -1), fields...)
 
 	diff := objectsDiff{
-		Msg:   fmt.Sprintf(msg, fields...),
+		Msg:   fmt.Errorf(msg, fields...),
 		Final: final,
 	}
 
 	b.diffsCh <- diff
 
 	return final
+}
+
+func (b *DiffsBatch) GetDiffs() []objectsDiff {
+	return b.diffs
 }
