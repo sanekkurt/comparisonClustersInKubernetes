@@ -3,6 +3,10 @@ package deployment
 import (
 	"context"
 	"fmt"
+	"sort"
+	"sync"
+	"time"
+
 	"k8s-cluster-comparator/internal/config"
 	"k8s-cluster-comparator/internal/consts"
 	kubectx "k8s-cluster-comparator/internal/kubernetes/context"
@@ -10,9 +14,6 @@ import (
 	pccommon "k8s-cluster-comparator/internal/kubernetes/pod_controllers/common"
 	"k8s-cluster-comparator/internal/kubernetes/types"
 	"k8s-cluster-comparator/internal/logging"
-	"sort"
-	"sync"
-	"time"
 
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
@@ -231,36 +232,29 @@ func (cmp *Comparator) collect(ctx context.Context) ([]map[string]appsv1.Deploym
 
 func (cmp *Comparator) compare(ctx context.Context, map1, map2 map[string]appsv1.Deployment) error {
 	var (
-		apcs = make([]map[string]*pccommon.AbstractPodController, 2, 2)
+		apcs = make([]map[string]*pccommon.AbstractPodController, 2)
 		cfg  = config.FromContext(ctx)
+
+		err error
 	)
 
 	for idx, objs := range []map[string]appsv1.Deployment{map1, map2} {
 		apcs[idx] = cmp.prepareAPCMap(ctx, objs)
 	}
 
-	if cfg.Common.CheckingCreationTimestampDeploymentsLimit {
-		clearApcs, err := cmp.prepareReplicaSets(ctx, apcs)
+	if cfg.Common.SkipRecentUpdatedResources {
+		apcs, err = cmp.prepareReplicaSets(ctx, apcs)
 		if err != nil {
 			return err
 		}
-
-		err = pccommon.CompareAbstractPodControllerMaps(kubectx.WithNamespace(ctx, cmp.Namespace), cmp.Kind, clearApcs[0], clearApcs[1])
-		if err != nil {
-			return err
-		}
-
-		return nil
-
-	} else {
-		err := pccommon.CompareAbstractPodControllerMaps(kubectx.WithNamespace(ctx, cmp.Namespace), cmp.Kind, apcs[0], apcs[1])
-		if err != nil {
-			return err
-		}
-
-		return nil
 	}
 
+	err = pccommon.CompareAbstractPodControllerMaps(kubectx.WithNamespace(ctx, cmp.Namespace), cmp.Kind, apcs[0], apcs[1])
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (cmp *Comparator) prepareAPCMap(ctx context.Context, objs map[string]appsv1.Deployment) map[string]*pccommon.AbstractPodController {
@@ -294,17 +288,15 @@ func (cmp *Comparator) prepareReplicaSets(ctx context.Context, apcs []map[string
 		cfg           = config.FromContext(ctx)
 		log           = logging.FromContext(ctx)
 		continueToken string
-		limitTime     = -time.Duration(cfg.Workloads.PodControllers.Deployments.DiscardDeploymentsUpdatedLaterTime) * time.Minute
+		limitTime     = time.Now().Add(-1 * cfg.Workloads.PodControllers.Deployments.MinimumUpdateAgeMinutes)
 	)
 
 	select {
 	case <-ctx.Done():
 		return nil, context.Canceled
-
 	default:
 		for _, apc := range apcs {
-			for key, value := range apc {
-
+			for apcName, value := range apc {
 				matchLabels, _ := metav1.LabelSelectorAsSelector(value.PodLabelSelector)
 				var replicaSetList []appsv1.ReplicaSet
 
@@ -319,7 +311,7 @@ func (cmp *Comparator) prepareReplicaSets(ctx context.Context, apcs []map[string
 						return nil, err
 					}
 
-					log.Debugf("%d %s for %s deployment retrieved", len(batch.Items), "ReplicaSets", key)
+					log.Debugf("%d %s for %s deployment retrieved", len(batch.Items), "ReplicaSets", apcName)
 
 					for _, replicaSet := range batch.Items {
 						replicaSetList = append(replicaSetList, replicaSet)
@@ -336,9 +328,9 @@ func (cmp *Comparator) prepareReplicaSets(ctx context.Context, apcs []map[string
 					return replicaSetList[i].CreationTimestamp.Time.After(replicaSetList[j].CreationTimestamp.Time)
 				})
 
-				if replicaSetList[0].CreationTimestamp.Time.After(time.Now().Add(limitTime)) {
-					log.Warnf("latest replicaSet have creationTimestamp '%s' after limit '%s'. The deployment %s will be excluded", replicaSetList[0].CreationTimestamp.Time, limitTime, key)
-					delete(apc, key)
+				if replicaSetList[0].CreationTimestamp.Time.After(limitTime) {
+					log.Infof("deployment/%s skipped from comparison: the latest ReplicaSet '%s' created after %s, less than %d minutes ago", apcName, replicaSetList[0].Name, replicaSetList[0].CreationTimestamp.Time, cfg.Workloads.PodControllers.Deployments.MinimumUpdateAgeMinutes/time.Minute)
+					delete(apc, apcName)
 				}
 			}
 		}

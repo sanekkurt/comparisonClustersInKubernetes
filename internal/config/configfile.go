@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"gopkg.in/yaml.v2"
 	"k8s.io/client-go/kubernetes"
@@ -66,7 +67,13 @@ type DeploymentsComparisonConfiguration struct {
 
 	BatchSize int64 `yaml:"batchSize"`
 
-	DiscardDeploymentsUpdatedLaterTime int64 `yaml:"discardDeploymentsUpdatedLaterTime"`
+	MinimumUpdateAgeMinutes time.Duration `yaml:"minimumUpdateAgeMinutes"`
+}
+
+func (cfg *DeploymentsComparisonConfiguration) Parse(ctx context.Context) error {
+	cfg.MinimumUpdateAgeMinutes *= time.Minute
+
+	return nil
 }
 
 type StatefulSetsComparisonConfiguration struct {
@@ -236,7 +243,7 @@ type CommonConfiguration struct {
 
 	DefaultBatchSize int64 `yaml:"defaultBatchSize"`
 
-	CheckingCreationTimestampDeploymentsLimit bool `yaml:"checkingCreationTimestampDeploymentsLimit"`
+	SkipRecentUpdatedResources bool `yaml:"skipRecentUpdatedResources"`
 }
 
 func (cfg *CommonConfiguration) Parse(ctx context.Context) error {
@@ -348,6 +355,7 @@ func ParseConfig(ctx context.Context, cfgPath string) (*AppConfig, error) {
 		&cfg.Common.MetadataCompareConfiguration,
 		&cfg.Configs.Secrets,
 		&cfg.Workloads.Containers,
+		&cfg.Workloads.PodControllers.Deployments,
 	}
 
 	for _, section := range extraCfgSections {
