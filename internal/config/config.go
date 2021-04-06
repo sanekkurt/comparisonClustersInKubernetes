@@ -83,3 +83,7 @@ func Parse(ctx context.Context, args []string) (*AppConfig, error) {
 
 	return cfg, nil
 }
+
+//func ParseForTests(ctx context.Context, args []string) (*AppConfig, error) {
+//
+//}
