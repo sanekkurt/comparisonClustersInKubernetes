@@ -61,6 +61,43 @@ func Configure(debugMode bool) error { //nolint
 	return nil
 }
 
+func ConfigureForTests() error {
+	var (
+		err      error
+		logger   *zap.Logger
+		logLevel = zap.InfoLevel
+	)
+
+	zapConfig := zap.Config{
+		Level:       zap.NewAtomicLevelAt(logLevel),
+		Development: false,
+		Encoding:    "json",
+		EncoderConfig: zapcore.EncoderConfig{
+			// Keys can be anything except the empty string.
+			TimeKey: "",
+			//LevelKey:      "L",
+			LevelKey: "level",
+			//NameKey:       "N",
+			CallerKey:   "",
+			FunctionKey: zapcore.OmitKey,
+			MessageKey:  "message",
+			//StacktraceKey: "S",
+			LineEnding:  zapcore.DefaultLineEnding,
+			EncodeLevel: zapcore.CapitalLevelEncoder,
+			//EncodeTime:     zapcore.ISO8601TimeEncoder,
+			EncodeDuration: zapcore.StringDurationEncoder,
+		},
+	}
+
+	if logger, err = zapConfig.Build(); err != nil {
+		return fmt.Errorf("cannot create logger: %w", err)
+	} else {
+		log = logger.Sugar()
+	}
+
+	return nil
+}
+
 //func injectLoggerToContext(ctx context.Context) context.Context {
 //	return context.WithValue(ctx, loggingCtxKey{}, Log)
 //}

@@ -15,16 +15,17 @@ import (
 
 func initLoggingAndConfig() context.Context {
 	var (
-		debug bool
+		//debug bool
 
 		ctx = context.Background()
 	)
 
-	if os.Getenv("DEBUG") == "true" {
-		debug = true
-	}
+	//if os.Getenv("DEBUG") == "true" {
+	//	debug = true
+	//}
 
-	err := logging.Configure(debug)
+	//err := logging.Configure(debug)
+	err := logging.ConfigureForTests()
 	if err != nil {
 		fmt.Println("[ERROR] ", err.Error())
 	}
