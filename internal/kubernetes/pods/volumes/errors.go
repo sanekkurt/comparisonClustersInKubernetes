@@ -39,7 +39,7 @@ var (
 	ErrorPodMissingVolumesDownwardAPI             = errors.New("one of the volume in pods is missing DownwardAPI")
 	ErrorDownwardAPIDefaultMode                   = errors.New("different DownwardAPI DefaultMode in volumes")
 	ErrorMissingDownwardAPIDefaultMode            = errors.New("missing DownwardAPI DefaultMode in volumes")
-	ErrorVolumeDownwardAPIItemsLen                = errors.New("different secret items length in volumes")
+	ErrorVolumeDownwardAPIItemsLen                = errors.New("different DownwardAPI items length in volumes")
 	ErrorDownwardAPIItemsPath                     = errors.New("different DownwardAPI Items Path in volumes")
 	ErrorDownwardAPIItemsMode                     = errors.New("different DownwardAPI Items Mode in volumes")
 	ErrorMissingDownwardAPIItemsMode              = errors.New("missing DownwardAPI Items Mode in volumes")

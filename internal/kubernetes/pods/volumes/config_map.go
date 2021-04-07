@@ -12,27 +12,27 @@ func CompareVolumeConfigMap(ctx context.Context, configMap1, configMap2 *v1.Conf
 	)
 
 	if configMap1.Name != configMap2.Name {
-		diffsBatch.Add(ctx, false, "%s: %s vs %s", ErrorVolumeConfigMapName.Error(), configMap1.Name, configMap2.Name)
+		diffsBatch.Add(ctx, false, "%w: '%s' vs '%s'", ErrorVolumeConfigMapName, configMap1.Name, configMap2.Name)
 	}
 
 	if len(configMap1.Items) != len(configMap2.Items) {
-		diffsBatch.Add(ctx, false, "%s", ErrorVolumeConfigMapItemsLen.Error())
+		diffsBatch.Add(ctx, false, "%w", ErrorVolumeConfigMapItemsLen)
 	} else {
 		for i, item := range configMap1.Items {
 			if item.Path != configMap2.Items[i].Path {
-				diffsBatch.Add(ctx, false, "%s. %s vs %s", ErrorVolumeConfigMapPath.Error(), item.Path, configMap2.Items[i].Path)
+				diffsBatch.Add(ctx, false, "%w. '%s' vs '%s'", ErrorVolumeConfigMapPath, item.Path, configMap2.Items[i].Path)
 			}
 
 			if item.Key != configMap2.Items[i].Key {
-				diffsBatch.Add(ctx, false, "%s. %s vs %s", ErrorVolumeConfigMapKey.Error(), item.Key, configMap2.Items[i].Key)
+				diffsBatch.Add(ctx, false, "%w. '%s' vs '%s'", ErrorVolumeConfigMapKey, item.Key, configMap2.Items[i].Key)
 			}
 
 			if item.Mode != nil && configMap2.Items[i].Mode != nil {
 				if *item.Mode != *configMap2.Items[i].Mode {
-					diffsBatch.Add(ctx, false, "%s. %d vs %d", ErrorVolumeConfigMapMode.Error(), *item.Mode, *configMap2.Items[i].Mode)
+					diffsBatch.Add(ctx, false, "%w. '%d' vs '%d'", ErrorVolumeConfigMapMode, *item.Mode, *configMap2.Items[i].Mode)
 				}
 			} else if item.Mode != nil || configMap2.Items[i].Mode != nil {
-				diffsBatch.Add(ctx, false, "%s", ErrorVolumeConfigMapMode.Error())
+				diffsBatch.Add(ctx, false, "%w", ErrorVolumeConfigMapMode)
 			}
 
 		}

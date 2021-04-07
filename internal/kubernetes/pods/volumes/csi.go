@@ -13,41 +13,41 @@ func CompareVolumeCSI(ctx context.Context, csi1, csi2 *v1.CSIVolumeSource) {
 	)
 
 	if csi1.Driver != csi2.Driver {
-		diffsBatch.Add(ctx, false, "%s. %s vs %s", ErrorVolumeCSIDriver.Error(), csi1.Driver, csi2.Driver)
+		diffsBatch.Add(ctx, false, "%w. '%s' vs '%s'", ErrorVolumeCSIDriver, csi1.Driver, csi2.Driver)
 	}
 
 	if csi1.ReadOnly != nil && csi2.ReadOnly != nil {
 
 		if *csi1.ReadOnly != *csi2.ReadOnly {
-			diffsBatch.Add(ctx, false, "%s. %t vs %t", ErrorVolumeCSIReadOnly.Error(), *csi1.ReadOnly, *csi2.ReadOnly)
+			diffsBatch.Add(ctx, false, "%w. '%t' vs '%t'", ErrorVolumeCSIReadOnly, *csi1.ReadOnly, *csi2.ReadOnly)
 		}
 
 	} else if csi1.ReadOnly != nil || csi2.ReadOnly != nil {
-		diffsBatch.Add(ctx, false, "%s", ErrorMissingCSIReadOnly.Error())
+		diffsBatch.Add(ctx, false, "%w", ErrorMissingCSIReadOnly)
 	}
 
 	if csi1.FSType != nil && csi2.FSType != nil {
 
 		if *csi1.FSType != *csi2.FSType {
-			diffsBatch.Add(ctx, false, "%s. %s vs %s", ErrorVolumeCSIFSType.Error(), *csi1.FSType, *csi2.FSType)
+			diffsBatch.Add(ctx, false, "%w. '%s' vs '%s'", ErrorVolumeCSIFSType, *csi1.FSType, *csi2.FSType)
 		}
 
 	} else if csi1.FSType != nil || csi2.FSType != nil {
-		diffsBatch.Add(ctx, false, "%s", ErrorMissingCSIFSType.Error())
+		diffsBatch.Add(ctx, false, "%w", ErrorMissingCSIFSType)
 	}
 
 	if csi1.NodePublishSecretRef != nil && csi2.NodePublishSecretRef != nil {
 
 		if csi1.NodePublishSecretRef.Name != csi2.NodePublishSecretRef.Name {
-			diffsBatch.Add(ctx, false, "%s. %s vs %s", ErrorVolumeCSIName.Error(), csi1.NodePublishSecretRef.Name, csi2.NodePublishSecretRef.Name)
+			diffsBatch.Add(ctx, false, "%w. '%s' vs '%s'", ErrorVolumeCSIName, csi1.NodePublishSecretRef.Name, csi2.NodePublishSecretRef.Name)
 		}
 
 	} else if csi1.NodePublishSecretRef != nil || csi2.NodePublishSecretRef != nil {
-		diffsBatch.Add(ctx, false, "%s", ErrorMissingCSINodePublishSecretRef.Error())
+		diffsBatch.Add(ctx, false, "%w", ErrorMissingCSINodePublishSecretRef)
 	}
 
 	if !reflect.DeepEqual(csi1.VolumeAttributes, csi2.VolumeAttributes) {
-		diffsBatch.Add(ctx, false, "%s", ErrorVolumeCSIVolumeAttributes.Error())
+		diffsBatch.Add(ctx, false, "%w", ErrorVolumeCSIVolumeAttributes)
 	}
 
 	return

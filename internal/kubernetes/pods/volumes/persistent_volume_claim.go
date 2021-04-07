@@ -12,11 +12,11 @@ func CompareVolumePersistentVolumeClaim(ctx context.Context, persistentVolumeCla
 	)
 
 	if persistentVolumeClaim1.ReadOnly != persistentVolumeClaim2.ReadOnly {
-		diffsBatch.Add(ctx, false, "%s. %t vs %t", ErrorPersistentVolumeClaimReadOnly.Error(), persistentVolumeClaim1.ReadOnly, persistentVolumeClaim2.ReadOnly)
+		diffsBatch.Add(ctx, false, "%w. '%t' vs '%t'", ErrorPersistentVolumeClaimReadOnly, persistentVolumeClaim1.ReadOnly, persistentVolumeClaim2.ReadOnly)
 	}
 
 	if persistentVolumeClaim1.ClaimName != persistentVolumeClaim2.ClaimName {
-		diffsBatch.Add(ctx, false, "%s. %s vs %s", ErrorPersistentVolumeClaimName.Error(), persistentVolumeClaim1.ClaimName, persistentVolumeClaim2.ClaimName)
+		diffsBatch.Add(ctx, false, "%w. '%s' vs '%s'", ErrorPersistentVolumeClaimName, persistentVolumeClaim1.ClaimName, persistentVolumeClaim2.ClaimName)
 	}
 
 	return

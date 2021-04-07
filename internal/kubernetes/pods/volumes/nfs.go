@@ -12,15 +12,15 @@ func CompareVolumeNFS(ctx context.Context, nfs1, nfs2 *v1.NFSVolumeSource) {
 	)
 
 	if nfs1.ReadOnly != nfs2.ReadOnly {
-		diffsBatch.Add(ctx, false, "%s. %t vs %t", ErrorVolumeNFSReadOnly.Error(), nfs1.ReadOnly, nfs2.ReadOnly)
+		diffsBatch.Add(ctx, false, "%w. '%t' vs '%t'", ErrorVolumeNFSReadOnly, nfs1.ReadOnly, nfs2.ReadOnly)
 	}
 
 	if nfs1.Path != nfs2.Path {
-		diffsBatch.Add(ctx, false, "%s. %s vs %s", ErrorVolumeNFSPath.Error(), nfs1.Path, nfs2.Path)
+		diffsBatch.Add(ctx, false, "%w. '%s' vs '%s'", ErrorVolumeNFSPath, nfs1.Path, nfs2.Path)
 	}
 
 	if nfs1.Server != nfs2.Server {
-		diffsBatch.Add(ctx, false, "%s. %s vs %s", ErrorVolumeNFSServer.Error(), nfs1.Server, nfs2.Server)
+		diffsBatch.Add(ctx, false, "%w. '%s' vs '%s'", ErrorVolumeNFSServer, nfs1.Server, nfs2.Server)
 	}
 
 	return
