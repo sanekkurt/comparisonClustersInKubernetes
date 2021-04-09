@@ -44,7 +44,7 @@ func CompareJobSpecInternals(ctx context.Context, obj1, obj2 batchv1.JobSpec) er
 			Selector: nil,
 		}
 
-		_, err := pods.ComparePodSpecs(ctx, castJob1ForCompareContainers, castJob2ForCompareContainers)
+		err := pods.ComparePodSpecs(ctx, castJob1ForCompareContainers, castJob2ForCompareContainers)
 		if err != nil {
 			return err
 		}

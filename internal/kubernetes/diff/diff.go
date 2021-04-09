@@ -45,6 +45,10 @@ func NewDiffsStorage(ctx context.Context) *DiffsStorage {
 	return ds
 }
 
+func (s *DiffsStorage) GetBatches() []*DiffsBatch {
+	return s.batches
+}
+
 func (s *DiffsStorage) Finalize(ctx context.Context) {
 	var (
 		log = logging.FromContext(ctx)

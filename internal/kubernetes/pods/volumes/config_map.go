@@ -12,11 +12,11 @@ func CompareVolumeConfigMap(ctx context.Context, configMap1, configMap2 *v1.Conf
 	)
 
 	if configMap1.Name != configMap2.Name {
-		diffsBatch.Add(ctx, false, "%w: '%s' vs '%s'", ErrorVolumeConfigMapName, configMap1.Name, configMap2.Name)
+		diffsBatch.Add(ctx, false, "%w. '%s' vs '%s'", ErrorVolumeConfigMapName, configMap1.Name, configMap2.Name)
 	}
 
 	if len(configMap1.Items) != len(configMap2.Items) {
-		diffsBatch.Add(ctx, false, "%w", ErrorVolumeConfigMapItemsLen)
+		diffsBatch.Add(ctx, false, "%w. '%d' vs '%d'", ErrorVolumeConfigMapItemsLen, len(configMap1.Items), len(configMap2.Items))
 	} else {
 		for i, item := range configMap1.Items {
 			if item.Path != configMap2.Items[i].Path {
@@ -32,7 +32,7 @@ func CompareVolumeConfigMap(ctx context.Context, configMap1, configMap2 *v1.Conf
 					diffsBatch.Add(ctx, false, "%w. '%d' vs '%d'", ErrorVolumeConfigMapMode, *item.Mode, *configMap2.Items[i].Mode)
 				}
 			} else if item.Mode != nil || configMap2.Items[i].Mode != nil {
-				diffsBatch.Add(ctx, false, "%w", ErrorVolumeConfigMapMode)
+				diffsBatch.Add(ctx, false, "%w", ErrorMissingVolumeConfigMapMode)
 			}
 
 		}
@@ -40,20 +40,20 @@ func CompareVolumeConfigMap(ctx context.Context, configMap1, configMap2 *v1.Conf
 
 	if configMap1.DefaultMode != nil && configMap2.DefaultMode != nil {
 		if *configMap1.DefaultMode != *configMap2.DefaultMode {
-			diffsBatch.Add(ctx, false, "%s: %d vs %d", ErrorVolumeConfigMapDefaultMode.Error(), *configMap1.DefaultMode, *configMap2.DefaultMode)
+			diffsBatch.Add(ctx, false, "%w. '%d' vs '%d'", ErrorVolumeConfigMapDefaultMode, *configMap1.DefaultMode, *configMap2.DefaultMode)
 		}
 
 	} else if configMap1.DefaultMode != nil || configMap2.DefaultMode != nil {
-		diffsBatch.Add(ctx, false, "%s", ErrorVolumeConfigMapDefaultMode.Error())
+		diffsBatch.Add(ctx, false, "%w", ErrorMissingVolumeConfigMapDefaultMode)
 	}
 
 	if configMap1.Optional != nil && configMap2.Optional != nil {
 		if *configMap1.Optional != *configMap2.Optional {
-			diffsBatch.Add(ctx, false, "%s: %t vs %t", ErrorVolumeConfigMapOptional.Error(), *configMap1.Optional, *configMap2.Optional)
+			diffsBatch.Add(ctx, false, "%w. '%t' vs '%t'", ErrorVolumeConfigMapOptional, *configMap1.Optional, *configMap2.Optional)
 		}
 
-	} else if configMap1.DefaultMode != nil || configMap2.DefaultMode != nil {
-		diffsBatch.Add(ctx, false, "%s", ErrorVolumeConfigMapOptional.Error())
+	} else if configMap1.Optional != nil || configMap2.Optional != nil {
+		diffsBatch.Add(ctx, false, "%w", ErrorMissingVolumeConfigMapOptional)
 	}
 
 	return

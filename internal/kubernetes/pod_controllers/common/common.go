@@ -43,17 +43,14 @@ func ComparePodControllerSpecs(ctx context.Context, name string, apc1, apc2 *Abs
 		log.Debugf("%s/%s: check completed", kind, apc1.Name)
 	}()
 
-	if apc1.Replicas != nil || apc2.Replicas != nil {
+	if apc1.Replicas != nil && apc2.Replicas != nil {
 		if *apc1.Replicas != *apc2.Replicas {
 			//log.Warnf("the number of replicas is different: %d and %d", *apc1.Replicas, *apc2.Replicas)
 			//diffsBatch.Add(ctx, false, zap.WarnLevel, "the number of replicas is different: %d and %d", *apc1.Replicas, *apc2.Replicas)
-			diffsBatch.Add(ctx, false, "number of replicas is different: %d and %d", *apc1.Replicas, *apc2.Replicas)
+			diffsBatch.Add(ctx, false, "%w: '%d' vs '%d'", ErrorDifferentNumberReplicas, *apc1.Replicas, *apc2.Replicas)
 		}
-	}
-
-	if (apc1.Replicas != nil && apc2.Replicas == nil) || (apc2.Replicas != nil && apc1.Replicas == nil) {
-		//log.Warnf("strange replicas specification difference: %#v and %#v", apc1.Replicas, apc2.Replicas)
-		diffsBatch.Add(ctx, false, "strange replicas specification difference: %#v and %#v", apc1.Replicas, apc2.Replicas)
+	} else if apc1.Replicas != nil || apc2.Replicas != nil {
+		diffsBatch.Add(ctx, false, "%w", ErrorMissingReplicas)
 	}
 
 	// fill in the information that will be used for comparison
