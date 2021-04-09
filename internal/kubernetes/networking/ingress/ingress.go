@@ -604,85 +604,75 @@ func compareSpecInIngresses(ctx context.Context, ingress1, ingress2 v1.Ingress) 
 
 			if len(ingress1.Spec.TLS) != len(ingress2.Spec.TLS) {
 				//log.Warnf("%s. %d vs %d", ErrorTLSCountDifferent.Error(), len(ingress1.Spec.TLS), len(ingress2.Spec.TLS))
-				diffsBatch.Add(ctx, true, "%s. %d vs %d", ErrorTLSCountDifferent.Error(), len(ingress1.Spec.TLS), len(ingress2.Spec.TLS))
+				diffsBatch.Add(ctx, true, "%w. '%d' vs '%d'", ErrorTLSCountDifferent, len(ingress1.Spec.TLS), len(ingress2.Spec.TLS))
 				return nil
 			}
 
 			for index, value := range ingress1.Spec.TLS {
 
 				if value.SecretName != ingress2.Spec.TLS[index].SecretName {
-					diffsBatch.Add(ctx, true, "%s. %s vs %s", ErrorSecretNameInTLSDifferent.Error(), value.SecretName, ingress2.Spec.TLS[index].SecretName)
+					diffsBatch.Add(ctx, true, "%w. '%s' vs '%s'", ErrorSecretNameInTLSDifferent, value.SecretName, ingress2.Spec.TLS[index].SecretName)
 					return nil
 				}
 
 				if value.Hosts != nil && ingress2.Spec.TLS[index].Hosts != nil {
 					if len(value.Hosts) != len(ingress2.Spec.TLS[index].Hosts) {
-						diffsBatch.Add(ctx, true, "%s. %d vs %d", ErrorHostsCountDifferent.Error(), len(value.Hosts), len(ingress2.Spec.TLS[index].Hosts))
+						diffsBatch.Add(ctx, true, "%w. '%d' vs '%d'", ErrorHostsCountDifferent, len(value.Hosts), len(ingress2.Spec.TLS[index].Hosts))
 						return nil
 					}
 
 					for i := 0; i < len(value.Hosts); i++ {
 						if value.Hosts[i] != ingress2.Spec.TLS[index].Hosts[i] {
-							diffsBatch.Add(ctx, true, "%s. %s vs %s", ErrorNameHostDifferent.Error(), value.Hosts[i], ingress2.Spec.TLS[index].Hosts[i])
+							diffsBatch.Add(ctx, true, "%w. '%s' vs '%s'", ErrorNameHostDifferent, value.Hosts[i], ingress2.Spec.TLS[index].Hosts[i])
 							return nil
 						}
 					}
 
 				} else if value.Hosts != nil || ingress2.Spec.TLS[index].Hosts != nil {
-					diffsBatch.Add(ctx, true, "%s", ErrorHostsInIngressesDifferent.Error())
+					diffsBatch.Add(ctx, true, "%w", ErrorHostsInIngressesDifferent)
 					return nil
 				}
 			}
 		} else if ingress1.Spec.TLS != nil || ingress2.Spec.TLS != nil {
-			diffsBatch.Add(ctx, true, "%s", ErrorTLSInIngressesDifferent.Error())
+			diffsBatch.Add(ctx, true, "%w", ErrorTLSInIngressesDifferent)
 			return nil
 		}
 
 		if ingress1.Spec.DefaultBackend != nil && ingress2.Spec.DefaultBackend != nil {
-			err := compareIngressesBackend(ctx, *ingress1.Spec.DefaultBackend, *ingress2.Spec.DefaultBackend, ingress1.Name)
+			err := compareIngressesBackend(ctx, *ingress1.Spec.DefaultBackend, *ingress2.Spec.DefaultBackend)
 			if err != nil {
 				return err
 			}
 		} else if ingress1.Spec.DefaultBackend != nil || ingress2.Spec.DefaultBackend != nil {
-			diffsBatch.Add(ctx, true, "%s", ErrorBackendInIngressesDifferent.Error())
+			diffsBatch.Add(ctx, true, "%w", ErrorBackendInIngressesDifferent)
 			return nil
 		}
 
 		if ingress1.Spec.Rules != nil && ingress2.Spec.Rules != nil {
 			if len(ingress1.Spec.Rules) != len(ingress2.Spec.Rules) {
-				diffsBatch.Add(ctx, true, "%s. %d vs %d", ErrorRulesCountDifferent.Error(), len(ingress1.Spec.Rules), len(ingress2.Spec.Rules))
+				diffsBatch.Add(ctx, true, "%w. '%d' vs '%d'", ErrorRulesCountDifferent, len(ingress1.Spec.Rules), len(ingress2.Spec.Rules))
 				return nil
 			}
 
 			for index, value := range ingress1.Spec.Rules {
 				if value.Host != ingress2.Spec.Rules[index].Host {
-					diffsBatch.Add(ctx, true, "%s. %s vs %s", ErrorHostNameInRuleDifferent.Error(), value.Host, ingress2.Spec.Rules[index].Host)
-					return nil
-				}
-
-				if value.HTTP != nil && ingress2.Spec.Rules[index].HTTP != nil {
-					err := compareIngressesHTTP(ctx, *value.HTTP, *ingress2.Spec.Rules[index].HTTP, ingress1.Name)
-					if err != nil {
-						return err
-					}
-				} else if value.HTTP != nil || ingress2.Spec.Rules[index].HTTP != nil {
-					diffsBatch.Add(ctx, true, "%s", ErrorHTTPInIngressesDifferent.Error())
+					diffsBatch.Add(ctx, true, "%w. '%s' vs '%s'", ErrorHostNameInRuleDifferent, value.Host, ingress2.Spec.Rules[index].Host)
 					return nil
 				}
 
 				if value.IngressRuleValue.HTTP != nil && ingress2.Spec.Rules[index].IngressRuleValue.HTTP != nil {
-					err := compareIngressesHTTP(ctx, *value.IngressRuleValue.HTTP, *ingress2.Spec.Rules[index].IngressRuleValue.HTTP, ingress1.Name)
+					err := compareIngressesHTTP(ctx, *value.IngressRuleValue.HTTP, *ingress2.Spec.Rules[index].IngressRuleValue.HTTP)
 					if err != nil {
 						return err
 					}
 				} else if value.IngressRuleValue.HTTP != nil || ingress2.Spec.Rules[index].IngressRuleValue.HTTP != nil {
-					diffsBatch.Add(ctx, true, "%s", ErrorHTTPInIngressesDifferent.Error())
+					diffsBatch.Add(ctx, true, "%w", ErrorHTTPInIngressesDifferent)
 					return nil
 				}
 
 			}
 		} else if ingress1.Spec.Rules != nil || ingress2.Spec.Rules != nil {
-			diffsBatch.Add(ctx, true, "%s", ErrorRulesInIngressesDifferent.Error())
+			diffsBatch.Add(ctx, true, "%w", ErrorRulesInIngressesDifferent)
 			return nil
 		}
 
@@ -691,7 +681,7 @@ func compareSpecInIngresses(ctx context.Context, ingress1, ingress2 v1.Ingress) 
 }
 
 // compareIngressesBackend compare backend in ingresses
-func compareIngressesBackend(ctx context.Context, backend1, backend2 v1.IngressBackend, name string) error {
+func compareIngressesBackend(ctx context.Context, backend1, backend2 v1.IngressBackend) error {
 	var (
 		log = logging.FromContext(ctx)
 
@@ -707,36 +697,36 @@ func compareIngressesBackend(ctx context.Context, backend1, backend2 v1.IngressB
 		if backend1.Service != nil && backend2.Service != nil {
 			if backend1.Service.Name != backend2.Service.Name {
 				//log.Warnf("%s. %s vs %s", ErrorServiceNameInBackendDifferent.Error(), backend1.Service.Name, backend2.Service.Name)
-				diffsBatch.Add(ctx, true, "%s. %s vs %s", ErrorServiceNameInBackendDifferent.Error(), backend1.Service.Name, backend2.Service.Name)
+				diffsBatch.Add(ctx, true, "%w. '%s' vs '%s'", ErrorServiceNameInBackendDifferent, backend1.Service.Name, backend2.Service.Name)
 				return nil
 			}
 			if backend1.Service.Port != backend2.Service.Port {
-				diffsBatch.Add(ctx, true, "%s", ErrorBackendServicePortDifferent.Error())
+				diffsBatch.Add(ctx, true, "%w. '%s-%d' vs '%s-%d'", ErrorBackendServicePortDifferent, backend1.Service.Port.Name, backend1.Service.Port.Number, backend2.Service.Port.Name, backend2.Service.Port.Number)
 				return nil
 			}
 		} else if backend1.Service != nil || backend2.Service != nil {
-			diffsBatch.Add(ctx, true, "%s", ErrorBackendServiceIsMissing.Error())
+			diffsBatch.Add(ctx, true, "%w", ErrorBackendServiceIsMissing)
 			return nil
 		}
 
 		if backend1.Resource != nil && backend2.Resource != nil {
 			if backend1.Resource.APIGroup != nil && backend2.Resource.APIGroup != nil {
 				if *backend1.Resource.APIGroup != *backend2.Resource.APIGroup {
-					diffsBatch.Add(ctx, true, "%s. %s vs %s", ErrorBackendResourceApiGroup.Error(), *backend1.Resource.APIGroup, *backend2.Resource.APIGroup)
+					diffsBatch.Add(ctx, true, "%w. '%s' vs '%s'", ErrorBackendResourceApiGroup, *backend1.Resource.APIGroup, *backend2.Resource.APIGroup)
 					return nil
 				}
 			} else if backend1.Resource.APIGroup != nil || backend2.Resource.APIGroup != nil {
-				diffsBatch.Add(ctx, true, "%s", ErrorBackendResourceApiGroupIsMissing.Error())
+				diffsBatch.Add(ctx, true, "%w", ErrorBackendResourceApiGroupIsMissing)
 				return nil
 			}
 
 			if backend1.Resource.Name != backend2.Resource.Name {
-				diffsBatch.Add(ctx, true, "%s. %s vs %s", ErrorBackendResourceName.Error(), backend1.Resource.Name, backend2.Resource.Name)
+				diffsBatch.Add(ctx, true, "%w. '%s' vs '%s'", ErrorBackendResourceName, backend1.Resource.Name, backend2.Resource.Name)
 				return nil
 			}
 
 			if backend1.Resource.Kind != backend2.Resource.Kind {
-				diffsBatch.Add(ctx, true, "%s. %s vs %s", ErrorBackendResourceKind.Error(), backend1.Resource.Kind, backend2.Resource.Kind)
+				diffsBatch.Add(ctx, true, "%w. '%s' vs '%s'", ErrorBackendResourceKind, backend1.Resource.Kind, backend2.Resource.Kind)
 				return nil
 			}
 
@@ -748,24 +738,24 @@ func compareIngressesBackend(ctx context.Context, backend1, backend2 v1.IngressB
 }
 
 // compareIngressesHTTP compare http in ingresses
-func compareIngressesHTTP(ctx context.Context, http1, http2 v1.HTTPIngressRuleValue, name string) error {
+func compareIngressesHTTP(ctx context.Context, http1, http2 v1.HTTPIngressRuleValue) error {
 	var (
 		//log = logging.FromContext(ctx)
 
 		diffsBatch = diff.BatchFromContext(ctx)
 	)
 	if len(http1.Paths) != len(http2.Paths) {
-		diffsBatch.Add(ctx, true, "%s. %d vs %d", ErrorPathsCountDifferent.Error(), len(http1.Paths), len(http2.Paths))
+		diffsBatch.Add(ctx, true, "%w. '%d' vs '%d'", ErrorPathsCountDifferent, len(http1.Paths), len(http2.Paths))
 		return nil
 	}
 
 	for i := 0; i < len(http1.Paths); i++ {
 		if http1.Paths[i].Path != http2.Paths[i].Path {
-			diffsBatch.Add(ctx, true, "%s. %s vs %s", ErrorPathValueDifferent.Error(), http1.Paths[i].Path, http2.Paths[i].Path)
+			diffsBatch.Add(ctx, true, "%w. '%s' vs '%s'", ErrorPathValueDifferent, http1.Paths[i].Path, http2.Paths[i].Path)
 			return nil
 		}
 
-		err := compareIngressesBackend(ctx, http1.Paths[i].Backend, http2.Paths[i].Backend, name)
+		err := compareIngressesBackend(ctx, http1.Paths[i].Backend, http2.Paths[i].Backend)
 		if err != nil {
 			return err
 		}
