@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"strings"
+	"testing"
+
 	"k8s-cluster-comparator/internal/config"
 	kubectx "k8s-cluster-comparator/internal/kubernetes/context"
 	"k8s-cluster-comparator/internal/kubernetes/diff"
 	"k8s-cluster-comparator/internal/logging"
-	"os"
-	"testing"
 )
 
 func initCtx() context.Context {
@@ -19,9 +21,16 @@ func initCtx() context.Context {
 	err := logging.ConfigureForTests()
 	if err != nil {
 		fmt.Println("[ERROR] ", err.Error())
+		return ctx
 	}
 
-	args := []string{os.Args[0], "-c", "C:\\Users\\Александр\\go\\src\\comparisonClustersInKubernetes\\config.yaml" /*"../../config.yaml"*/}
+	cwd, err := os.Getwd()
+	if err != nil {
+		fmt.Println("[ERROR] ", err.Error())
+		return ctx
+	}
+
+	args := []string{os.Args[0], "-c", strings.Join([]string{cwd, "..", "..", "..", "..", "config.yaml"}, string(os.PathSeparator))}
 
 	log := logging.FromContext(ctx)
 	cfg, err := config.Parse(ctx, args)
