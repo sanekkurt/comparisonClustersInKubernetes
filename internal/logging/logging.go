@@ -65,7 +65,7 @@ func ConfigureForTests() error {
 	var (
 		err      error
 		logger   *zap.Logger
-		logLevel = zap.InfoLevel
+		logLevel = zap.DebugLevel
 	)
 
 	zapConfig := zap.Config{

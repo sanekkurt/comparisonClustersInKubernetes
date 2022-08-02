@@ -3,6 +3,7 @@ package pods
 import (
 	"context"
 	"fmt"
+
 	"k8s-cluster-comparator/internal/kubernetes/pods/nodeSelectors"
 
 	"k8s-cluster-comparator/internal/kubernetes/diff"
@@ -214,7 +215,6 @@ func ComparePodSpecs(ctx context.Context, spec1, spec2 types.InformationAboutObj
 	} else if nodeSelectorPod1 != nil || nodeSelectorPod2 != nil {
 		diffsBatch.Add(ctx, true, "%w", ErrorPodMissingNodeSelectors)
 		return nil
-
 	}
 
 	if volumesPod1 != nil && volumesPod2 != nil {

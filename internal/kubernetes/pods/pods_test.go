@@ -186,7 +186,9 @@ func TestComparePodSpecs(t *testing.T) {
 	ctx := newCtxWithCleanStorage(cleanCtx)
 	spec1, spec2 := initPodSpecsForTest1()
 
-	ComparePodSpecs(ctx, spec1, spec2)
+	if err := ComparePodSpecs(ctx, spec1, spec2); err != nil {
+		t.Fatalf("cannot complete: %v", err)
+	}
 
 	diffStorage := diff.StorageFromContext(ctx)
 	diffStorage.Finalize(ctx)
@@ -208,7 +210,9 @@ func TestComparePodSpecs(t *testing.T) {
 	ctx = newCtxWithCleanStorage(cleanCtx)
 	spec1, spec2 = initPodSpecsForTest2()
 
-	ComparePodSpecs(ctx, spec1, spec2)
+	if err := ComparePodSpecs(ctx, spec1, spec2); err != nil {
+		t.Fatalf("cannot complete: %v", err)
+	}
 
 	diffStorage = diff.StorageFromContext(ctx)
 	diffStorage.Finalize(ctx)
@@ -230,7 +234,9 @@ func TestComparePodSpecs(t *testing.T) {
 	ctx = newCtxWithCleanStorage(cleanCtx)
 	spec1, spec2 = initPodSpecsForTest3()
 
-	ComparePodSpecs(ctx, spec1, spec2)
+	if err := ComparePodSpecs(ctx, spec1, spec2); err != nil {
+		t.Fatalf("cannot complete: %v", err)
+	}
 
 	diffStorage = diff.StorageFromContext(ctx)
 	diffStorage.Finalize(ctx)
@@ -252,7 +258,9 @@ func TestComparePodSpecs(t *testing.T) {
 	ctx = newCtxWithCleanStorage(cleanCtx)
 	spec1, spec2 = initPodSpecsForTest4()
 
-	ComparePodSpecs(ctx, spec1, spec2)
+	if err := ComparePodSpecs(ctx, spec1, spec2); err != nil {
+		t.Fatalf("cannot complete: %v", err)
+	}
 
 	diffStorage = diff.StorageFromContext(ctx)
 	diffStorage.Finalize(ctx)
@@ -274,7 +282,9 @@ func TestComparePodSpecs(t *testing.T) {
 	ctx = newCtxWithCleanStorage(cleanCtx)
 	spec1, spec2 = initPodSpecsForTest5()
 
-	ComparePodSpecs(ctx, spec1, spec2)
+	if err := ComparePodSpecs(ctx, spec1, spec2); err != nil {
+		t.Fatalf("cannot complete: %v", err)
+	}
 
 	diffStorage = diff.StorageFromContext(ctx)
 	diffStorage.Finalize(ctx)
